@@ -5,12 +5,15 @@ import { LoginForm } from "./login-form";
 import type { Metadata } from "next";
 import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import Link from "next/link";
-import { SITE_NAME } from "@/lib/constants";
+import { CONTACT_EMAIL, SITE_NAME } from "@/lib/constants";
 import { getPublicStatsSummary } from "@/lib/public-stats";
 
 export const metadata: Metadata = {
   title: "Sign In",
 };
+
+// No self-service reset flow exists yet; route reset requests to the inbox.
+const FORGOT_PASSWORD_HREF = `mailto:${CONTACT_EMAIL}?subject=Password%20reset`;
 
 export default async function LoginPage({
   searchParams,
@@ -68,8 +71,8 @@ export default async function LoginPage({
           </p>
 
           <p className="text-sm text-[#7A7062] leading-relaxed mb-10">
-            The most comprehensive source for consumer banking fee data
-            across the United States.
+            Published fees for {summary.institutionsLabel} U.S. banks and credit unions: free
+            lookup, plus peer benchmarks and competitive reports for banking teams.
           </p>
 
           {/* Stats */}
@@ -83,7 +86,7 @@ export default async function LoginPage({
               <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Fee categories</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-[#1A1815] tabular-nums">50</p>
+              <p className="text-lg font-bold text-[#1A1815] tabular-nums">{summary.statesLabel}</p>
               <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">States</p>
             </div>
           </div>
@@ -114,11 +117,16 @@ export default async function LoginPage({
             >
               Sign in
             </h1>
-            <LoginForm redirectTo={params.from || "/account"} />
+            <LoginForm redirectTo={params.from || "/account"} forgotPasswordHref={FORGOT_PASSWORD_HREF} />
             <p className="mt-4 text-center text-sm text-[#7A7062]">
               Don&apos;t have an account?{" "}
               <Link href={registerHref} className="text-[#1A1815] font-medium hover:underline">
                 Create one
+              </Link>
+            </p>
+            <p className="mt-6 text-center text-sm">
+              <Link href="/" className="text-[#7A7062] hover:text-[#1A1815] hover:underline">
+                ← Back to {SITE_NAME}
               </Link>
             </p>
           </div>

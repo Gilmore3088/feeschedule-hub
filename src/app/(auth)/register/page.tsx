@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/constants";
 import { getPublicStatsSummary } from "@/lib/public-stats";
+import { isProPlan } from "@/app/subscribe/pricing";
 
 export const metadata: Metadata = {
   title: "Create Account",
@@ -16,18 +17,19 @@ export const metadata: Metadata = {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; plan?: string }>;
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
   const summary = await getPublicStatsSummary();
-  const destination = sanitizeInternalRedirect(params.from, "/account");
+  const plan = isProPlan(params.plan) ? params.plan : null;
+  // A ?plan= arriving without a return path resumes on pricing with the plan preselected.
+  const fallbackFrom = plan ? `/subscribe?plan=${plan}` : "/account";
+  const destination = sanitizeInternalRedirect(params.from, fallbackFrom);
 
   if (user) redirect(resolvePostLoginRedirect(destination, user.role));
 
-  const loginHref = params.from
-    ? `/login?from=${encodeURIComponent(params.from)}`
-    : "/login";
+  const loginHref = `/login?from=${encodeURIComponent(destination)}`;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -67,8 +69,8 @@ export default async function RegisterPage({
           </p>
 
           <p className="text-sm text-[#7A7062] leading-relaxed mb-10">
-            Free to start, upgrade anytime. Access the most comprehensive
-            source for consumer banking fee data.
+            Published fees for {summary.institutionsLabel} U.S. banks and credit unions: free
+            lookup, plus peer benchmarks and competitive reports for banking teams.
           </p>
 
           {/* Feature list */}
@@ -126,7 +128,9 @@ export default async function RegisterPage({
                 Create your account
               </h1>
               <p className="mt-2 text-sm text-[#7A7062]">
-                Get access to bank fee benchmarking data
+                {plan
+                  ? `Create your account, then finish setting up your ${SITE_NAME} Pro ${plan} seat.`
+                  : "Free lookup now; upgrade to Fee Insight Pro whenever you need peer benchmarks."}
               </p>
             </div>
             <RegisterForm redirectTo={destination} />
@@ -134,6 +138,11 @@ export default async function RegisterPage({
               Already have an account?{" "}
               <Link href={loginHref} className="text-[#1A1815] font-medium hover:underline">
                 Sign in
+              </Link>
+            </p>
+            <p className="mt-6 text-center text-sm">
+              <Link href="/" className="text-[#7A7062] hover:text-[#1A1815] hover:underline">
+                ← Back to {SITE_NAME}
               </Link>
             </p>
           </div>

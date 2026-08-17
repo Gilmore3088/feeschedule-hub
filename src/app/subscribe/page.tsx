@@ -2,51 +2,69 @@ export const dynamic = "force-dynamic";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { redirect } from "next/navigation";
-import { SubscribeButton } from "./subscribe-button";
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 import { getPendingWorkspaceInvitationsForEmail } from "@/lib/hamilton/institution-membership";
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
-import { getPublicStatsSummary, type PublicStatsSummary } from "@/lib/public-stats";
+import { getPublicStatsSummary } from "@/lib/public-stats";
+import { SITE_NAME } from "@/lib/constants";
+import { ProPlanCards } from "./pro-plan-cards";
+import { AdvisoryCard, ContactSalesCard, FreeTierCard, PricingFaq } from "./pricing-sections";
+import {
+  ANNUAL_PRICE_LABEL,
+  MONTHLY_PRICE_LABEL,
+  REPORT_PRICE_LABEL,
+  isProPlan,
+  proFeatureList,
+  type ProPlan,
+} from "./pricing";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Access the most comprehensive bank fee benchmarking platform. Seat licenses, annual plans, and Hamilton report workflows.",
+    "Fee Insight pricing: free Bank Fee Index lookup, Fee Insight Pro seats (monthly or annual), and the Competitive Fee Position Report.",
 };
 
 const MONTHLY_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID || "";
 const ANNUAL_PRICE_ID = process.env.STRIPE_ANNUAL_PRICE_ID || "";
+const WELCOME_PATH = "/account/welcome";
 
-const featureList = (summary: PublicStatsSummary) => [
-  `Full dataset: ${summary.categoriesLabel} fee categories, ${summary.institutionsLabel} institutions with verified fees`,
-  "Peer comparison by charter type, asset tier, Fed district",
-  "National and regional fee index with percentiles",
-  "CSV and bulk data exports",
-  "Hamilton analysis workflows",
-  "Executive Hamilton reports",
-  "Fed district economic context and Beige Book summaries",
-  "CFPB complaint correlation data",
-  "Daily-updated economic indicators (FRED, BLS, NY Fed)",
-];
+interface SubscribeSearchParams {
+  success?: string;
+  invite?: string;
+  from?: string;
+  plan?: string;
+}
+
+function buildSubscribeReturnPath(options: {
+  inviteMode: boolean;
+  returnTo: string | null;
+  plan: ProPlan | null;
+}): string {
+  const params = new URLSearchParams();
+  if (options.inviteMode) params.set("invite", "workspace");
+  if (options.returnTo && options.returnTo !== WELCOME_PATH) params.set("from", options.returnTo);
+  if (options.plan) params.set("plan", options.plan);
+  const query = params.toString();
+  return query ? `/subscribe?${query}` : "/subscribe";
+}
 
 export default async function SubscribePage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; invite?: string; from?: string }>;
+  searchParams: Promise<SubscribeSearchParams>;
 }) {
   const user = await getCurrentUser();
   const params = await searchParams;
   const summary = await getPublicStatsSummary();
-  const FEATURES = featureList(summary);
-  const returnTo = params.from
-    ? sanitizeInternalRedirect(params.from, "/account/welcome")
-    : null;
+  const features = proFeatureList(summary);
+  const returnTo = params.from ? sanitizeInternalRedirect(params.from, WELCOME_PATH) : null;
+  const requestedPlan: ProPlan | null = isProPlan(params.plan) ? params.plan : null;
 
   if (user && canAccessPremium(user)) {
-    redirect(returnTo && returnTo !== "/account/welcome" ? returnTo : "/account");
+    redirect(returnTo && returnTo !== WELCOME_PATH ? returnTo : "/account");
   }
 
   const isLoggedIn = !!user;
@@ -55,22 +73,14 @@ export default async function SubscribePage({
       ? await getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
       : [];
   const inviteMode = params.invite === "workspace" || pendingInvitations.length > 0;
-  const subscribeParams = new URLSearchParams();
-  if (inviteMode) subscribeParams.set("invite", "workspace");
-  if (returnTo && returnTo !== "/account/welcome") subscribeParams.set("from", returnTo);
-  const subscribeReturnPath = subscribeParams.toString()
-    ? `/subscribe?${subscribeParams.toString()}`
-    : "/subscribe";
-  const registerHref = inviteMode
-    ? `/register?from=${encodeURIComponent(subscribeReturnPath)}`
-    : returnTo
-      ? `/register?from=${encodeURIComponent(subscribeReturnPath)}`
-      : "/register";
-  const loginHref = inviteMode
-    ? `/login?from=${encodeURIComponent(subscribeReturnPath)}`
-    : returnTo
-      ? `/login?from=${encodeURIComponent(subscribeReturnPath)}`
-      : "/login";
+
+  const registerHrefFor = (plan: ProPlan) => {
+    const back = buildSubscribeReturnPath({ inviteMode, returnTo, plan });
+    return `/register?plan=${plan}&from=${encodeURIComponent(back)}`;
+  };
+  const loginHref = `/login?from=${encodeURIComponent(
+    buildSubscribeReturnPath({ inviteMode, returnTo, plan: requestedPlan }),
+  )}`;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -78,8 +88,8 @@ export default async function SubscribePage({
 
       <div className="mx-auto max-w-4xl px-4 py-14">
         {params.success && (
-          <div className="mb-6 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-4 py-3 text-center">
-            Subscription activated! You now have full access.
+          <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-700">
+            Subscription activated. You now have full access.
           </div>
         )}
 
@@ -103,176 +113,55 @@ export default async function SubscribePage({
           </div>
         )}
 
-        <div className="text-center mb-10">
+        <div className="mb-10 text-center">
           <h1
-            className="text-3xl font-normal tracking-tight text-[#1A1815] mb-3"
+            className="mb-3 text-3xl font-normal tracking-tight text-[#1A1815]"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
             Simple, transparent pricing
           </h1>
-          <p className="text-[#7A7062] text-base max-w-lg mx-auto">
-            One platform, full access. No hidden fees, no per-query charges.
+          <p className="mx-auto max-w-2xl text-base text-[#5A5347]">
+            Report ({REPORT_PRICE_LABEL}) → {SITE_NAME} Pro ({MONTHLY_PRICE_LABEL}/mo per seat, or{" "}
+            {ANNUAL_PRICE_LABEL}/yr) → {SITE_NAME} Advisory (custom)
           </p>
         </div>
 
-        {/* Two main plans side by side */}
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-          {/* Monthly Seat License */}
-          <div className="bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-6 flex flex-col">
+        <div className="space-y-8">
+          <FreeTierCard summary={summary} />
+
+          <section aria-labelledby="pro-heading">
             <div className="mb-4">
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#7A7062] mb-1">
-                Monthly
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-                  $499.99
-                </span>
-                <span className="text-[#7A7062] text-sm">/mo per seat</span>
-              </div>
-            </div>
-            <ul className="space-y-2 mb-6 text-sm text-[#5A5347] flex-1">
-              {FEATURES.slice(0, 6).map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                    &#10003;
-                  </span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            {isLoggedIn ? (
-              <SubscribeButton
-                priceId={MONTHLY_PRICE_ID}
-                mode="subscription"
-                returnTo={returnTo ?? undefined}
-                label="Start Monthly -- $499.99/mo"
-                className="w-full rounded-md bg-[#1A1815] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#2A2825] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              />
-            ) : (
-              <a
-                href={registerHref}
-                className="block w-full text-center rounded-md bg-[#1A1815] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#2A2825] transition-colors"
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+                {SITE_NAME} Pro
+              </p>
+              <h2
+                id="pro-heading"
+                className="mt-1 text-xl text-[#1A1815]"
+                style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Create account
-              </a>
-            )}
-          </div>
+                Full workspace access, per seat. Same features on either plan.
+              </h2>
+            </div>
+            <ProPlanCards
+              features={features}
+              isLoggedIn={isLoggedIn}
+              monthlyPriceId={MONTHLY_PRICE_ID}
+              annualPriceId={ANNUAL_PRICE_ID}
+              returnTo={returnTo ?? undefined}
+              registerHrefFor={registerHrefFor}
+              highlightedPlan={requestedPlan}
+            />
+          </section>
 
-          {/* Annual License -- highlighted */}
-          <div className="bg-[#FFFDF9] border-2 border-[#C44B2E] rounded-xl p-6 relative flex flex-col">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="bg-[#C44B2E] text-white text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full">
-                Best Value
-              </span>
-            </div>
-            <div className="mb-4">
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#7A7062] mb-1">
-                Annual
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-                  $5,000
-                </span>
-                <span className="text-[#7A7062] text-sm">/year per seat</span>
-              </div>
-              <div className="text-xs text-[#C44B2E] font-medium mt-1">
-                Save $1,000 vs monthly
-              </div>
-            </div>
-            <ul className="space-y-2 mb-6 text-sm text-[#5A5347] flex-1">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <span className="text-[#C44B2E] mt-0.5 flex-shrink-0">
-                    &#10003;
-                  </span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            {isLoggedIn ? (
-              <SubscribeButton
-                priceId={ANNUAL_PRICE_ID}
-                mode="subscription"
-                returnTo={returnTo ?? undefined}
-                label="Start Annual -- $5,000/year"
-                className="w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              />
-            ) : (
-              <a
-                href={registerHref}
-                className="block w-full text-center rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
-              >
-                Create account
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* On-Demand Report -- full width below */}
-        <div className="bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-6 mb-6">
-          <div className="md:flex md:items-center md:justify-between md:gap-8">
-            <div className="mb-4 md:mb-0">
-              <div className="text-xs font-semibold uppercase tracking-wider text-[#7A7062] mb-1">
-                On Demand
-              </div>
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-bold text-[#1A1815]" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>$250</span>
-                <span className="text-[#7A7062] text-sm">/report</span>
-              </div>
-              <ul className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-[#5A5347]">
-                <li className="flex items-center gap-1.5">
-                  <span className="text-[#C44B2E]">&#10003;</span>
-                  Custom peer analysis for your institution
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="text-[#C44B2E]">&#10003;</span>
-                  Competitive fee positioning report
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="text-[#C44B2E]">&#10003;</span>
-                  District or state deep-dive
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="text-[#C44B2E]">&#10003;</span>
-                  Delivered within 48 hours
-                </li>
-              </ul>
-            </div>
-            <div className="flex-shrink-0 md:w-56">
-              <a
-                href="/contact?source=report"
-                className="block w-full text-center rounded-md border border-[#D5CBBF] bg-transparent px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
-              >
-                Request a Report
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* Enterprise CTA */}
-        <div className="text-center bg-[#FFFDF9] border border-[#E8DFD1] rounded-xl p-8">
-          <h2
-            className="text-xl font-normal text-[#1A1815] mb-2"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Need a custom solution?
-          </h2>
-          <p className="text-sm text-[#7A7062] mb-4">
-            Multi-seat licenses, raw data feeds, SLA, and dedicated support for
-            large institutions and vendors.
-          </p>
-          <a
-            href="/contact?source=enterprise"
-            className="inline-block rounded-md border border-[#D5CBBF] px-6 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
-          >
-            Contact Sales
-          </a>
+          <AdvisoryCard />
+          <PricingFaq summary={summary} />
+          <ContactSalesCard />
         </div>
 
         {!isLoggedIn && (
-          <p className="text-center text-xs text-[#A69D90] mt-8">
+          <p className="mt-8 text-center text-xs text-[#7A7062]">
             Already have an account?{" "}
-            <a href={loginHref} className="text-[#7A7062] hover:underline">
+            <a href={loginHref} className="text-[#5A5347] underline underline-offset-2 hover:text-[#1A1815]">
               Sign in
             </a>
           </p>

@@ -4,12 +4,14 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
 const PUBLIC_NAV = [
   { label: "Find Your Institution", href: "/institutions" },
-  { label: "Fee Benchmarks", href: "/fees" },
+  { label: PRODUCT_NAME, href: "/fees" },
   { label: "Research", href: "/research" },
   { label: "Guides", href: "/guides" },
+  { label: "For Institutions", href: "/for-institutions" },
 ];
 
 const PRO_NAV = HAMILTON_NAV.filter((item) => item.label !== "Admin");
@@ -37,7 +39,7 @@ export function MobileNav({ isLoggedIn, isPro = false }: { isLoggedIn: boolean; 
   }, [open]);
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
@@ -137,7 +139,7 @@ export function MobileNav({ isLoggedIn, isPro = false }: { isLoggedIn: boolean; 
 
           {/* Footer */}
           <div className="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-[#E8DFD1]">
-            <div className="flex items-center gap-2 text-[#A09788]">
+            <div className="flex items-center gap-2 text-[#7A7062]">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -149,7 +151,7 @@ export function MobileNav({ isLoggedIn, isPro = false }: { isLoggedIn: boolean; 
                 <rect x="10" y="8" width="4" height="13" rx="1" />
                 <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
-              <span className="text-[11px]">Fee Insight</span>
+              <span className="text-[11px]">{SITE_NAME}</span>
             </div>
           </div>
         </div>

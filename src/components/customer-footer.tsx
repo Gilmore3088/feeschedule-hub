@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { EmailSignup } from "./public/email-signup";
+import { CONTACT_EMAIL, PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
+
+const FOOTER_LINK_CLASS = "text-[#7A7062] hover:text-[#1A1815] transition-colors";
+const FOOTER_HEADING_CLASS = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062] mb-3";
 
 export function CustomerFooter() {
   return (
@@ -25,16 +29,16 @@ export function CustomerFooter() {
                 className="text-[14px] font-medium tracking-tight text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Fee Insight
+                {SITE_NAME}
               </span>
             </Link>
-            <p className="mt-3 text-[12px] leading-relaxed text-[#A09788] max-w-xs">
-              Home of the Bank Fee Index -- US bank and credit union fees
-              by district, state, size, and type. Data-driven benchmarks
-              for consumers and professionals.
+            <p className="mt-3 text-[12px] leading-relaxed text-[#7A7062] max-w-xs">
+              Home of the {PRODUCT_NAME} — U.S. bank and credit union fees
+              by district, state, size, and type. Published-source benchmarks
+              for consumers and banking teams.
             </p>
             <div className="mt-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-2">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062] mb-2">
                 Stay informed
               </p>
               <EmailSignup />
@@ -43,37 +47,42 @@ export function CustomerFooter() {
 
           {/* Product */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-3">
+            <p className={FOOTER_HEADING_CLASS}>
               Product
             </p>
             <ul className="space-y-2 text-[13px]">
               <li>
-                <Link href="/fees" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
-                  Fee Index
+                <Link href="/fees" className={FOOTER_LINK_CLASS}>
+                  {PRODUCT_NAME}
                 </Link>
               </li>
               <li>
-                <Link href="/institutions" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/institutions" className={FOOTER_LINK_CLASS}>
                   Find Your Institution
                 </Link>
               </li>
               <li>
-                <Link href="/research" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/research" className={FOOTER_LINK_CLASS}>
                   Research Hub
                 </Link>
               </li>
               <li>
-                <Link href="/guides" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/guides" className={FOOTER_LINK_CLASS}>
                   Consumer Guides
                 </Link>
               </li>
               <li>
-                <Link href="/subscribe" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/for-institutions" className={FOOTER_LINK_CLASS}>
+                  For Institutions
+                </Link>
+              </li>
+              <li>
+                <Link href="/subscribe" className={FOOTER_LINK_CLASS}>
                   Pricing
                 </Link>
               </li>
               <li>
-                <Link href="/api-docs" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/api-docs" className={FOOTER_LINK_CLASS}>
                   API
                 </Link>
               </li>
@@ -82,27 +91,27 @@ export function CustomerFooter() {
 
           {/* Research */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-3">
+            <p className={FOOTER_HEADING_CLASS}>
               Research
             </p>
             <ul className="space-y-2 text-[13px]">
               <li>
-                <Link href="/research/national-fee-index" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
-                  National Fee Index
+                <Link href="/research/national-fee-index" className={FOOTER_LINK_CLASS}>
+                  National Fee Benchmarks
                 </Link>
               </li>
               <li>
-                <Link href="/research/fee-revenue-analysis" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/research/fee-revenue-analysis" className={FOOTER_LINK_CLASS}>
                   Fee-to-Revenue Analysis
                 </Link>
               </li>
               <li>
-                <Link href="/research" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/research" className={FOOTER_LINK_CLASS}>
                   State Reports
                 </Link>
               </li>
               <li>
-                <Link href="/research#districts" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/research#districts" className={FOOTER_LINK_CLASS}>
                   District Reports
                 </Link>
               </li>
@@ -111,27 +120,27 @@ export function CustomerFooter() {
 
           {/* Company */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#A09788] mb-3">
+            <p className={FOOTER_HEADING_CLASS}>
               Company
             </p>
             <ul className="space-y-2 text-[13px]">
               <li>
-                <Link href="/about" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/about" className={FOOTER_LINK_CLASS}>
                   About
                 </Link>
               </li>
               <li>
-                <Link href="/contact" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/contact" className={FOOTER_LINK_CLASS}>
                   Contact
                 </Link>
               </li>
               <li>
-                <Link href="/privacy" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/privacy" className={FOOTER_LINK_CLASS}>
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link href="/terms" className="text-[#7A7062] hover:text-[#1A1815] transition-colors">
+                <Link href="/terms" className={FOOTER_LINK_CLASS}>
                   Terms of Service
                 </Link>
               </li>
@@ -140,11 +149,11 @@ export function CustomerFooter() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#B0A89C]">
-          <span>Fee Insight &copy; {new Date().getFullYear()}</span>
-          <span>
-            hello@bankfeeindex.com
-          </span>
+        <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#7A7062]">
+          <span>{SITE_NAME} &copy; {new Date().getFullYear()}</span>
+          <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#5A5347] hover:text-[#1A1815] hover:underline">
+            {CONTACT_EMAIL}
+          </a>
         </div>
       </div>
     </footer>

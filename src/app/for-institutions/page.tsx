@@ -3,403 +3,216 @@ export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight,
-  Brain,
-  Users,
-  FileText,
-  TrendingUp,
-  BarChart2,
-  Shield,
-  Clock,
-  CheckCircle2,
-} from "lucide-react";
-import { getPublicStats } from "@/lib/data-store/core";
+import { ArrowRight, BarChart2, Shield, Users } from "lucide-react";
+import { getPublicStatsSummary } from "@/lib/public-stats";
+import { CONTACT_EMAIL, PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
+import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
+import { SearchModal } from "@/components/public/search-modal";
+import { TrackLink } from "@/components/track-link";
+import { ReportOfferSection, REPORT_NAME, REPORT_PRICE_LABEL } from "./report-offer";
+import { ProToolsSection } from "./pro-tools";
+import { CompareTableSection } from "./compare-table";
+
+const SAMPLE_REPORT_HREF = "/reports/sample-competitive-fee-position";
+const REPORT_ANCHOR = "#report";
 
 export const metadata: Metadata = {
   title: "For Financial Institutions",
   description:
-    "Fee intelligence, peer benchmarking, and bespoke competitive fee reports for banking professionals, built on the Bank Fee Index.",
+    `Competitive Fee Position Report ($300, 48 hours), peer benchmarking, and the Hamilton ` +
+    `workspace for banking teams — built on the ${PRODUCT_NAME}.`,
 };
 
+const HERO_BUTTON_BASE =
+  "inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-[15px] transition-colors";
+
 export default async function ForInstitutionsPage() {
-  const stats = await getPublicStats();
+  const summary = await getPublicStatsSummary();
 
   return (
-    <div className="min-h-screen">
-      {/* Hero -- dark, professional */}
-      <section className="bg-warm-900 relative overflow-hidden">
-        <div className="mx-auto max-w-6xl px-6 pt-16 pb-14 lg:pt-20 lg:pb-16">
-          <div className="max-w-2xl">
-            <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
-              Fee Insight Pro
-            </span>
-            <h1
-              className="mt-4 text-warm-150 leading-[1.1] tracking-[-0.02em]"
-              style={{
-                fontFamily: "var(--font-newsreader), Georgia, serif",
-                fontSize: "clamp(28px, 5vw, 44px)",
-                fontWeight: 400,
-              }}
-            >
-              Stop guessing what your
-              competitors charge
-            </h1>
-            <p className="mt-5 text-[16px] leading-relaxed text-warm-500 max-w-lg">
-              {stats.total_institutions.toLocaleString()}+ institutions.
-              49 fee categories. Call Reports, FRED data, and Beige Book
-              commentary -- cross-referenced against published fee schedules,
-              with every figure traceable to a source document.
-            </p>
-
-            <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-7 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
+    <div className="min-h-screen bg-[#FAF7F2]">
+      <ConsumerNav />
+      <main>
+        <section className="bg-warm-900 relative overflow-hidden">
+          <div className="mx-auto max-w-6xl px-6 pt-16 pb-14 lg:pt-20 lg:pb-16">
+            <div className="max-w-2xl">
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-terra">
+                For banks and credit unions
+              </span>
+              <h1
+                className="mt-4 text-warm-150 leading-[1.1] tracking-[-0.02em]"
+                style={{
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
+                  fontSize: "clamp(28px, 5vw, 44px)",
+                  fontWeight: 400,
+                }}
               >
-                Request Early Access
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/institutions"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-warm-800 px-7 py-3.5 text-[15px] font-normal text-warm-150 hover:border-warm-600 transition-colors"
-              >
-                Find Your Institution
-              </Link>
-            </div>
-          </div>
-        </div>
+                Stop guessing what your competitors charge
+              </h1>
+              <p className="mt-5 max-w-lg text-[16px] leading-relaxed text-warm-ink-300">
+                Published fees for {summary.institutionsLabel} institutions across{" "}
+                {summary.categoriesLabel} fee categories — every figure traceable to the disclosure
+                it came from. Start with a {REPORT_PRICE_LABEL} report or run the workspace yourself.
+              </p>
 
-        {/* Subtle gradient */}
-        <div className="absolute top-0 right-0 w-1/3 h-full pointer-events-none bg-gradient-to-l from-terra/[0.06] to-transparent" />
-      </section>
-
-      {/* Problem statement */}
-      <section className="bg-warm-150/60 border-b border-warm-200">
-        <div className="mx-auto max-w-6xl px-6 py-12">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2
-              className="text-warm-900 text-[24px]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-            >
-              The data your pricing decisions depend on is scattered everywhere
-            </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-warm-600">
-              Fee schedules are buried across thousands of bank websites. Call Reports
-              are in one place, FRED data in another, Beige Book in a third. We collect,
-              verify, and organize it so your team starts from answers, not raw sources.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <Clock className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[14px] font-bold text-warm-900">
-                Days of research
-              </p>
-              <p className="mt-1 text-[13px] text-warm-600">
-                Collecting fee schedules from competitor websites one by one
-              </p>
-            </div>
-            <div className="text-center">
-              <BarChart2 className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[14px] font-bold text-warm-900">
-                Incomplete data
-              </p>
-              <p className="mt-1 text-[13px] text-warm-600">
-                Missing institutions, outdated numbers, no revenue correlation
-              </p>
-            </div>
-            <div className="text-center">
-              <FileText className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[14px] font-bold text-warm-900">
-                Stale benchmarks
-              </p>
-              <p className="mt-1 text-[13px] text-warm-600">
-                Annual surveys that are outdated before they finish circulating
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <TrackLink
+                  event="see_sample_report"
+                  eventProps={{ placement: "for_institutions_hero" }}
+                  href={SAMPLE_REPORT_HREF}
+                  className={`${HERO_BUTTON_BASE} bg-terra font-bold text-white hover:bg-terra-dark`}
+                >
+                  See a sample report
+                  <ArrowRight className="h-4 w-4" />
+                </TrackLink>
+                <Link
+                  href="/subscribe"
+                  className={`${HERO_BUTTON_BASE} border border-warm-ink-700 font-normal text-warm-150 hover:border-warm-ink-500`}
+                >
+                  See pricing
+                </Link>
+              </div>
+              <p className="mt-4 text-[13px] text-warm-ink-300">
+                <a href={REPORT_ANCHOR} className="underline underline-offset-2 hover:text-warm-150">
+                  Request the {REPORT_NAME}
+                </a>{" "}
+                — {REPORT_PRICE_LABEL}, delivered in 48 hours.
               </p>
             </div>
           </div>
-        </div>
-      </section>
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-terra/[0.06] to-transparent" />
+        </section>
 
-      {/* Four capabilities */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-warm-500">
-            What You Get
-          </span>
-          <h2
-            className="mt-3 text-warm-900 text-[28px]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Four tools. One subscription.
-          </h2>
-
-          <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-xl border border-warm-200 p-6">
-              <Brain className="h-6 w-6 text-terra" />
-              <h3 className="mt-4 text-[17px] font-bold text-warm-900">
-                Hamilton AI Analyst
-              </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                &quot;What do community banks in District 7 charge for overdraft?&quot;
-                Hamilton pulls from fee schedules, Call Reports, FRED indicators,
-                and Beige Book commentary -- like having a senior analyst on
-                speed dial.
-              </p>
-              <ul className="mt-4 space-y-2">
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Ask in plain English, no query language
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Cross-references 5 federal data sources
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Every answer labels verified vs. provisional evidence
-                </li>
-              </ul>
-            </div>
-
-            <div className="rounded-xl border border-warm-200 p-6">
-              <Users className="h-6 w-6 text-terra" />
-              <h3 className="mt-4 text-[17px] font-bold text-warm-900">
-                Peer Benchmarking
-              </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Build custom peer groups by charter type, asset size, and Fed
-                district. See exactly where your fees land relative to
-                institutions that actually compete with you -- not a national
-                average that means nothing to a community bank in Kansas.
-              </p>
-              <ul className="mt-4 space-y-2">
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Save up to 10 peer groups
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Filter by 5 asset tiers and 12 districts
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Delta indicators vs. national median
-                </li>
-              </ul>
-            </div>
-
-            <div className="rounded-xl border border-warm-200 p-6">
-              <FileText className="h-6 w-6 text-terra" />
-              <h3 className="mt-4 text-[17px] font-bold text-warm-900">
-                On-Demand Reports
-              </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Generate competitive briefs, district outlooks, and peer analyses
-                with executive summaries, evidence tables, peer deltas, caveats,
-                and diligence questions. PDF-ready, board-presentable, and built
-                from live data -- not a template someone filled in last quarter.
-              </p>
-              <ul className="mt-4 space-y-2">
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Peer briefs, competitive snapshots, district outlooks
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  3-5 pages, focused and actionable
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Download as PDF, share with your board
-                </li>
-              </ul>
-            </div>
-
-            <div className="rounded-xl border border-warm-200 p-6">
-              <TrendingUp className="h-6 w-6 text-terra" />
-              <h3 className="mt-4 text-[17px] font-bold text-warm-900">
-                Federal Data Hub
-              </h3>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Call Reports, FRED economic indicators, Beige Book commentary,
-                and CFPB complaint data -- all in one place. Stop logging into
-                four different government websites to piece together a picture.
-              </p>
-              <ul className="mt-4 space-y-2">
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  8 quarters of Call Report history
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  12 Fed district economic profiles
-                </li>
-                <li className="flex items-start gap-2 text-[13px] text-warm-600">
-                  <CheckCircle2 className="h-4 w-4 text-terra mt-0.5 shrink-0" />
-                  Revenue-to-fee correlation analysis
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Data proof */}
-      <section className="bg-warm-900">
-        <div className="mx-auto max-w-6xl px-6 py-12">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <p className="text-[32px] font-bold text-warm-150 tabular-nums">
-                {stats.total_institutions.toLocaleString()}+
-              </p>
-              <p className="mt-1 text-[12px] uppercase tracking-[0.1em] text-warm-600">
-                Institutions
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-[32px] font-bold text-warm-150 tabular-nums">
-                49
-              </p>
-              <p className="mt-1 text-[12px] uppercase tracking-[0.1em] text-warm-600">
-                Fee Categories
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-[32px] font-bold text-warm-150 tabular-nums">
-                12
-              </p>
-              <p className="mt-1 text-[12px] uppercase tracking-[0.1em] text-warm-600">
-                Fed Districts
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-[32px] font-bold text-warm-150 tabular-nums">
-                5
-              </p>
-              <p className="mt-1 text-[12px] uppercase tracking-[0.1em] text-warm-600">
-                Federal Data Sources
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Who it's for */}
-      <section className="bg-warm-100">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <h2
-            className="text-warm-900 text-[28px] text-center"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Built for the people who set the prices
-          </h2>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <Shield className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[15px] font-bold text-warm-900">
-                Pricing Analysts
-              </p>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Annual pricing studies in hours, not months. Real-time peer
-                comparison instead of last year&apos;s survey data.
-              </p>
-            </div>
-            <div className="text-center">
-              <BarChart2 className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[15px] font-bold text-warm-900">
-                CFOs & Executives
-              </p>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Board-ready reports that show where you stand. Revenue-to-fee
-                correlation that connects pricing to income.
-              </p>
-            </div>
-            <div className="text-center">
-              <Users className="h-6 w-6 text-terra mx-auto" />
-              <p className="mt-3 text-[15px] font-bold text-warm-900">
-                Consultants & Advisors
-              </p>
-              <p className="mt-2 text-[14px] leading-relaxed text-warm-600">
-                Give every client engagement a data backbone. Generate custom
-                peer analyses for each institution you serve.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Commissioned reports -- the premium tier */}
-      <section className="bg-white border-t border-warm-200">
-        <div className="mx-auto max-w-6xl px-6 py-14">
-          <div className="max-w-3xl">
-            <span className="text-[12px] font-normal uppercase tracking-[0.1em] text-terra">
-              Fee Insight Advisory
-            </span>
-            <h2
-              className="mt-3 text-warm-900 text-[28px]"
-              style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-            >
-              Or have us prepare it for you
-            </h2>
-            <p className="mt-4 text-[15px] leading-relaxed text-warm-600">
-              The Competitive Fee Position report is a print-edition brief prepared
-              for a single institution: your published fees mapped against your
-              true peer cohort, outlier analysis, Call Report fee economics, a
-              named peer comparison, and your complete published schedule --
-              every figure traceable to a source document. Custom competitor
-              sets, board-ready decks, and quarterly refreshes are available
-              on request.
-            </p>
-            <div className="mt-6">
-              <a
-                href="mailto:hello@bankfeeindex.com?subject=Competitive%20Fee%20Position%20report"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-7 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
-              >
-                Commission a Report
-                <ArrowRight className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="bg-warm-900">
-        <div className="mx-auto max-w-6xl px-6 py-14 text-center">
-          <h2
-            className="text-warm-150 text-[28px]"
-            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-          >
-            Ready to see where your fees stand?
-          </h2>
-          <p className="mt-3 text-[15px] text-warm-500">
-            Explore the index, or talk to us about the workspace and
-            commissioned reports.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
-            <Link
-              href="/institutions"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-terra px-8 py-3.5 text-[15px] font-bold text-white hover:bg-terra-dark transition-colors"
-            >
-              Find Your Institution
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/contact"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-warm-800 px-8 py-3.5 text-[15px] font-normal text-warm-150 hover:border-warm-600 transition-colors"
-            >
-              Talk to Us
-            </Link>
-          </div>
-        </div>
-      </section>
-
+        <ReportOfferSection />
+        <ProToolsSection />
+        <CompareTableSection institutionsLabel={summary.institutionsLabel} />
+        <AudienceSection />
+        <AdvisorySection />
+        <FinalCtaSection />
+      </main>
       <CustomerFooter />
+      <SearchModal />
     </div>
+  );
+}
+
+const AUDIENCES = [
+  {
+    icon: Shield,
+    title: "Pricing analysts",
+    body: "Annual pricing studies in hours, not months. Current peer comparison instead of last year's survey.",
+  },
+  {
+    icon: BarChart2,
+    title: "CFOs and executives",
+    body: "Board-ready reports that show where you stand, with the fee-income context behind each line.",
+  },
+  {
+    icon: Users,
+    title: "Consultants and advisors",
+    body: "Give every client engagement a data backbone. Custom peer analyses for each institution you serve.",
+  },
+];
+
+function AudienceSection() {
+  return (
+    <section className="bg-warm-100 border-b border-warm-200">
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <h2
+          className="text-center text-[28px] text-warm-900"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Built for the people who set the prices
+        </h2>
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {AUDIENCES.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="text-center">
+              <Icon className="mx-auto h-6 w-6 text-terra" />
+              <p className="mt-3 text-[15px] font-bold text-warm-900">{title}</p>
+              <p className="mt-2 text-[14px] leading-relaxed text-warm-700">{body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AdvisorySection() {
+  return (
+    <section className="bg-white border-b border-warm-200">
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        <div className="max-w-3xl">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-terra">
+            {SITE_NAME} Advisory
+          </p>
+          <h2
+            className="mt-3 text-[28px] text-warm-900"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Or have us prepare it for you
+          </h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-warm-700">
+            {SITE_NAME} Advisory: the commissioned report, plus custom competitor sets, board decks
+            and multi-institution work.
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <TrackLink
+              event="request_report"
+              eventProps={{ placement: "for_institutions_advisory" }}
+              href={REPORT_ANCHOR}
+              className={`${HERO_BUTTON_BASE} bg-terra font-bold text-white hover:bg-terra-dark`}
+            >
+              Commission a report
+              <ArrowRight className="h-4 w-4" />
+            </TrackLink>
+            <TrackLink
+              event="contact_sales"
+              eventProps={{ placement: "for_institutions_advisory" }}
+              href={`mailto:${CONTACT_EMAIL}?subject=Fee%20Insight%20Advisory`}
+              className={`${HERO_BUTTON_BASE} border border-warm-300 font-normal text-warm-900 hover:border-warm-900`}
+            >
+              Talk to us about custom work
+            </TrackLink>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCtaSection() {
+  return (
+    <section className="bg-warm-900">
+      <div className="mx-auto max-w-6xl px-6 py-14 text-center">
+        <h2
+          className="text-[28px] text-warm-150"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Ready to see where your fees stand?
+        </h2>
+        <p className="mt-3 text-[15px] text-warm-ink-300">
+          Start with the sample, or request your own report today.
+        </p>
+        <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+          <TrackLink
+            event="see_sample_report"
+            eventProps={{ placement: "for_institutions_footer" }}
+            href={SAMPLE_REPORT_HREF}
+            className={`${HERO_BUTTON_BASE} bg-terra font-bold text-white hover:bg-terra-dark`}
+          >
+            See a sample report
+            <ArrowRight className="h-4 w-4" />
+          </TrackLink>
+          <a
+            href={REPORT_ANCHOR}
+            className={`${HERO_BUTTON_BASE} border border-warm-ink-700 font-normal text-warm-150 hover:border-warm-ink-500`}
+          >
+            Request a report
+          </a>
+        </div>
+      </div>
+    </section>
   );
 }

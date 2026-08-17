@@ -4,7 +4,7 @@ import { canAccessPremium } from "@/lib/access";
 import { MobileNav } from "./mobile-nav";
 import { SearchTrigger } from "./search-trigger";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
-import { SITE_NAME } from "@/lib/constants";
+import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
 const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
@@ -22,9 +22,10 @@ export async function CustomerNav() {
     ? PRO_NAV_ITEMS
     : [
         { label: "Find Your Institution", href: "/institutions" },
-        { label: "Fee Benchmarks", href: "/fees" },
+        { label: PRODUCT_NAME, href: "/fees" },
         { label: "Research", href: "/research" },
         { label: "Guides", href: "/guides" },
+        { label: "For Institutions", href: "/for-institutions" },
         ...(user ? [] : [{ label: "Pricing", href: "/subscribe" }]),
       ];
 
@@ -35,7 +36,7 @@ export async function CustomerNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
-      <div className="mx-auto max-w-7xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-8">
             <Link
@@ -67,7 +68,7 @@ export async function CustomerNav() {
                 </span>
               )}
             </Link>
-            <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+            <nav className="hidden lg:flex items-center gap-5" aria-label="Main navigation">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -81,7 +82,7 @@ export async function CustomerNav() {
           </div>
           <div className="flex items-center gap-3">
             <SearchTrigger />
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               {user ? (
                 <Link
                   href="/account"

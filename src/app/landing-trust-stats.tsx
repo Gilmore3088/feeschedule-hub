@@ -1,14 +1,11 @@
 import Link from "next/link";
-import type { PublicStats, DataFreshness } from "@/lib/data-store/core";
-import { formatFreshness } from "@/lib/public-stats";
+import type { PublicStatsSummary } from "@/lib/public-stats";
 
 interface LandingTrustStatsProps {
-  stats: PublicStats;
-  freshness: DataFreshness;
+  summary: PublicStatsSummary;
 }
 
-export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) {
-  const freshnessLabel = formatFreshness(freshness.last_fee_extracted_at ?? freshness.last_crawl_at);
+export function LandingTrustStats({ summary }: LandingTrustStatsProps) {
   // Palette: warm-*/terra tokens from globals.css @theme. Works in any route,
   // no .consumer-brand wrapper required (older slate-* utilities still work
   // via the wrapper for compatibility with older surfaces).
@@ -18,16 +15,16 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              {stats.total_institutions.toLocaleString()}
+              {summary.institutionsLabel}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
-              Institutions tracked
+              Institutions with verified fees
             </dt>
           </div>
 
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              49
+              {summary.categoriesLabel}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               Fee categories
@@ -36,7 +33,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
 
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              50
+              {summary.statesLabel}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               U.S. states covered
@@ -45,7 +42,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
 
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              {stats.total_observations.toLocaleString()}
+              {summary.observationsLabel}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               Verified fee observations
@@ -56,7 +53,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
         {/* Provenance row — concrete sources + freshness + methodology link.
             Bankers buy on provenance, not on testimonials. */}
         <div className="mt-6 pt-6 border-t border-warm-300 flex flex-col lg:flex-row lg:items-baseline gap-3 lg:gap-6 text-[12px] text-warm-600">
-          <span className="font-semibold uppercase tracking-wide text-[10px] text-warm-500 shrink-0">
+          <span className="font-bold uppercase tracking-[0.12em] text-[11px] text-warm-600 shrink-0">
             Sources
           </span>
           <span className="leading-relaxed">
@@ -74,7 +71,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
               <span className="absolute inset-0 rounded-full bg-terra/40 live-pulse" />
               <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-terra" />
             </span>
-            <span className="text-warm-900 font-medium">{freshnessLabel}</span>
+            <span className="text-warm-900 font-medium">{summary.freshnessLabel}</span>
             {" · "}
             <Link
               href="/methodology"

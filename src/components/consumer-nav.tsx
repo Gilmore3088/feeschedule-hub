@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
 import { ConsumerMobileNav } from "./consumer-mobile-nav";
 import { SearchTrigger } from "./search-trigger";
-import { SITE_NAME } from "@/lib/constants";
+import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
 export async function ConsumerNav() {
   let user = null;
@@ -15,9 +14,10 @@ export async function ConsumerNav() {
 
   const navItems = [
     { label: "Find Your Institution", href: "/institutions" },
-    { label: "Fee Benchmarks", href: "/fees" },
+    { label: PRODUCT_NAME, href: "/fees" },
     { label: "Research", href: "/research" },
     { label: "Guides", href: "/guides" },
+    { label: "For Institutions", href: "/for-institutions" },
     ...(user ? [] : [{ label: "Pricing", href: "/subscribe" }]),
   ];
 
@@ -28,7 +28,7 @@ export async function ConsumerNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
-      <div className="mx-auto max-w-7xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-8">
             <Link
@@ -55,7 +55,7 @@ export async function ConsumerNav() {
                 {SITE_NAME}
               </span>
             </Link>
-            <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">
+            <nav className="hidden lg:flex items-center gap-5" aria-label="Main navigation">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -69,7 +69,7 @@ export async function ConsumerNav() {
           </div>
           <div className="flex items-center gap-3">
             <SearchTrigger />
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               {user ? (
                 <Link
                   href="/account"
@@ -91,8 +91,8 @@ export async function ConsumerNav() {
                     Sign in
                   </Link>
                   <Link
-                    href="/subscribe"
-                    className="inline-flex items-center px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A83A22] transition-colors"
+                    href="/for-institutions"
+                    className="inline-flex items-center px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A93D25] transition-colors"
                   >
                     Get Pro Access
                   </Link>

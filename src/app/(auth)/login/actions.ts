@@ -11,7 +11,7 @@ export async function loginAction(
   const password = formData.get("password") as string;
 
   if (!username || !password) {
-    return { success: false, error: "Username and password are required" };
+    return { success: false, error: "Email and password are required" };
   }
 
   const user = await login(username, password);

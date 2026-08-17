@@ -4,7 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAction } from "./actions";
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
+interface LoginFormProps {
+  redirectTo: string;
+  forgotPasswordHref: string;
+}
+
+export function LoginForm({ redirectTo, forgotPasswordHref }: LoginFormProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -20,7 +25,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
     if (result.success && result.redirect) {
       router.push(result.redirect);
     } else {
-      setError(result.error || "Invalid username or password");
+      setError(result.error || "Invalid email or password");
       setPending(false);
     }
   }
@@ -35,12 +40,13 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-[#1A1815] mb-1">
-          Username
+          Work email
         </label>
         <input
           id="username"
           name="username"
           type="text"
+          inputMode="email"
           required
           autoComplete="username"
           className="w-full rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent"
@@ -48,9 +54,17 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-[#1A1815] mb-1">
-          Password
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label htmlFor="password" className="block text-sm font-medium text-[#1A1815]">
+            Password
+          </label>
+          <a
+            href={forgotPasswordHref}
+            className="text-xs font-medium text-[#7A7062] hover:text-[#1A1815] hover:underline"
+          >
+            Forgot password?
+          </a>
+        </div>
         <input
           id="password"
           name="password"

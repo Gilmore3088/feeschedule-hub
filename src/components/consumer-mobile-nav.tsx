@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
 const NAV_ITEMS = [
   { label: "Find Your Institution", href: "/institutions" },
-  { label: "Fee Benchmarks", href: "/fees" },
+  { label: PRODUCT_NAME, href: "/fees" },
   { label: "Research", href: "/research" },
   { label: "Guides", href: "/guides" },
+  { label: "For Institutions", href: "/for-institutions" },
 ];
 
 export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
@@ -33,11 +35,11 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
   }, [open]);
 
   return (
-    <div className="md:hidden">
+    <div className="lg:hidden">
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors"
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors"
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
       >
@@ -124,9 +126,9 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                       Sign in
                     </Link>
                     <Link
-                      href="/subscribe"
+                      href="/for-institutions"
                       onClick={() => setOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 mt-2 text-[14px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A83A22] transition-colors text-center"
+                      className="block rounded-lg px-3 py-2.5 mt-2 text-[14px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A93D25] transition-colors text-center"
                     >
                       Get Pro Access
                     </Link>
@@ -136,7 +138,7 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             </nav>
 
             <div className="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-[#E8DFD1]">
-              <div className="flex items-center gap-2 text-[#A09788]">
+              <div className="flex items-center gap-2 text-[#7A7062]">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -148,7 +150,7 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                   <rect x="10" y="8" width="4" height="13" rx="1" />
                   <rect x="16" y="3" width="4" height="18" rx="1" />
                 </svg>
-                <span className="text-[11px]">Fee Insight</span>
+                <span className="text-[11px]">{SITE_NAME}</span>
               </div>
             </div>
           </div>

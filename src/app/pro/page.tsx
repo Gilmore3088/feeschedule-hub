@@ -18,6 +18,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { CONTACT_EMAIL } from "@/lib/constants";
+import { formatFreshness } from "@/lib/public-stats";
 
 const TICKER_CATEGORIES = [
   "monthly_maintenance",
@@ -48,13 +50,7 @@ export default async function ProHomePage() {
   const allEntries = await getNationalIndexCached();
   const stats = await getPublicStats();
   const freshness = await getDataFreshness();
-  const lastUpdated = freshness.last_crawl_at
-    ? new Date(freshness.last_crawl_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "---";
+  const lastUpdated = formatFreshness(freshness.last_fee_extracted_at ?? freshness.last_crawl_at);
 
   const tickerEntries = TICKER_CATEGORIES.map((cat) =>
     allEntries.find((e) => e.fee_category === cat)
@@ -116,7 +112,7 @@ export default async function ProHomePage() {
           <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.15em] text-terra">
             National Medians
           </span>
-          <span className="shrink-0 text-[10px] text-warm-400">
+          <span className="shrink-0 text-[10px] text-warm-600">
             {VERIFIED_BENCHMARK_POLICY}
           </span>
           <span className="shrink-0 h-3 w-px bg-warm-300" />
@@ -133,7 +129,7 @@ export default async function ProHomePage() {
               </span>
             </span>
           ))}
-          <span className="shrink-0 ml-auto text-[10px] text-warm-300">
+          <span className="shrink-0 ml-auto text-[10px] text-warm-600">
             {lastUpdated}
           </span>
         </div>
@@ -191,7 +187,7 @@ export default async function ProHomePage() {
                     key={metric.label}
                     className="rounded-lg border border-warm-200 bg-warm-50 px-4 py-3"
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-500">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-warm-600">
                       {metric.label}
                     </p>
                     <p className="mt-1 text-[14px] font-semibold text-warm-900 tabular-nums">
@@ -218,7 +214,7 @@ export default async function ProHomePage() {
                   </svg>
                 </Link>
                 <Link
-                  href="mailto:hello@bankfeeindex.com"
+                  href={`mailto:${CONTACT_EMAIL}`}
                   className="inline-flex items-center rounded border border-warm-300 px-5 py-2.5 text-[13px] font-medium text-warm-700 hover:border-warm-900 hover:text-warm-900 transition-colors no-underline"
                 >
                   Request Data Access
@@ -230,25 +226,25 @@ export default async function ProHomePage() {
             <div className="rounded-lg border border-warm-200 bg-warm-50 overflow-hidden">
               <div className="px-5 py-3 border-b border-warm-200 flex items-center justify-between">
                 <Eyebrow tone="dark" size="tight">
-                  National Fee Index
+                  National medians
                 </Eyebrow>
-                <span className="text-[10px] text-warm-500">
+                <span className="text-[10px] text-warm-600">
                   {allEntries.length} categories · {VERIFIED_BENCHMARK_POLICY}
                 </span>
               </div>
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-warm-200">
-                    <th className="px-5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-5 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Category
                     </th>
-                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Median
                     </th>
-                    <th className="hidden sm:table-cell px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="hidden sm:table-cell px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       P25-P75
                     </th>
-                    <th className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       N
                     </th>
                   </tr>
@@ -275,7 +271,7 @@ export default async function ProHomePage() {
                           ? `${formatAmount(entry!.p25_amount)}-${formatAmount(entry!.p75_amount)}`
                           : "-"}
                       </td>
-                      <td className="px-5 py-2.5 text-right text-warm-500 tabular-nums">
+                      <td className="px-5 py-2.5 text-right text-warm-600 tabular-nums">
                         {entry!.institution_count.toLocaleString()}
                       </td>
                     </tr>
@@ -283,8 +279,8 @@ export default async function ProHomePage() {
                 </tbody>
               </table>
               <div className="px-5 py-2.5 border-t border-warm-200 flex items-center justify-between">
-                <span className="text-[10px] text-warm-300">
-                  Approved/published rows only; provisional evidence is excluded from benchmark scoring
+                <span className="text-[10px] text-warm-600">
+                  Verified fees only; fees under review are excluded from benchmark medians
                 </span>
                 <Link
                   href="/research/national-fee-index"
@@ -346,7 +342,7 @@ export default async function ProHomePage() {
                       </div>
                       <dl className="mt-1.5 grid grid-cols-3 gap-x-3 text-[11px]">
                         <div>
-                          <dt className="text-[10px] uppercase tracking-wider text-warm-500">
+                          <dt className="text-[10px] uppercase tracking-wider text-warm-600">
                             National
                           </dt>
                           <dd className="text-warm-700 tabular-nums">
@@ -354,9 +350,9 @@ export default async function ProHomePage() {
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-wider text-warm-500">
+                          <dt className="text-[10px] uppercase tracking-wider text-warm-600">
                             Bank
-                            <span className="ml-1 text-warm-300 tabular-nums">
+                            <span className="ml-1 text-warm-600 tabular-nums">
                               n={row!.bankN.toLocaleString()}
                             </span>
                           </dt>
@@ -365,9 +361,9 @@ export default async function ProHomePage() {
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-wider text-warm-500">
+                          <dt className="text-[10px] uppercase tracking-wider text-warm-600">
                             CU
-                            <span className="ml-1 text-warm-300 tabular-nums">
+                            <span className="ml-1 text-warm-600 tabular-nums">
                               n={row!.cuN.toLocaleString()}
                             </span>
                           </dt>
@@ -385,25 +381,25 @@ export default async function ProHomePage() {
               <table className="hidden sm:table w-full text-[12px]">
                 <thead>
                   <tr className="border-b border-warm-200 bg-warm-100">
-                    <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Category
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       National
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Bank
                     </th>
                     <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       N
                     </th>
-                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Credit Union
                     </th>
                     <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       N
                     </th>
-                    <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                    <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                       Delta
                     </th>
                   </tr>
@@ -433,13 +429,13 @@ export default async function ProHomePage() {
                         <td className="px-3 py-2.5 text-right font-semibold text-warm-900 tabular-nums">
                           {formatAmount(row!.bank)}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-warm-300 tabular-nums text-[11px]">
+                        <td className="px-3 py-2.5 text-right text-warm-600 tabular-nums text-[11px]">
                           {row!.bankN.toLocaleString()}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-warm-900 tabular-nums">
                           {formatAmount(row!.cu)}
                         </td>
-                        <td className="px-3 py-2.5 text-right text-warm-300 tabular-nums text-[11px]">
+                        <td className="px-3 py-2.5 text-right text-warm-600 tabular-nums text-[11px]">
                           {row!.cuN.toLocaleString()}
                         </td>
                         <td className="px-5 py-2.5 text-right tabular-nums">
@@ -462,7 +458,7 @@ export default async function ProHomePage() {
                 </tbody>
               </table>
               <div className="px-5 py-2 border-t border-warm-200 bg-warm-100">
-                <p className="text-[10px] text-warm-300">
+                <p className="text-[10px] text-warm-600">
                   Delta = Bank median minus Credit Union median as % of CU
                   median. Positive = banks charge more. Provisional evidence is excluded.
                 </p>
@@ -502,16 +498,16 @@ export default async function ProHomePage() {
                   <p className="mt-3 text-[20px] font-bold text-warm-900 tabular-nums">
                     {formatAmount(tier.avg_fee)}
                   </p>
-                  <p className="text-[10px] text-warm-500">avg fee level</p>
+                  <p className="text-[10px] text-warm-600">avg fee level</p>
                   <div className="mt-3 pt-3 border-t border-warm-200">
                     <p className="text-[13px] font-semibold text-warm-900 tabular-nums">
                       {formatAmount(tier.avg_service_charges)}
                     </p>
-                    <p className="text-[10px] text-warm-500">
+                    <p className="text-[10px] text-warm-600">
                       avg service charges ($K)
                     </p>
                   </div>
-                  <p className="mt-2 text-[10px] text-warm-300 tabular-nums">
+                  <p className="mt-2 text-[10px] text-warm-600 tabular-nums">
                     {tier.institution_count} institutions
                   </p>
                 </div>
@@ -528,8 +524,8 @@ export default async function ProHomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
-                title: "Fee Indexing",
-                desc: "National and peer-level medians across 49 categories with P25/P75 ranges and maturity tiers.",
+                title: "Bank Fee Index",
+                desc: `National and peer-level medians across ${stats.total_categories} categories with P25/P75 ranges.`,
                 href: "/research/national-fee-index",
                 accent: "border-warm-300",
               },
@@ -547,7 +543,7 @@ export default async function ProHomePage() {
               },
               {
                 title: "Data & API",
-                desc: "API documentation, signed-in verified CSV exports, and managed data-feed options for integration.",
+                desc: "API documentation and signed-in verified CSV exports for integration.",
                 href: "/api-docs",
                 accent: "border-warm-300",
               },
@@ -622,7 +618,7 @@ export default async function ProHomePage() {
                       <span className="text-warm-600">
                         {hasRange ? (
                           <>
-                            <span className="uppercase tracking-wider text-[10px] text-warm-500">
+                            <span className="uppercase tracking-wider text-[10px] text-warm-600">
                               P25–P75:
                             </span>{" "}
                             <span className="tabular-nums">
@@ -631,15 +627,15 @@ export default async function ProHomePage() {
                             </span>
                           </>
                         ) : (
-                          <span className="text-warm-500">no range</span>
+                          <span className="text-warm-600">no range</span>
                         )}
                       </span>
-                      <span className="text-warm-500 tabular-nums">
+                      <span className="text-warm-600 tabular-nums">
                         n={entry!.institution_count.toLocaleString()}
                       </span>
                     </div>
                     {hasMinMax && (
-                      <p className="mt-0.5 text-[10px] text-warm-500 tabular-nums">
+                      <p className="mt-0.5 text-[10px] text-warm-600 tabular-nums">
                         Range {formatAmount(entry!.min_amount!)}–
                         {formatAmount(entry!.max_amount!)}
                       </p>
@@ -653,25 +649,25 @@ export default async function ProHomePage() {
             <table className="hidden md:table w-full text-[12px]">
               <thead>
                 <tr className="border-b border-warm-200 bg-warm-100">
-                  <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     Category
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     Median
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     P25
                   </th>
-                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     P75
                   </th>
-                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     Min
                   </th>
-                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="hidden lg:table-cell px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     Max
                   </th>
-                  <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-500">
+                  <th className="px-5 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-warm-600">
                     Inst.
                   </th>
                 </tr>
@@ -707,17 +703,17 @@ export default async function ProHomePage() {
                         ? formatAmount(entry!.p75_amount)
                         : "-"}
                     </td>
-                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-warm-500 tabular-nums">
+                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-warm-600 tabular-nums">
                       {entry!.min_amount !== null
                         ? formatAmount(entry!.min_amount)
                         : "-"}
                     </td>
-                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-warm-500 tabular-nums">
+                    <td className="hidden lg:table-cell px-3 py-2.5 text-right text-warm-600 tabular-nums">
                       {entry!.max_amount !== null
                         ? formatAmount(entry!.max_amount)
                         : "-"}
                     </td>
-                    <td className="px-5 py-2.5 text-right text-warm-500 tabular-nums">
+                    <td className="px-5 py-2.5 text-right text-warm-600 tabular-nums">
                       {entry!.institution_count.toLocaleString()}
                     </td>
                   </tr>
@@ -767,7 +763,7 @@ export default async function ProHomePage() {
                 original research engagements. For consultants and strategists.
               </p>
               <Link
-                href="mailto:hello@bankfeeindex.com"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="mt-6 inline-flex items-center rounded border border-warm-300 px-4 py-2 text-[12px] font-semibold text-warm-700 hover:border-warm-900 hover:text-warm-900 transition-colors no-underline"
               >
                 Get in Touch

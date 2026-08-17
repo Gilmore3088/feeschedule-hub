@@ -2,33 +2,71 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
-import { getPublicStats, getDataFreshness } from "@/lib/data-store/core";
+import { getPublicStatsSummary } from "@/lib/public-stats";
+import { CONTACT_EMAIL, PRODUCT_NAME, SITE_NAME, SITE_URL } from "@/lib/constants";
 import { LandingHero } from "./landing-hero";
 import { LandingTrustStats } from "./landing-trust-stats";
+import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
+import { SearchModal } from "@/components/public/search-modal";
+
+const HOME_TITLE = `${SITE_NAME} — The ${PRODUCT_NAME}`;
 
 export const metadata: Metadata = {
-  title: { absolute: "Fee Insight -- The Bank Fee Index" },
+  title: { absolute: HOME_TITLE },
   description:
     "Find bank and credit union fees by district, state, size, and type. Consumers: look up your bank free. Institutions: peer benchmarking, analysis, and board-ready reports.",
   openGraph: {
-    title: "Fee Insight -- The Bank Fee Index",
+    title: HOME_TITLE,
     description:
       "Find bank and credit union fees by district, state, size, and type. Free consumer lookup. Professional-grade intelligence for banking teams.",
   },
 };
 
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE_NAME,
+  url: SITE_URL,
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: CONTACT_EMAIL,
+    contactType: "sales",
+  },
+};
+
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${SITE_URL}/institutions?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
 export default async function LandingPage() {
-  const [stats, freshness] = await Promise.all([
-    getPublicStats(),
-    getDataFreshness(),
-  ]);
+  const summary = await getPublicStatsSummary();
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] consumer-brand">
-      <LandingHero totalInstitutions={stats.total_institutions} />
-      <LandingTrustStats stats={stats} freshness={freshness} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
+      />
+      <ConsumerNav />
+      <main>
+        <LandingHero institutionsLabel={summary.institutionsLabel} />
+        <LandingTrustStats summary={summary} />
+      </main>
       <CustomerFooter />
+      <SearchModal />
     </div>
   );
 }

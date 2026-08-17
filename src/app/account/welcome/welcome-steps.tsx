@@ -64,8 +64,8 @@ const US_STATES = [
 
 const TOOLS = [
   {
-    name: "Hamilton Analyze",
-    description: "Analyze fee evidence, peer position, and strategy questions in Hamilton.",
+    name: "Hamilton workspace",
+    description: "Benchmark, scenario, report and monitor your fee position against a verified peer set.",
     icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
     href: "/pro/analyze",
     requiresPro: true,
@@ -255,8 +255,8 @@ export function WelcomeSteps({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
-                  <th className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">Category</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-[#A69D90]">National Median</th>
+                  <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">Category</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">National Median</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,7 +281,7 @@ export function WelcomeSteps({
               href="/fees"
               className="flex-1 text-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
             >
-              Explore Fee Benchmarks
+              Explore the Bank Fee Index
             </Link>
           </div>
         </div>
@@ -362,7 +362,7 @@ export function WelcomeSteps({
               href="/fees"
               className="rounded-md border border-[#D5CBBF] px-6 py-2.5 text-sm font-medium text-[#1A1815] hover:border-[#1A1815] transition-colors"
             >
-              Browse Fees
+              Browse the Bank Fee Index
             </Link>
           </div>
         </div>
