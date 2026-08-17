@@ -4,7 +4,7 @@ import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with Fee Insight for enterprise licensing, custom reports, or general inquiries.",
+  description: "Get in touch with Fee Insight about a Competitive Fee Position Report, Fee Insight Pro seats, Advisory work, data licensing, or anything else.",
 };
 
 export default function ContactPage({
@@ -28,7 +28,7 @@ export default function ContactPage({
         Get in touch
       </h1>
       <p className="mt-2 text-[14px] text-[#6B6255]">
-        Enterprise licensing, custom reports, data partnerships, or general
+        Reports, Pro seats, Advisory work, data licensing, or general
         questions. We typically respond within one business day.
       </p>
 

@@ -17,7 +17,7 @@ export const PUBLIC_NAV_ITEMS = [
 export const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
 /** The one nav pill for signed-out visitors: the money path, not a vague "Pro". */
-export const REQUEST_REPORT_NAV = { label: "Request a report", href: "/for-institutions#report" } as const;
+export const REQUEST_REPORT_NAV = { label: "Request your report", href: "/for-institutions#report" } as const;
 
 /**
  * The single public site header. Signed-out and free users see the public

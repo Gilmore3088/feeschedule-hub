@@ -49,7 +49,7 @@ export function FinancialContext({
             <Metric framed label="Total deposits" value={formatCompactDollars(latest.totalDeposits)} />
             <Metric
               framed
-              label="Service charge income"
+              label={latest.source === "ncua" ? "Service charge income (year to date)" : "Service charge income"}
               value={formatCompactDollars(latest.serviceChargeIncome)}
             />
             <Metric framed label="Fee income ratio" value={formatPercent(latest.feeIncomeRatioPct)} />
@@ -61,7 +61,7 @@ export function FinancialContext({
             )}
           </div>
 
-          {history.length > 1 && (
+          {history.length > 1 && latest.source !== "ncua" && (
             <div className="mt-5 rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] p-4">
               <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
                 Service charge income by quarter

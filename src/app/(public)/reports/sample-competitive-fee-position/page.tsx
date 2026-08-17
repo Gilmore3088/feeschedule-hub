@@ -99,7 +99,7 @@ export default function SampleReportPage() {
               href={REQUEST_HREF}
               className={SECONDARY_BUTTON}
             >
-              Get yours
+              Request your report — $300
             </TrackLink>
           </div>
           <p className="mt-3 text-[13px] text-[#6B6255]">{REPORT_OFFER_LINE}.</p>
@@ -151,7 +151,7 @@ export default function SampleReportPage() {
             href={REQUEST_HREF}
             className={PRIMARY_BUTTON}
           >
-            Get yours
+            Request your report — $300
           </TrackLink>
           <a href={SAMPLE_PDF_PATH} className={SECONDARY_BUTTON} download>
             Download the sample (PDF)

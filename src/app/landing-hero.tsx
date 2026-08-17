@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
 import { TrackLink } from "@/components/track-link";
-import { PRODUCT_NAME, REPORT_OFFER, SITE_NAME } from "@/lib/constants";
+import { PRODUCT_NAME, REPORT_OFFER } from "@/lib/constants";
 import { HAMILTON_CANONICAL } from "@/app/for-institutions/hamilton-copy";
-import { ArrowRight, FileText, MessageSquare, Search, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, FileText, Search, Users, type LucideIcon } from "lucide-react";
 
 interface LandingHeroProps {
   institutionsLabel: string;
@@ -56,15 +56,6 @@ export function LandingHero({ institutionsLabel }: LandingHeroProps) {
               <Link href={REPORT_LANE_HREF} className={LANE_LINK_CLASS}>
                 Get your {REPORT_OFFER.name} — {REPORT_OFFER.priceLabel}
               </Link>
-              <span className="mx-2 text-[#6B6255]">·</span>
-              <TrackLink
-                event="see_sample_report"
-                eventProps={{ placement: "home_report_lane" }}
-                href={SAMPLE_REPORT_HREF}
-                className={LANE_LINK_CLASS}
-              >
-                See the sample report
-              </TrackLink>
             </p>
           </div>
 
@@ -79,34 +70,43 @@ function ProWorkflowCard() {
   return (
     <div className="rounded-lg border border-[#E0D7C9] bg-[#FDFBF8] p-5">
       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
-        {SITE_NAME} Pro
+        For banks and credit unions
       </p>
       <h2 className="mt-2 text-xl font-semibold leading-snug text-[#1A1815]">
-        See where your fees stand against the banks you actually compete with — by district,
-        size and type.
+        Where your fees stand against the banks you actually compete with — named, cited, in 48 hours.
       </h2>
-      <div className="mt-5 divide-y divide-[#E0D7C9]">
-        <WorkflowStep icon={Search} title="Pick your institution" />
-        <WorkflowStep icon={Users} title="Build your peer group" />
-        <WorkflowStep icon={MessageSquare} title="Ask Hamilton — every answer cited to a source" />
-        <WorkflowStep icon={FileText} title="Export a board-ready brief" />
+      <p className="mt-2 text-sm text-[#5A5347]">
+        {REPORT_OFFER.name} — {REPORT_OFFER.priceLabel}, {REPORT_OFFER.turnaround}.
+      </p>
+      <div className="mt-4 divide-y divide-[#E0D7C9]">
+        <WorkflowStep icon={Search} title="15 headline fees against your true peer cohort" />
+        <WorkflowStep icon={Users} title="Named competitors on the same lines" />
+        <WorkflowStep icon={FileText} title="Every figure traced to the published schedule" />
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-[#6B6255]">{HAMILTON_CANONICAL}</p>
       <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-        <Link
-          href="/subscribe"
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-[#C44B2E] px-3 py-2 text-sm font-semibold text-white hover:bg-[#A93D25]"
+        <TrackLink
+          event="see_sample_report"
+          eventProps={{ placement: "home_card" }}
+          href={SAMPLE_REPORT_HREF}
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-[#C44B2E] px-3 py-2 text-sm font-semibold text-white hover:bg-[#A93D25]"
         >
-          See pricing
+          See the sample report
           <ArrowRight className="h-4 w-4" />
-        </Link>
+        </TrackLink>
         <Link
-          href="/for-institutions#pro"
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm font-semibold text-[#1A1815] hover:border-[#1A1815]"
+          href={REPORT_LANE_HREF}
+          className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[#D5CBBF] px-3 py-2 text-sm font-semibold text-[#1A1815] hover:border-[#1A1815]"
         >
-          How Hamilton works
+          Request yours — {REPORT_OFFER.priceLabel}
         </Link>
       </div>
+      <p className="mt-4 text-xs leading-relaxed text-[#6B6255]">
+        Need it every quarter? {HAMILTON_CANONICAL}{" "}
+        <Link href="/subscribe" className="font-semibold text-[#A93D25] underline">
+          See pricing
+        </Link>
+        .
+      </p>
     </div>
   );
 }

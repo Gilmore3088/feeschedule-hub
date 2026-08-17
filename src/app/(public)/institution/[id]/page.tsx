@@ -9,7 +9,7 @@ import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_NAME } from "@/lib/constants";
-import { NO_VERDICT_LABEL, computeInstitutionRating, generateInterpretation } from "@/lib/institution-rating";
+import { computeInstitutionRating, generateInterpretation } from "@/lib/institution-rating";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { buildPublicInstitutionProfileLinks } from "@/lib/institution-profile-links";
 import { formatAbsoluteDate } from "@/lib/public-stats";
@@ -31,7 +31,7 @@ import {
 import { ProfileHeader } from "./profile-header";
 import { InstitutionJsonLd } from "./profile-jsonld";
 import { ProfileSidebar, type KeyFact } from "./profile-sidebar";
-import { FeeProfileNoVerdict, FeeProfileSummary, StatusNotice } from "./status-notice";
+import { FeeProfileSummary, StatusNotice } from "./status-notice";
 import { ThinProfilePanel } from "./thin-profile-panel";
 
 interface PageProps {
@@ -198,7 +198,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             verifiedCount={verifiedCount}
             underReviewCount={underReviewCount}
             assetsDollars={assetsDollars}
-            scoreLabel={rating?.label ?? (enoughForNarrative ? NO_VERDICT_LABEL : null)}
+            scoreLabel={null}
             financialsAsOf={financialsAsOf}
           />
 
@@ -211,15 +211,15 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div className="min-w-0 space-y-6">
+              {/* Public profiles state facts (fee vs. national median), never an adjective verdict — the
+                  commissioned report carries the benchmark against a true peer set. */}
               {showNarrative && rating && interpretation && (
                 <FeeProfileSummary
                   rating={rating}
                   interpretation={interpretation}
                   overdraftAmount={headline.overdraft}
+                  factsOnly
                 />
-              )}
-              {enoughForNarrative && rating === null && (
-                <FeeProfileNoVerdict verifiedCount={verifiedFees.length} />
               )}
 
               <section className="border border-[#E0D7C9] bg-white">

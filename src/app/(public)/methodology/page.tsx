@@ -7,7 +7,7 @@ const METHODOLOGY_URL = `${SITE_URL}/methodology`;
 const buildJsonLd = (institutions: string) => ({
   "@context": "https://schema.org",
   "@type": "Article",
-  headline: "How Bank Fee Index Works",
+  headline: "How the Bank Fee Index works",
   description:
     `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
   url: METHODOLOGY_URL,
@@ -28,14 +28,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const summary = await getPublicStatsSummary();
   const institutions = summary.institutionsLabel;
   return {
-  title: "Methodology — How Bank Fee Index Works",
+  title: "Methodology — How the Bank Fee Index works",
   description:
     `Bank Fee Index collects published fee schedules from ${institutions} banks and credit unions on a rolling calendar, reads the fees, and holds anything uncertain for a person to check. Learn how our data is collected, categorized, and verified.`,
   alternates: {
     canonical: METHODOLOGY_URL,
   },
   openGraph: {
-    title: "Methodology — How Bank Fee Index Works",
+    title: "Methodology — How the Bank Fee Index works",
     description:
       `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
     url: METHODOLOGY_URL,
@@ -46,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Methodology — How Bank Fee Index Works",
+    title: "Methodology — How the Bank Fee Index works",
     description:
       `A transparent account of how Bank Fee Index collects, classifies, and verifies fee data across ${institutions} financial institutions.`,
   },
@@ -71,7 +71,7 @@ export default async function MethodologyPage() {
             Research Methodology
           </p>
           <h1 style={{ fontSize: "36px", fontWeight: 600, letterSpacing: "-0.02em", color: "#1A1815", marginBottom: "12px", fontFamily: "var(--font-newsreader), Georgia, serif", lineHeight: 1.2 }}>
-            How Bank Fee Index Works
+            How the Bank Fee Index works
           </h1>
           <p style={{ fontSize: "16px", color: "#5A5347", lineHeight: 1.6, maxWidth: "600px" }}>
             A transparent account of how we collect, classify, and verify fee data across {institutions} financial institutions — and what that means for the accuracy of our benchmarks.

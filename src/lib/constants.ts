@@ -21,7 +21,7 @@ export const REPORT_OFFER = {
   priceUsd: 300,
   priceLabel: "$300",
   turnaround: "delivered in 48 hours",
-  refreshLabel: "$300 per quarterly refresh",
+  refreshLabel: "Refresh the same report any quarter for $300",
 } as const;
 export const REPORT_OFFER_LINE = `${REPORT_OFFER.name} — ${REPORT_OFFER.priceLabel}, ${REPORT_OFFER.turnaround}`;
 

@@ -73,20 +73,33 @@ export function FeeProfileSummary({
   rating,
   interpretation,
   overdraftAmount,
+  factsOnly = false,
 }: {
   rating: RatingResult;
   interpretation: string;
   overdraftAmount: number | null;
+  /** Public profiles: show fee facts vs. the national median without an adjective verdict. */
+  factsOnly?: boolean;
 }) {
   return (
     <section className="border border-[#E0D7C9] bg-white p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
-            Verified Fee Profile
+            {factsOnly ? "Headline fees vs. national median" : "Verified Fee Profile"}
           </p>
-          <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">{rating.label}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5A5347]">{interpretation}</p>
+          <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">
+            {factsOnly ? "How the headline fees compare" : rating.label}
+          </h2>
+          {!factsOnly && (
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5A5347]">{interpretation}</p>
+          )}
+          {factsOnly && (
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5A5347]">
+              Each figure below is the published fee set against the national median. The commissioned
+              report benchmarks every fee against a verified peer set instead.
+            </p>
+          )}
         </div>
         {overdraftAmount !== null && (
           <div className="rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] px-4 py-3">

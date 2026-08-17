@@ -80,7 +80,7 @@ export default async function FeeCatalogPage() {
           className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
           style={SERIF}
         >
-          The {PRODUCT_NAME}
+          {PRODUCT_NAME} — benchmarks by category
         </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#5A5347]">
           Bank and credit union fee benchmarks — {summary.categoriesLabel} categories,{" "}

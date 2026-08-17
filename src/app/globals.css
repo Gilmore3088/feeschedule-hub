@@ -78,7 +78,8 @@
   --color-warm-ink-900: #1A1815;  /* page bg on dark */
 
   /* terracotta accent */
-  --color-terra:    #C44B2E;     /* primary brand accent */
+  --color-terra:    #C44B2E;     /* primary brand accent: fills, icons, rules, display text 24px+ */
+  --color-terra-text: #A93D25;   /* terracotta as text under 24px (5.8:1 on parchment) */
   --color-terra-dark: #A93D25;   /* hover state */
   --color-terra-soft: #FDF0ED;   /* tinted bg */
 }

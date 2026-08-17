@@ -3,10 +3,11 @@
 import { useState, use } from "react";
 
 const INQUIRY_TYPES = [
-  { value: "enterprise", label: "Enterprise licensing" },
-  { value: "report", label: "Custom report request" },
-  { value: "partnership", label: "Data partnership" },
-  { value: "general", label: "General inquiry" },
+  { value: "report", label: "Competitive Fee Position Report ($300)" },
+  { value: "enterprise", label: "Fee Insight Pro (seats, invoicing)" },
+  { value: "advisory", label: "Fee Insight Advisory (custom work)" },
+  { value: "partnership", label: "Data licensing / API" },
+  { value: "general", label: "Something else" },
 ];
 
 interface ContactFormProps {

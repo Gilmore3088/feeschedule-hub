@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   alternates: { canonical: "./" },
   title: {
-    default: "Fee Insight -- The Bank Fee Index",
+    default: "Fee Insight — The Bank Fee Index",
     template: "%s | Fee Insight",
   },
   description:

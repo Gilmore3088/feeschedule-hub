@@ -29,7 +29,7 @@ export function EmailGate({ slug, artifactExists }: EmailGateProps) {
 
   if (!artifactExists) {
     return (
-      <p style={{ color: "#A09788", fontSize: "14px", fontStyle: "italic" }}>
+      <p style={{ color: "#6B6255", fontSize: "14px", fontStyle: "italic" }}>
         PDF generation is in progress — check back soon.
       </p>
     );
@@ -103,7 +103,7 @@ export function EmailGate({ slug, artifactExists }: EmailGateProps) {
         >
           Download full report PDF &darr;
         </a>
-        <p style={{ marginTop: "8px", fontSize: "12px", color: "#A09788" }}>
+        <p style={{ marginTop: "8px", fontSize: "12px", color: "#6B6255" }}>
           Link valid for 1 hour. Check your email for a copy.
         </p>
       </div>
@@ -158,7 +158,7 @@ export function EmailGate({ slug, artifactExists }: EmailGateProps) {
         </p>
       )}
 
-      <p style={{ fontSize: "11px", color: "#A09788", margin: 0 }}>
+      <p style={{ fontSize: "11px", color: "#6B6255", margin: 0 }}>
         No spam. One-time link delivered instantly.
       </p>
     </form>

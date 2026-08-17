@@ -15,7 +15,7 @@ const PUBLIC_NAV = [
 ];
 
 const PRO_NAV = HAMILTON_NAV.filter((item) => item.label !== "Admin");
-const REQUEST_REPORT = { label: "Request a report", href: "/for-institutions#report" };
+const REQUEST_REPORT = { label: "Request your report", href: "/for-institutions#report" };
 
 /** 44px open/close controls: the minimum comfortable touch target. */
 const ICON_BUTTON =

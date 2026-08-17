@@ -47,19 +47,23 @@ export function ReportFrame({ html, title, pdfHref }: ReportFrameProps) {
 
   return (
     <div className="mx-auto w-full" style={{ maxWidth: REPORT_WIDTH_PX + 2 }}>
-      <p className="mb-2 text-[13px] text-[#6B6255] min-[840px]:hidden">
-        Full report — pinch to zoom, or{" "}
-        {pdfHref ? (
-          <a href={pdfHref} className="font-semibold text-[#5A5347] underline">
-            download the PDF
+      {/* Below 840px the letter-size page cannot be read in place: offer the PDF and hide the frame. */}
+      <div className="rounded-xl border border-[#E0D7C9] bg-[#FDFBF8] p-4 min-[840px]:hidden">
+        <p className="text-[14px] font-semibold text-[#1A1815]">The full report is a letter-size document.</p>
+        <p className="mt-1 text-[13px] text-[#5A5347]">
+          On a phone it reads best as the PDF; the executive summary above is the same content.
+        </p>
+        {pdfHref && (
+          <a
+            href={pdfHref}
+            className="mt-3 inline-flex items-center justify-center rounded-md bg-[#C44B2E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#A93D25]"
+          >
+            Open the PDF
           </a>
-        ) : (
-          "download the PDF"
         )}
-        .
-      </p>
+      </div>
       <div
-        className="w-full overflow-x-auto overflow-y-hidden rounded-xl border border-[#E0D7C9] bg-[#FDFBF8]"
+        className="hidden w-full overflow-x-auto overflow-y-hidden rounded-xl border border-[#E0D7C9] bg-[#FDFBF8] min-[840px]:block"
         style={{ height: height + 2, WebkitOverflowScrolling: "touch" }}
       >
         <iframe

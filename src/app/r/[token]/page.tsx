@@ -5,12 +5,11 @@
  */
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ConsumerNav } from "@/components/consumer-nav";
-import { CustomerFooter } from "@/components/customer-footer";
+import { ReportChrome, ReportChromeFooter } from "@/components/public/report-chrome";
 import { ReportExecutiveSummaryBlock } from "@/components/public/report-executive-summary";
 import { ReportFrame } from "@/components/public/report-frame";
 import { TrackLink } from "@/components/track-link";
-import { CONTACT_EMAIL, SITE_NAME } from "@/lib/constants";
+import { CONTACT_EMAIL, REPORT_OFFER, SITE_NAME } from "@/lib/constants";
 import {
   extractExecutiveSummary,
   formatReportDate,
@@ -24,7 +23,6 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const REFRESH_OFFER = "Refresh this report quarterly — $300";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { token } = await params;
@@ -33,6 +31,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: report
       ? `Competitive Fee Position Report — ${report.institution_name}`
       : "Report not found",
+    description: report
+      ? `Competitive Fee Position Report prepared for ${report.institution_name} by ${SITE_NAME} — 15 headline fees against a verified peer cohort, every figure sourced.`
+      : undefined,
+    openGraph: report
+      ? {
+          title: `Competitive Fee Position Report — ${report.institution_name}`,
+          description: `Prepared for ${report.institution_name} by ${SITE_NAME}. 15 headline fees against a verified peer cohort, every figure traced to its published schedule.`,
+          type: "article",
+        }
+      : undefined,
     robots: { index: false, follow: false, nocache: true },
   };
 }
@@ -59,7 +67,7 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <ConsumerNav />
+      <ReportChrome preparedFor={report.institution_name} />
       <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
         <section className="flex flex-col gap-5 rounded-xl border border-[#E0D7C9] bg-[#FDFBF8] p-6 md:flex-row md:items-center md:justify-between">
           <div>
@@ -73,7 +81,7 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
               Prepared for {report.institution_name} by {SITE_NAME} · {preparedOn}
             </h1>
             <p className="mt-2 text-[14px] text-[#5A5347]">
-              {REFRESH_OFFER}. Your fee position against the same verified peer set, every quarter.
+              {REPORT_OFFER.refreshLabel} — your fee position against the same verified peer set.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -117,7 +125,7 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
           </a>
         </p>
       </main>
-      <CustomerFooter />
+      <ReportChromeFooter />
     </div>
   );
 }

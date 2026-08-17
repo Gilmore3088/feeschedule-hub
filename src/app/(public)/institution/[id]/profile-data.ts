@@ -72,15 +72,32 @@ export interface HeadlineFees {
   monthly: number | null;
 }
 
-function pickAmount(fees: ExtractedFee[], category: string, exclude?: RegExp): number | null {
+const MONTHLY_MAINTENANCE_NAME = /monthly|maintenance|service charge|service fee/i;
+const NOT_A_MONTHLY_FEE = /fax|photocop|copy|per page|statement|research|wire|check|card/i;
+
+function pickAmount(
+  fees: ExtractedFee[],
+  category: string,
+  exclude?: RegExp,
+  require?: (fee: ExtractedFee) => boolean,
+): number | null {
   const match = fees.find(
     (fee) =>
       fee.fee_category === category &&
       fee.amount !== null &&
       fee.amount > 0 &&
-      !(exclude && exclude.test(fee.fee_name)),
+      !(exclude && exclude.test(fee.fee_name)) &&
+      (!require || require(fee)),
   );
   return match?.amount ?? null;
+}
+
+/** A monthly headline must be a recurring account fee, not a per-page or per-item charge in the same category. */
+function isMonthlyMaintenanceFee(fee: ExtractedFee): boolean {
+  const frequency = (fee.frequency ?? "").toLowerCase();
+  const name = fee.fee_name ?? "";
+  if (NOT_A_MONTHLY_FEE.test(name)) return false;
+  return frequency === "monthly" || MONTHLY_MAINTENANCE_NAME.test(name);
 }
 
 /**
@@ -92,7 +109,7 @@ export function pickHeadlineFees(verifiedFees: ExtractedFee[]): HeadlineFees {
   return {
     overdraft: pickAmount(verifiedFees, "overdraft", NON_PAID_ITEM_OVERDRAFT_PATTERN),
     nsf: pickAmount(verifiedFees, "nsf"),
-    monthly: pickAmount(verifiedFees, "monthly_maintenance"),
+    monthly: pickAmount(verifiedFees, "monthly_maintenance", undefined, isMonthlyMaintenanceFee),
   };
 }
 

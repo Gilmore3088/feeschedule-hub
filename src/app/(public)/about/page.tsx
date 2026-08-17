@@ -48,7 +48,7 @@ export default async function AboutPage() {
         <p>
           Everything is built on one ladder. The Bank Fee Index is the free lookup: any
           institution, any published fee, with its source. The{" "}
-          <Link href="/for-institutions#report" className="text-[#C44B2E] hover:underline">
+          <Link href="/for-institutions#report" className="text-[#A93D25] hover:underline">
             {REPORT_OFFER.name}
           </Link>{" "}
           ({REPORT_OFFER.priceLabel}) is a one-time report placing one institution against
@@ -73,7 +73,7 @@ export default async function AboutPage() {
         <p>
           <a
             href={`mailto:${CONTACT_EMAIL}`}
-            className="text-[#C44B2E] hover:underline"
+            className="text-[#A93D25] hover:underline"
           >
             Write to James
           </a>
@@ -157,12 +157,12 @@ export default async function AboutPage() {
           at{" "}
           <a
             href={`mailto:${CONTACT_EMAIL}`}
-            className="text-[#C44B2E] hover:underline"
+            className="text-[#A93D25] hover:underline"
           >
             {CONTACT_EMAIL}
           </a>{" "}
           or use our{" "}
-          <Link href="/contact" className="text-[#C44B2E] hover:underline">
+          <Link href="/contact" className="text-[#A93D25] hover:underline">
             contact form
           </Link>
           .
