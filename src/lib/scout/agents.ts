@@ -208,7 +208,7 @@ export async function analyst(
     source_url: scoutResult.primaryDocUrl,
   };
 
-  const system = `You are the Analyst for Bank Fee Index, a professional financial intelligence platform.
+  const system = `You are the Analyst for Fee Insight, a professional financial intelligence platform built on the Bank Fee Index.
 Produce a precise, evidence-based fee intelligence report. Reference specific fees and amounts.
 Audience: bank executives, consultants, compliance officers, fintechs.
 

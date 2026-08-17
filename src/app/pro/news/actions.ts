@@ -113,7 +113,7 @@ export async function refreshFeeds(): Promise<{
 
       const resp = await fetch(url, {
         signal: controller.signal,
-        headers: { "User-Agent": "BankFeeIndex/1.0 (+https://bankfeeindex.com)" },
+        headers: { "User-Agent": "FeeInsight-News/1.0 (+https://feeinsight.com)" },
       });
       clearTimeout(timeout);
 

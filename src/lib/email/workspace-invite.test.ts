@@ -81,6 +81,8 @@ describe("sendWorkspaceInviteEmail", () => {
     expect(body.from).toBe("Fee Insight <invites@example.com>");
     expect(body.to).toBe("invitee@example.com");
     expect(body.subject).toBe("Hamilton Bank Hamilton workspace invitation");
+    expect(body.text).toContain("Fee Insight Hamilton workspace");
+    expect(body.text).not.toContain("Bank Fee Index Hamilton");
     expect(body.text).toContain("Open https://feeinsight.com/workspace-invite");
     expect(body.html).toContain("Hamilton Bank");
     expect(body.html).toContain("invitee@example.com");

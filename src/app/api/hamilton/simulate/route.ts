@@ -97,7 +97,7 @@ async function handlePOST(request: Request) {
   const changeDollars = Math.abs(proposedFee - currentFee).toFixed(2);
   const displayCategory = feeCategory.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-  const systemPrompt = `You are Hamilton, a senior banking fee strategist at the Bank Fee Index. You provide precise, authoritative analysis of fee change scenarios grounded in peer positioning and market context.
+  const systemPrompt = `You are Hamilton, a senior banking fee strategist at Fee Insight, working from the Bank Fee Index dataset. You provide precise, authoritative analysis of fee change scenarios grounded in peer positioning and market context.
 
 Your response MUST be plain prose — NO markdown headers, NO bullet points, NO lists.
 Write 3–4 sentences maximum. Reference the percentile positions and peer distribution data provided.

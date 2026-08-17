@@ -263,7 +263,7 @@ export function HamiltonChat({
                 </span>
               </div>
               <p className="text-[11px] text-gray-400">
-                Senior research analyst — Bank Fee Index
+                Senior research analyst — Fee Insight
               </p>
               {selectedInstitution && (
                 <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">

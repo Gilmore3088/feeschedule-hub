@@ -11,7 +11,7 @@ import type {
   InstitutionWorkspaceInvitation,
   InstitutionWorkspaceMembership,
 } from "@/lib/hamilton/institution-membership";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 interface WorkspaceAccessManagerProps {
   institutionId: number | null;
@@ -35,9 +35,9 @@ function sourceLabel(source: string): string {
 }
 
 function inviteMailto(invitation: InstitutionWorkspaceInvitation): string {
-  const subject = `Bank Fee Index workspace invitation for ${invitation.institutionName}`;
+  const subject = `${SITE_NAME} workspace invitation for ${invitation.institutionName}`;
   const body = [
-    `You have been invited to ${invitation.institutionName} in Bank Fee Index Hamilton.`,
+    `You have been invited to ${invitation.institutionName} in ${SITE_NAME} Hamilton.`,
     "",
     `Role: ${roleLabel(invitation.role)}`,
     `Invite email: ${invitation.email}`,

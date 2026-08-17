@@ -234,7 +234,7 @@ export async function assembleAndRender(
               strong_maturity_count: payload.derived.strong_maturity_count,
               provisional_maturity_count: payload.derived.provisional_maturity_count,
             },
-            context: `${thesisContext}Discuss the lack of standardized fee revenue benchmarking. Bank Fee Index is building the first national fee revenue benchmark. Position this as closing the industry blind spot. 2-3 sentences.`,
+            context: `${thesisContext}Discuss the lack of standardized fee revenue benchmarking. Fee Insight is building the first national fee revenue benchmark. Position this as closing the industry blind spot. 2-3 sentences.`,
           }),
           generateSection({
             type: 'recommendation',

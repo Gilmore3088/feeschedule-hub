@@ -56,7 +56,7 @@ export interface EditorReviewResult {
 const RULES_LIST = HAMILTON_RULES.map((rule, i) => `${i + 1}. ${rule}`).join("\n");
 const FORBIDDEN_LIST = HAMILTON_FORBIDDEN.map((term) => `- "${term}"`).join("\n");
 
-const EDITOR_SYSTEM_PROMPT = `You are the editorial director at Bank Fee Index. Your job is to review AI-generated research sections before publication to bank executives.
+const EDITOR_SYSTEM_PROMPT = `You are the editorial director at Fee Insight. Your job is to review AI-generated research sections before publication to bank executives.
 
 Review each section for:
 1. Unsupported claims — any statistic in the narrative not present in the source data

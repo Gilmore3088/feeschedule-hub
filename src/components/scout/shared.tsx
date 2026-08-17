@@ -718,7 +718,7 @@ export function Report({ report }: { report: FeeReport }) {
       {/* Report header */}
       <div className="bg-white border border-gray-200 rounded-lg px-6 py-5 mb-3">
         <div className="font-sans text-[10px] text-gray-500 uppercase tracking-widest mb-2.5">
-          Fee Intelligence Report -- Bank Fee Index
+          Fee Intelligence Report -- Fee Insight
         </div>
         <div className="flex justify-between items-start gap-4 flex-wrap">
           <div>
@@ -850,7 +850,7 @@ export function Report({ report }: { report: FeeReport }) {
         </div>
         <FeeTable categories={report.fee_categories} />
         <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-200 font-sans text-[11px] text-gray-400">
-          Data sourced from Bank Fee Index database.
+          Data sourced from the Bank Fee Index database.
         </div>
       </div>
     </div>
