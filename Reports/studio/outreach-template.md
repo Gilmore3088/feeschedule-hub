@@ -1,30 +1,49 @@
 # Outreach email template
 
-Subject: Your NSF fee vs. 35 peer banks — a report we prepared for {{INSTITUTION}}
+Identity: send as **James Gilmore · Fee Insight** from hello@bankfeeindex.com (display name
+must say Fee Insight; the From, the body and the signature all say the same company).
+Never send from a "Bank Fee Index" display name.
+
+Attach: `Fee-Insight_Competitive-Fee-Position_{{INSTITUTION_SLUG}}.pdf`
+Hosted copy: {{HOSTED_LINK}} (per-institution link, expires 90 days after prepared date;
+UTM every link: `?utm_source=outreach&utm_medium=email&utm_campaign=cfp-2026q3`)
+
+Subject: Prepared for {{INSTITUTION}}: your fee position vs. {{N}} peer {{banks|credit unions}} (report attached)
 
 Hi {{FIRST_NAME}},
 
-I run Fee Insight — our Bank Fee Index tracks published fee schedules across 1,100+ banks and
-credit unions with a verified data pipeline.
+I run Fee Insight — we publish the Bank Fee Index, a source-verified record of the fee
+schedules of {{INSTITUTION_COUNT}} U.S. banks and credit unions.
 
-We prepared a competitive fee position report for {{INSTITUTION}} — attached, no
-strings. One finding from it:
+We prepared a Competitive Fee Position report for {{INSTITUTION}} — attached, no strings.
+One finding from it:
 
 > {{ONE_FINDING — e.g. "Your NSF fee ($32) is 2.7x the median of 35 comparable
 > banks; a quarter of them now charge $5 or less."}}
 
 The full report benchmarks your 15 headline fees against your true peer cohort
 ({{COHORT}}), flags the outliers, and shows how named competitors price the same
-lines.
+lines — every figure linked to the published schedule it came from.
 
-If it's useful, I'd love 15 minutes of your reaction — and if you'd want it
-refreshed quarterly or taken deeper (custom competitor sets, board deck), tell me
-what would make it worth paying for.
+Could I have 15 minutes for your reaction? If it's useful, we refresh it quarterly for
+$300, and build custom competitor sets or a board deck on request.
 
-{{YOUR_NAME}}
-Fee Insight · feeinsight.com · {{CONTACT_EMAIL}}
+James Gilmore
+Founder, Fee Insight — publisher of the Bank Fee Index
+feeinsight.com · hello@bankfeeindex.com
+
+---
+## Variant: general inbox (info@, memserv@, IR inbox)
+First line of the body, before "Hi {{FIRST_NAME}}": **Attn: {{FULL_NAME}}, {{TITLE}}**
+
+## Variant: web contact form only (3 lines, no attachment survives a form)
+Hi {{FIRST_NAME}} — I'm James Gilmore, founder of Fee Insight (publisher of the Bank Fee
+Index). We prepared a Competitive Fee Position report for {{INSTITUTION}}: {{ONE_FINDING_SHORT}}.
+It's yours, no strings — what's the best email address to send the PDF to? Or read it here:
+{{HOSTED_LINK}}. — James, hello@bankfeeindex.com
 
 ---
 Rules: send from the Business browser profile / hello@bankfeeindex.com (Fee Insight) identity only.
 Personalize ONE_FINDING from the report's exec summary. Log every send + reply in
-outreach-log.md the same day.
+outreach-log.md the same day. Before the first send: confirm the target profile page on
+feeinsight.com reads correctly (numbers, fee table) — the recipient will open it.
