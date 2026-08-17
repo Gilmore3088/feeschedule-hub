@@ -55,7 +55,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
         <div className="mx-auto w-full min-w-0 max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
           <Link
             href={backHref}
-            className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#7A7062] transition-colors hover:text-[#C44B2E]"
+            className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6B6255] transition-colors hover:text-[#A93D25]"
           >
             <ArrowLeft className="h-4 w-4" />
             {backLabel}
@@ -64,7 +64,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
           <header className="fi-reveal mb-7 border-b border-[#D8CBB8] pb-6">
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-end">
               <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
                   {isClaimFlow ? "Claim or Validate" : "Add a Fee Source"}
                 </p>
                 <h1
@@ -82,7 +82,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
 
               {institutionName && (
                 <div className="border-y border-[#E0D7C9] bg-[#FDFBF8] px-3 py-3 lg:border-l lg:border-y-0">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7A7062]">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#6B6255]">
                     Institution
                   </p>
                   <p className="mt-1 break-words text-sm font-semibold text-[#1A1815]">{institutionName}</p>
@@ -103,7 +103,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
             />
 
             <aside className="min-w-0 border-l border-[#D8CBB8] pl-5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
                 What happens next
               </p>
               <div className="mt-4 space-y-4">
@@ -126,7 +126,7 @@ export default async function SubmitFeesPage({ searchParams }: PageProps) {
             </aside>
           </div>
 
-          <div className="mt-10 max-w-2xl border-t border-[#E0D7C9] pt-5 text-sm leading-relaxed text-[#7A7062]">
+          <div className="mt-10 max-w-2xl border-t border-[#E0D7C9] pt-5 text-sm leading-relaxed text-[#6B6255]">
             <p>
               By submitting, you confirm the fee information is publicly available from the
               institution&apos;s website or official documents. Submissions are rate limited.
@@ -153,7 +153,7 @@ function ReviewStep({
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#C44B2E]" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-[#1A1815]">{title}</p>
-        <p className="mt-1 text-sm leading-relaxed text-[#7A7062]">{detail}</p>
+        <p className="mt-1 text-sm leading-relaxed text-[#6B6255]">{detail}</p>
       </div>
     </div>
   );

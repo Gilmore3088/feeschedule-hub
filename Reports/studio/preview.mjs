@@ -6,6 +6,14 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 const DIR = dirname(fileURLToPath(import.meta.url));
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+// Escape, then turn hosted URLs into anchors and **bold** into <b> so the link line and Attn: line read as sent.
+const rich = (s) => esc(s)
+  .replace(/https?:\/\/[^\s<)]+/g, (url) => `<a href="${url}">${url}</a>`)
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+// Pre-send check: a form-only variant whose short finding was cut mid-sentence ("$33 vs. It's yours",
+// "is 4. It's yours") must never ship. Collected while rendering; the run fails at the end if any exist.
+const TRUNCATION_PATTERNS = [/vs\. It's yours/, /\d\. It's yours/];
+const truncated = [];
 const drafts = readdirSync(join(DIR, "drafts")).filter((f) => f.endsWith(".md")).sort((a, b) => Number(a.split(".")[0]) - Number(b.split(".")[0]));
 const cards = []; const nav = [];
 for (const file of drafts) {
@@ -16,7 +24,8 @@ for (const file of drafts) {
   const subject = (md.match(/^Subject: (.+)$/m) || [])[1] || "";
   const [, bodyAndRest = ""] = md.split(/^Subject: .+\n\n/m);
   const [body, formVariant] = bodyAndRest.split(/\n---\n## Form-only variant[^\n]*\n/);
-  const paras = body.trim().split(/\n\n+/).map((p) => p.startsWith("> ") ? `<blockquote>${esc(p.replace(/^> /gm, ""))}</blockquote>` : `<p>${esc(p).replace(/\n/g, "<br>")}</p>`).join("\n");
+  const paras = body.trim().split(/\n\n+/).map((p) => p.startsWith("> ") ? `<blockquote>${esc(p.replace(/^> /gm, ""))}</blockquote>` : `<p>${rich(p).replace(/\n/g, "<br>")}</p>`).join("\n");
+  if (formVariant && TRUNCATION_PATTERNS.some((re) => re.test(formVariant))) truncated.push(file);
   const hold = conf !== "exact-email";
   nav.push(`<a href="#i${id}">${esc(inst)}</a>`);
   cards.push(`
@@ -29,7 +38,7 @@ for (const file of drafts) {
     ${hosted ? `<div class="row"><span class="k">Hosted</span><span>${esc(hosted)}</span></div>` : ""}
   </div>
   <div class="body">${paras}</div>
-  ${formVariant ? `<div class="variant"><div class="k">Form-only variant</div><p>${esc(formVariant.trim())}</p></div>` : ""}
+  ${formVariant ? `<div class="variant"><div class="k">Form-only variant</div><p>${rich(formVariant.trim())}</p></div>` : ""}
 </div>`);
 }
 const html = `<!doctype html>
@@ -61,3 +70,7 @@ ${cards.join("\n")}
 </div></body></html>`;
 writeFileSync(join(DIR, "email-preview.html"), html);
 console.log("wrote email-preview.html with", drafts.length, "cards");
+if (truncated.length) {
+  console.error("Pre-send check FAILED: form-only variant cut mid-sentence in", truncated.join(", "));
+  process.exit(1);
+}

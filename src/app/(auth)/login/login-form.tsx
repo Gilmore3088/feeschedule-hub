@@ -60,7 +60,7 @@ export function LoginForm({ redirectTo, forgotPasswordHref }: LoginFormProps) {
           </label>
           <a
             href={forgotPasswordHref}
-            className="text-xs font-medium text-[#7A7062] hover:text-[#1A1815] hover:underline"
+            className="text-xs font-medium text-[#6B6255] hover:text-[#1A1815] hover:underline"
           >
             Forgot password?
           </a>

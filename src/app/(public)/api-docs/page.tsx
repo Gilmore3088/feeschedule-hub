@@ -1,11 +1,18 @@
+export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { SITE_URL } from "@/lib/constants";
+import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from "@/lib/constants";
+import { getPublicStatsSummary } from "@/lib/public-stats";
+import { MONTHLY_PRICE_LABEL } from "@/app/subscribe/pricing";
+
+const PRO_LABEL = `${SITE_NAME} Pro`;
+const API_ACCESS_HREF = `mailto:${CONTACT_EMAIL}?subject=API%20access`;
+const API_ACCESS_CTA = "Contact us about API access";
 
 export const metadata: Metadata = {
   title: "API Documentation",
   description:
-    "REST API for accessing bank and credit union fee benchmarking data. JSON endpoints are available with optional manual API keys; CSV exports require a signed-in Seat License.",
+    `REST API for accessing bank and credit union fee benchmarking data. JSON endpoints are available with optional manual API keys; CSV exports require a signed-in ${PRO_LABEL} seat.`,
 };
 
 /* ---------- small reusable pieces ---------- */
@@ -13,7 +20,7 @@ export const metadata: Metadata = {
 function Badge({ children, variant }: { children: React.ReactNode; variant: "get" | "tier" | "new" }) {
   const styles = {
     get: "bg-emerald-100 text-emerald-700",
-    tier: "bg-[#E8DFD1]/60 text-[#7A7062]",
+    tier: "bg-[#E8DFD1]/60 text-[#6B6255]",
     new: "bg-blue-100 text-blue-700",
   };
   return (
@@ -58,8 +65,8 @@ function ParamRow({
           </span>
         )}
       </td>
-      <td className="py-2 pr-3 align-top text-[12px] text-[#7A7062]">{type}</td>
-      <td className="py-2 align-top text-[13px] text-[#7A7062]">{description}</td>
+      <td className="py-2 pr-3 align-top text-[12px] text-[#6B6255]">{type}</td>
+      <td className="py-2 align-top text-[13px] text-[#6B6255]">{description}</td>
     </tr>
   );
 }
@@ -68,7 +75,7 @@ function CodeBlock({ children, title }: { children: string; title?: string }) {
   return (
     <div className="mt-3">
       {title && (
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
           {title}
         </p>
       )}
@@ -83,8 +90,8 @@ function ResponseField({ name, type, note }: { name: string; type: string; note?
   return (
     <div className="flex items-baseline gap-2 text-[13px]">
       <code className="text-[12px] text-[#5A5347]">{name}</code>
-      <span className="text-[11px] text-[#7A7062]">{type}</span>
-      {note && <span className="text-[#7A7062]">-- {note}</span>}
+      <span className="text-[11px] text-[#6B6255]">{type}</span>
+      {note && <span className="text-[#6B6255]">-- {note}</span>}
     </div>
   );
 }
@@ -120,12 +127,12 @@ function Endpoint({
         {tierNote && <Badge variant="tier">{tierNote}</Badge>}
       </div>
       <p className="mt-1 text-[14px] font-medium text-[#1A1815]">{summary}</p>
-      <p className="mt-1 text-[13px] text-[#7A7062]">{description}</p>
+      <p className="mt-1 text-[13px] text-[#6B6255]">{description}</p>
 
       {/* Parameters */}
       {params.length > 0 && (
         <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
             Parameters
           </p>
           <table className="mt-2 w-full text-left">
@@ -144,7 +151,7 @@ function Endpoint({
       {/* Response */}
       {responseFields && responseFields.length > 0 && (
         <div className="mt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
             Response fields
           </p>
           <div className="mt-2 space-y-1">{responseFields.map((f) => <ResponseField key={f.name} {...f} />)}</div>
@@ -164,26 +171,28 @@ function TierCard({
   features,
   highlighted,
   cta,
+  ctaHref,
 }: {
   name: string;
   price: string;
   features: string[];
   highlighted?: boolean;
   cta: string;
+  ctaHref?: string;
 }) {
   return (
     <div
       className={`rounded-xl border px-5 py-5 ${
         highlighted
-          ? "border-[#C4704B] bg-[#C4704B]/5"
+          ? "border-[#C44B2E] bg-[#C44B2E]/5"
           : "border-[#E8DFD1]/80 bg-white"
       }`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
         {name}
       </p>
       <p className="mt-1 text-2xl font-bold text-[#1A1815]">{price}</p>
-      <ul className="mt-3 space-y-1.5 text-[13px] text-[#7A7062]">
+      <ul className="mt-3 space-y-1.5 text-[13px] text-[#6B6255]">
         {features.map((f, i) => (
           <li key={i} className="flex items-start gap-2">
             <span className="mt-0.5 text-emerald-600">&#10003;</span>
@@ -191,7 +200,13 @@ function TierCard({
           </li>
         ))}
       </ul>
-      <p className="mt-4 text-[13px] font-medium text-[#C4704B]">{cta}</p>
+      {ctaHref ? (
+        <a href={ctaHref} className="mt-4 inline-block text-[13px] font-medium text-[#A93D25] underline underline-offset-2">
+          {cta}
+        </a>
+      ) : (
+        <p className="mt-4 text-[13px] font-medium text-[#A93D25]">{cta}</p>
+      )}
     </div>
   );
 }
@@ -200,7 +215,9 @@ function TierCard({
 
 const BASE = `${SITE_URL}/api/v1`;
 
-export default function ApiDocsPage() {
+export default async function ApiDocsPage() {
+  const summary = await getPublicStatsSummary();
+  const categoriesLabel = summary.categoriesLabel;
   return (
     <div className="mx-auto max-w-4xl px-6 py-14">
       <BreadcrumbJsonLd
@@ -211,7 +228,7 @@ export default function ApiDocsPage() {
       />
 
       {/* Hero */}
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C4704B]">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A93D25]">
         Developer
       </p>
       <h1
@@ -222,8 +239,8 @@ export default function ApiDocsPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-[#5A5347]">
         Programmatic access to fee benchmarking data for U.S. banks and credit
-        unions. 49 fee categories, national and peer medians, percentile ranges,
-        and institution-level detail -- all via a simple REST API.
+        unions. {categoriesLabel} fee categories, national and peer medians, percentile ranges,
+        and institution-level detail — all via a simple REST API.
       </p>
 
       {/* Quick links */}
@@ -245,7 +262,7 @@ export default function ApiDocsPage() {
         </a>
         <a
           href={`${BASE}/openapi.json`}
-          className="rounded-md border border-[#C4704B]/30 bg-[#C4704B]/5 px-3 py-1.5 text-[#C4704B] hover:bg-[#C4704B]/10 transition-colors"
+          className="rounded-md border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-3 py-1.5 text-[#A93D25] hover:bg-[#C44B2E]/10 transition-colors"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -255,7 +272,7 @@ export default function ApiDocsPage() {
 
       {/* Base URL */}
       <div className="mt-6 rounded-lg border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
           Base URL
         </p>
         <code className="mt-1 block text-[14px] font-medium text-[#1A1815]">
@@ -266,7 +283,7 @@ export default function ApiDocsPage() {
       {/* Authentication */}
       <SectionHeading id="authentication">Authentication</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1]/80 bg-white px-6 py-5">
-        <p className="text-[13px] text-[#7A7062]">
+        <p className="text-[13px] text-[#6B6255]">
           JSON endpoints can be called without credentials and are rate-limited on the free tier. If Fee Insight manually issues an API key for your workspace, pass it in the{" "}
           <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">Authorization</code>{" "}
           header as a Bearer token, or as an{" "}
@@ -280,14 +297,15 @@ export default function ApiDocsPage() {
         <CodeBlock title="Query parameter authentication">{`curl "${BASE}/fees?api_key=YOUR_API_KEY"`}</CodeBlock>
 
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/50 px-4 py-2.5 text-[13px] text-amber-800">
-          Self-serve account API key creation is not exposed yet. Seat License users should use signed-in CSV exports from Account, and managed API keys require a manual workspace setup.
+          Self-serve API key creation is not exposed yet. {PRO_LABEL} users should use signed-in CSV exports from Account; managed API keys are set up by hand.{" "}
+          <a href={API_ACCESS_HREF} className="font-medium underline underline-offset-2">{API_ACCESS_CTA}</a>.
         </div>
       </div>
 
       {/* Rate Limits */}
       <SectionHeading id="rate-limits">Rate Limits</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1]/80 bg-white px-6 py-5">
-        <p className="text-[13px] text-[#7A7062]">
+        <p className="text-[13px] text-[#6B6255]">
           Rate limits are enforced per API key when present and by anonymous request source otherwise. Current window information is returned in response headers.
         </p>
         <div className="mt-3 space-y-1.5 text-[13px]">
@@ -299,9 +317,9 @@ export default function ApiDocsPage() {
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="bg-[#FAF7F2]">
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Tier</th>
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Monthly limit</th>
-                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">Burst rate</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">Tier</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">Monthly limit</th>
+                <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">Burst rate</th>
               </tr>
             </thead>
             <tbody className="text-[#5A5347]">
@@ -311,12 +329,12 @@ export default function ApiDocsPage() {
                 <td className="px-4 py-2">10/min</td>
               </tr>
               <tr className="border-t border-[#E8DFD1]/60">
-                <td className="px-4 py-2 font-medium">Pro key</td>
+                <td className="px-4 py-2 font-medium">{PRO_LABEL} key</td>
                 <td className="px-4 py-2">10,000 requests</td>
                 <td className="px-4 py-2">Manual setup</td>
               </tr>
               <tr className="border-t border-[#E8DFD1]/60">
-                <td className="px-4 py-2">Enterprise</td>
+                <td className="px-4 py-2">{SITE_NAME} Advisory</td>
                 <td className="px-4 py-2">Custom</td>
                 <td className="px-4 py-2">Custom</td>
               </tr>
@@ -333,12 +351,12 @@ export default function ApiDocsPage() {
           method="GET"
           path="/fees"
           summary="List all fee categories"
-          description="Returns all 49 fee categories with national median, P25/P75 percentiles, min/max, and institution counts. Free tier returns 6 spotlight categories."
+          description={`Returns all ${categoriesLabel} fee categories with national median, P25/P75 percentiles, min/max, and institution counts. Free tier returns 6 spotlight categories.`}
           params={[
             {
               name: "format",
               type: "string",
-              description: '"csv" for CSV download from a signed-in Seat License session',
+              description: `"csv" for CSV download from a signed-in ${PRO_LABEL} session`,
             },
           ]}
           curlExample={`curl -H "Authorization: Bearer YOUR_API_KEY" \\
@@ -353,7 +371,7 @@ export default function ApiDocsPage() {
             { name: "data[].tier", type: "string", note: "spotlight | core | extended | comprehensive" },
           ]}
           responseExample={`{
-  "total": 49,
+  "total": ${summary.categories},
   "data": [
     {
       "category": "overdraft",
@@ -442,7 +460,7 @@ export default function ApiDocsPage() {
             {
               name: "format",
               type: "string",
-              description: '"csv" for CSV download from a signed-in Seat License session',
+              description: `"csv" for CSV download from a signed-in ${PRO_LABEL} session`,
             },
           ]}
           curlExample={`# National index
@@ -602,21 +620,22 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           cta="Get started -- no card required"
         />
         <TierCard
-          name="Pro"
-          price="$200/mo"
+          name={PRO_LABEL}
+          price={`${MONTHLY_PRICE_LABEL}/mo per seat`}
           highlighted
           features={[
-            "Signed-in Seat License exports",
-            "All 49 fee categories",
+            `Signed-in ${PRO_LABEL} exports`,
+            `All ${categoriesLabel} fee categories`,
             "Peer group filtering",
             "Category detail breakdowns",
             "Institution-level data",
             "Managed API key setup by request",
           ]}
-          cta="Request early access"
+          cta={API_ACCESS_CTA}
+          ctaHref={API_ACCESS_HREF}
         />
         <TierCard
-          name="Enterprise"
+          name={`${SITE_NAME} Advisory`}
           price="Custom"
           features={[
             "Unlimited requests",
@@ -626,14 +645,15 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
             "Dedicated support",
             "Custom SLA",
           ]}
-          cta="Contact sales"
+          cta="Talk to us"
+          ctaHref={`mailto:${CONTACT_EMAIL}?subject=Fee%20Insight%20Advisory`}
         />
       </div>
 
       {/* ---- DATA NOTES ---- */}
       <SectionHeading id="data-notes">Data Notes</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-6 py-5">
-        <ul className="space-y-2 text-[13px] text-[#7A7062]">
+        <ul className="space-y-2 text-[13px] text-[#6B6255]">
           <li>
             <span className="font-medium text-[#5A5347]">Currency.</span>{" "}
             All monetary amounts are in USD.
@@ -645,29 +665,29 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
           <li>
             <span className="font-medium text-[#5A5347]">Sources.</span>{" "}
             Institution data is sourced from FDIC (banks) and NCUA (credit unions) registries.
-            Fee data is extracted from published fee schedules using AI-assisted analysis.
+            Fee data is read from published fee schedules; fees the software is not sure about
+            are held for a person to check.
           </li>
           <li>
-            <span className="font-medium text-[#5A5347]">Maturity.</span>{" "}
-            Each category carries a maturity indicator: &quot;strong&quot; (10+ approved),
-            &quot;provisional&quot; (10+ observations), or &quot;insufficient&quot;.
+            <span className="font-medium text-[#5A5347]">Status.</span>{" "}
+            Each category carries a status: Verified (10+ checked fees), Under review, or Too few to benchmark.
           </li>
           <li>
             <span className="font-medium text-[#5A5347]">Tier system.</span>{" "}
-            49 categories are organized into 4 tiers: spotlight (6), core (9),
-            extended (15), and comprehensive (19). The Free API tier returns only spotlight categories.
+            Categories are organized into 4 tiers: spotlight, core, extended, and comprehensive.
+            The Free API tier returns only spotlight categories.
           </li>
           <li>
             <span className="font-medium text-[#5A5347]">Coverage.</span>{" "}
-            The dataset currently includes thousands of U.S. financial institutions
-            and is updated continuously through visible agentic collection.
+            The dataset covers {summary.institutionsLabel} institutions with verified fees and is
+            refreshed on a rolling calendar. {summary.freshnessLabel}.
           </li>
         </ul>
       </div>
 
       {/* OpenAPI link */}
       <div className="mt-8 rounded-xl border border-[#E8DFD1] bg-white px-6 py-5 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]">
           Machine-readable specification
         </p>
         <p className="mt-2 text-[14px] text-[#5A5347]">
@@ -675,7 +695,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
         </p>
         <a
           href={`${BASE}/openapi.json`}
-          className="mt-3 inline-block rounded-lg border border-[#C4704B]/30 bg-[#C4704B]/5 px-5 py-2 text-[13px] font-medium text-[#C4704B] hover:bg-[#C4704B]/10 transition-colors"
+          className="mt-3 inline-block rounded-lg border border-[#C44B2E]/30 bg-[#C44B2E]/5 px-5 py-2 text-[13px] font-medium text-[#A93D25] hover:bg-[#C44B2E]/10 transition-colors"
           target="_blank"
           rel="noopener noreferrer"
         >

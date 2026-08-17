@@ -68,8 +68,8 @@
     text-transform:uppercase; color:var(--cream); white-space:nowrap; font-weight:500; }
   .cover .spine .vert b { color:#F9D5C8; font-weight:600; }
   .cover .spine .mark { position:absolute; left:50%; top:0.85in; transform:translateX(-50%);
-    width:22pt; height:22pt; border:1.5pt solid var(--cream); border-radius:50%; }
-  .cover .spine .mark::after { content:""; position:absolute; inset:5pt; background:var(--cream); border-radius:50%; }
+    width:22pt; height:22pt; }
+  .cover .spine .mark svg { display:block; width:22pt; height:22pt; }
   .cover .body { position:relative; padding:0.85in 0.85in 0.8in 0.75in; display:flex; flex-direction:column; }
   .cover .topline { display:flex; justify-content:space-between; font-family:var(--mono);
     font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:var(--text2);
@@ -88,6 +88,8 @@
   .cover .instmeta { margin-top:10pt; font-family:var(--mono); font-size:7.6pt; letter-spacing:0.06em;
     color:var(--text2); text-transform:uppercase; }
   .cover .instmeta i { font-style:normal; color:var(--muted); padding:0 5pt; }
+  .cover .cohortnote { margin-top:14pt; font-family:var(--sans); font-size:8pt; line-height:1.5;
+    color:var(--text2); max-width:5in; }
   .cover .ghost { position:absolute; right:0.6in; bottom:1.6in; font-family:var(--serif);
     font-size:160pt; font-weight:600; letter-spacing:-0.06em; line-height:1; color:var(--terra-ghost);
     z-index:0; pointer-events:none; }
@@ -222,7 +224,7 @@
     line-height:1.3; margin-bottom:6pt; }
   .back .cta p { font-family:var(--sans); font-size:8.8pt; line-height:1.6; color:#CFC6B8; margin:0; }
   .back .cta .mail { font-family:var(--mono); font-size:9.5pt; color:var(--cream); font-weight:500;
-    display:block; margin-top:8pt; letter-spacing:0.02em; }
+    display:block; margin-top:8pt; letter-spacing:0.02em; text-decoration:none; }
   .back .colophon { margin-top:26pt; padding-top:8pt; border-top:0.5pt solid #3D3830;
     font-family:var(--mono); font-size:6.6pt; letter-spacing:0.1em; text-transform:uppercase;
     color:#7A7062; display:flex; justify-content:space-between; }
@@ -233,22 +235,23 @@
 <!-- 1. COVER -->
 <div class="bleed cover">
   <div class="spine">
-    <div class="mark"></div>
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#FDFBF8" stroke-width="1.5" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg></div>
     <div class="vert"><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</div>
   </div>
   <div class="body">
-    <div class="topline"><span><b>Competitive Fee Position</b> &nbsp;·&nbsp; Report</span><span>2026-08-16</span></div>
+    <div class="topline"><span><b>Competitive Fee Position</b> &nbsp;·&nbsp; Report</span><span>Aug 16, 2026</span></div>
     <div class="title">
       <div class="series">Prepared exclusively for one institution</div>
       <h1>Competitive<br>Fee <em>Position</em></h1>
       <div class="for">Prepared for
         <span class="instname">Sample Community Bank</span>
       </div>
-      <div class="instmeta">Community bank<i>·</i>~$400M assets<i>·</i>San Francisco district</div>
+      <div class="instmeta">San Francisco Fed district<i>·</i>Bank<i>·</i>Community bank, $300M–$1B</div>
+      <p class="cohortnote">Peer cohort: 76 comparable community banks. Not every peer publishes every fee: 34 publish an NSF fee and 12 an overdraft fee, so those are the comparison sets for those lines.</p>
     </div>
     <div class="ghost">76</div>
     <div class="card">
-      <div><div class="lbl">Peer cohort</div><div class="val">bank / community mid</div></div>
+      <div><div class="lbl">Peer cohort</div><div class="val">Community banks, $300M–$1B</div></div>
       <div><div class="lbl">Benchmarked against</div>
         <div class="big">76<small>peer institutions with published fee schedules</small></div></div>
       <div><div class="lbl">Source</div><div class="val mono">feeinsight.com</div></div>
@@ -280,7 +283,7 @@
   <div class="kicker">The position map</div>
   <h2>Your fees vs. 76 peer institutions</h2>
   <hr class="rule">
-  <p class="lede">Peer cohort: bank / community mid — 76 institutions with published
+  <p class="lede">Peer cohort: Community banks, $300M–$1B — 76 institutions with published
   fee schedules. Not every peer publishes every fee, so each category compares against the
   peers that publish that line (per-category n noted in § 03). Percentile = share of peers
   charging the same or less; the tick marks the median. Terracotta bars sit above the 80th
@@ -430,8 +433,8 @@
   <p class="narrative" style="margin-top:10pt">Your posted prices (62th percentile) and realized fee income (64th percentile) are both top-of-cohort. <b>Fees are a genuine earnings engine here</b> — which cuts both ways: repricing decisions carry real revenue consequences, and regulatory or competitive pressure on fee income lands harder on you than on peers.</p>
   <p class="small muted" style="margin-top:6pt">Fee-intensity trend (year-end filings): 2024: 2.8 bps → 2025: 2.2 bps · cohort median 1.7 bps.</p>
   <p class="small muted" style="margin-top:6pt">Deposit footprint (FDIC Summary of Deposits, 2025): 2 branch locations across 1 counties holding $367.0M in deposits.</p>
-  <p class="footnote">Financial figures as filed (2026-03-31 snapshot; revenue from
-  2025-12-31 full-year filing). Cohort medians computed across 1427
+  <p class="footnote">Financial figures as filed (Mar 31, 2026 snapshot; revenue from
+  Dec 31, 2025 full-year filing). Cohort medians computed across 1,427
   same-charter, same-tier institutions' latest full-year filings.</p>
   <div class="pagefoot"><span>Competitive Fee Position — Sample Community Bank</span><span>Fee Insight</span></div>
 </div>
@@ -448,14 +451,14 @@
     <thead><tr><th>Institution</th><th class="r">Monthly maintenance</th><th class="r">Overdraft</th><th class="r">NSF / returned item</th><th class="r">Stop payment</th><th class="r">Outgoing domestic wire</th></tr></thead>
     <tbody>
       <tr class="self"><td>Sample Community Bank <span class="small muted">(you)</span></td><td class="r">$0.00</td><td class="r">$1.00</td><td class="r">$33.00</td><td class="r">$30.00</td><td class="r">$25.00</td></tr>
-      <tr><td>Peer 1 <span class="small muted">(name withheld in sample)</span></td><td class="r">—</td><td class="r">$29.00</td><td class="r">$29.00</td><td class="r">$29.00</td><td class="r">$15.00</td></tr>
-<tr><td>Peer 2 <span class="small muted">(name withheld in sample)</span></td><td class="r">$5.00</td><td class="r">$35.00</td><td class="r">$35.00</td><td class="r">$25.00</td><td class="r">$15.00</td></tr>
-<tr><td>Peer 3 <span class="small muted">(name withheld in sample)</span></td><td class="r">$17.00</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$15.00</td></tr>
-<tr><td>Peer 4 <span class="small muted">(name withheld in sample)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$25.00</td><td class="r">$15.00</td></tr>
-<tr><td>Peer 5 <span class="small muted">(name withheld in sample)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$25.00</td></tr>
-<tr><td>Peer 6 <span class="small muted">(name withheld in sample)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$33.00</td><td class="r">$30.00</td><td class="r">$20.00</td></tr>
-<tr><td>Peer 7 <span class="small muted">(name withheld in sample)</span></td><td class="r">$15.00</td><td class="r">—</td><td class="r">$10.00</td><td class="r">$15.00</td><td class="r">$10.00</td></tr>
-<tr><td>Peer 8 <span class="small muted">(name withheld in sample)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$35.00</td><td class="r">$35.00</td><td class="r">$30.00</td></tr>
+      <tr><td>PB&amp;T Bank <span class="small muted">(Pueblo, CO)</span></td><td class="r">—</td><td class="r">$29.00</td><td class="r">$29.00</td><td class="r">$29.00</td><td class="r">$15.00</td></tr>
+<tr><td>Redwood Capital Bank <span class="small muted">(Eureka, CA)</span></td><td class="r">$5.00</td><td class="r">$35.00</td><td class="r">$35.00</td><td class="r">$25.00</td><td class="r">$15.00</td></tr>
+<tr><td>Gateway Bank <span class="small muted">(Mendota Heights, MN)</span></td><td class="r">$17.00</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$15.00</td></tr>
+<tr><td>First Bank <span class="small muted">(Burkburnett, TX)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$25.00</td><td class="r">$15.00</td></tr>
+<tr><td>Kentland Bank <span class="small muted">(Kentland, IN)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">$25.00</td></tr>
+<tr><td>First Community Bank of Central Alabama <span class="small muted">(Wetumpka, AL)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$33.00</td><td class="r">$30.00</td><td class="r">$20.00</td></tr>
+<tr><td>Mega Bank <span class="small muted">(San Gabriel, CA)</span></td><td class="r">$15.00</td><td class="r">—</td><td class="r">$10.00</td><td class="r">$15.00</td><td class="r">$10.00</td></tr>
+<tr><td>American Community Bank of Indiana <span class="small muted">(Saint John, IN)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$35.00</td><td class="r">$35.00</td><td class="r">$30.00</td></tr>
     </tbody>
   </table>
   <div class="pagefoot"><span>Competitive Fee Position — Sample Community Bank</span><span>Fee Insight</span></div>
@@ -474,10 +477,10 @@
       Fee data is drawn exclusively from institutions' published fee schedules — public
       documents — collected and verified through the Bank Fee Index agentic pipeline
       (discovery, extraction, independent verification, publication). Peer cohort:
-      bank / community mid — 76 institutions with published data. Percentiles are
+      Community banks, $300M–$1B — 76 institutions with published data. Percentiles are
       computed within-cohort per fee category; a category is flagged an outlier when it
       exceeds 2× the peer median (extreme) or P75 + 1.5×IQR (statistical). Data pulled
-      2026-08-16. Figures reflect the lowest published consumer-facing amount per
+      Aug 16, 2026. Figures reflect the lowest published consumer-facing amount per
       category and may not capture account-specific waivers.
     </p>
     <h3 class="sub" style="margin-top:14pt">Your source documents</h3>
@@ -497,14 +500,14 @@
   <h2>Your complete published fee schedule</h2>
   <hr class="rule">
   <p class="lede">Every distinct fee line the Bank Fee Index has extracted and verified from
-  Sample Community Bank's published documents (38 lines, as of 2026-08-16).
+  Sample Community Bank's published documents (38 lines, as of Aug 16, 2026).
   This is the schedule your customers — and your competitors — can see.</p>
   <table class="appendix" style="margin-top:12pt">
     <thead><tr><th>Published fee line</th><th class="r">Amount</th><th>Frequency / terms</th></tr></thead>
     <tbody>
       <tr><td>ACH Origination</td><td class="r"><b>$20.00</b></td>
     <td class="small muted">monthly · per statement cycle</td></tr>
-<tr><td>ATM withdrawal (exceeding four per month at non-CBSM ATMs)</td><td class="r"><b>$1.00</b></td>
+<tr><td>ATM withdrawal (exceeding four per month at non-network ATMs)</td><td class="r"><b>$1.00</b></td>
     <td class="small muted">per occurrence</td></tr>
 <tr><td>Balancing and research</td><td class="r"><b>$25.00</b></td>
     <td class="small muted">other · per hour</td></tr>
@@ -585,20 +588,20 @@
 
 <!-- 8. BACK -->
 <div class="bleed back">
-  <div class="brandline"><span><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>2026-08-16</span></div>
-  <h2>This report is yours,<br><em>with our compliments.</em></h2>
-  <p class="sub">It was produced from source-verified fee data — the same index tracking
-  1,183 institutions nationwide.</p>
+  <div class="brandline"><span><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>Aug 16, 2026</span></div>
+  <h2>This is what a <em>$300 report</em> looks like.</h2>
+  <p class="sub">A Competitive Fee Position Report is built for your institution and your peer set from source-verified fee data — the same index tracking 1,183 institutions nationwide — and delivered in 48 hours.</p>
   <div class="cta">
     <div>
-      <h4>Want this refreshed every quarter?</h4>
-      <p>Or a deeper dive — custom competitor sets, a board-ready deck, pricing-change
-      modeling against your own filings.</p>
+      <h4>Retail $300 · quarterly refresh $300 · Request yours</h4>
+      <p>Named competitors, every fee benchmarked against a verified peer cohort, the revenue lens
+      from your own filings. Or go deeper with Fee Insight Advisory — custom competitor sets, a
+      board-ready deck, pricing-change modeling.</p>
     </div>
     <div>
-      <p>Reply to the email this arrived with, or write</p>
-      <span class="mail">hello@bankfeeindex.com</span>
-      <p style="margin-top:8pt">feeinsight.com</p>
+      <p>Request yours at</p>
+      <a class="mail" href="https://feeinsight.com/for-institutions#report">feeinsight.com/for-institutions</a>
+      <p style="margin-top:8pt">or write hello@bankfeeindex.com</p>
     </div>
   </div>
   <div class="colophon"><span>Prepared for Sample Community Bank</span><span>Set in Newsreader &amp; IBM Plex</span></div>

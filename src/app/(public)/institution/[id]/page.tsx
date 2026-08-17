@@ -8,17 +8,17 @@ import { getCurrentUser } from "@/lib/auth";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { computeInstitutionRating, generateInterpretation } from "@/lib/institution-rating";
+import { SITE_NAME } from "@/lib/constants";
+import { NO_VERDICT_LABEL, computeInstitutionRating, generateInterpretation } from "@/lib/institution-rating";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { buildPublicInstitutionProfileLinks } from "@/lib/institution-profile-links";
 import { formatAbsoluteDate } from "@/lib/public-stats";
 import { getCharterLabel, getSegmentLabel, toTitleCase } from "./enum-labels";
 import { FeeScheduleTable } from "./fee-schedule-table";
 import { FinancialContext } from "./financial-context";
-import { assetSizeToDollars, formatReportQuarter, normalizeFinancial } from "./financial-units";
+import { assetSizeToDollars, formatReportQuarter, selectFinancialsByQuarter } from "./financial-units";
 import { InstitutionMetricRow, InstitutionOfferBand } from "./institution-metrics";
-import { MIN_VERIFIED_FEES_FOR_NARRATIVE } from "./profile-copy";
+import { MIN_VERIFIED_FEES_FOR_NARRATIVE, MIN_VERIFIED_FEES_FOR_OFFER } from "./profile-copy";
 import {
   buildProfileTitle,
   getPublicInstitutionForPage,
@@ -29,14 +29,18 @@ import {
   toPipelineDisplayFees,
 } from "./profile-data";
 import { ProfileHeader } from "./profile-header";
+import { InstitutionJsonLd } from "./profile-jsonld";
 import { ProfileSidebar, type KeyFact } from "./profile-sidebar";
-import { FeeProfileSummary, StatusNotice } from "./status-notice";
+import { FeeProfileNoVerdict, FeeProfileSummary, StatusNotice } from "./status-notice";
+import { ThinProfilePanel } from "./thin-profile-panel";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
 const FINANCIAL_HISTORY_QUARTERS = 4;
+/** Up to three call-report sources can carry the same quarter; fetch enough rows to dedupe. */
+const FINANCIAL_SOURCES_PER_QUARTER = 3;
 
 function fallbackTo<T>(label: string, fallback: T) {
   return (error: unknown): T => {
@@ -93,7 +97,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     shouldLoadPipelineEvidence
       ? getInstitutionFeeScheduleEvidence(instId).catch(fallbackTo("fee evidence", null))
       : Promise.resolve(null),
-    getFinancialsByInstitution(instId, FINANCIAL_HISTORY_QUARTERS).catch(fallbackTo("financial context", [])),
+    getFinancialsByInstitution(instId, FINANCIAL_HISTORY_QUARTERS * FINANCIAL_SOURCES_PER_QUARTER).catch(
+      fallbackTo("financial context", []),
+    ),
     getCurrentUser().catch(() => null),
   ]);
 
@@ -114,7 +120,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const nationalIndex =
     verifiedFees.length > 0 ? await getNationalIndexCached().catch(fallbackTo("national index", [])) : [];
   const rating = verifiedFees.length > 0 ? computeInstitutionRating(verifiedFees, nationalIndex) : null;
-  const showNarrative = rating !== null && verifiedFees.length >= MIN_VERIFIED_FEES_FOR_NARRATIVE;
+  const enoughForNarrative = verifiedFees.length >= MIN_VERIFIED_FEES_FOR_NARRATIVE;
+  const showNarrative = rating !== null && enoughForNarrative;
+  const thinProfile = verifiedFees.length < MIN_VERIFIED_FEES_FOR_OFFER;
   const headline = pickHeadlineFees(verifiedFees);
   const interpretation =
     showNarrative && rating
@@ -126,10 +134,11 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         })
       : null;
 
-  const normalizedFinancials = financials.map(normalizeFinancial);
+  // One row per quarter, one source; the KPI strip and Financial Context share the same figure.
+  const normalizedFinancials = selectFinancialsByQuarter(financials).slice(0, FINANCIAL_HISTORY_QUARTERS);
   const latestFinancial = normalizedFinancials[0] ?? null;
   const financialsAsOf = latestFinancial ? formatReportQuarter(latestFinancial.reportDate) : null;
-  const assetsDollars = assetSizeToDollars(inst.asset_size) ?? latestFinancial?.totalAssets ?? null;
+  const assetsDollars = latestFinancial?.totalAssets ?? assetSizeToDollars(inst.asset_size);
 
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
   const city = toTitleCase(inst.city);
@@ -189,14 +198,8 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             verifiedCount={verifiedCount}
             underReviewCount={underReviewCount}
             assetsDollars={assetsDollars}
-            scoreLabel={rating?.label ?? null}
+            scoreLabel={rating?.label ?? (enoughForNarrative ? NO_VERDICT_LABEL : null)}
             financialsAsOf={financialsAsOf}
-          />
-
-          <InstitutionOfferBand
-            institutionName={inst.institution_name}
-            reportOfferHref={links.reportOfferHref}
-            correctSourceHref={links.correctSourceHref}
           />
 
           <StatusNotice
@@ -215,15 +218,18 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                   overdraftAmount={headline.overdraft}
                 />
               )}
+              {enoughForNarrative && rating === null && (
+                <FeeProfileNoVerdict verifiedCount={verifiedFees.length} />
+              )}
 
               <section className="border border-[#E0D7C9] bg-white">
                 <div className="border-b border-[#E0D7C9] px-4 py-3 sm:px-5">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">Fee Schedule</p>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">Fee Schedule</p>
                       <h2 className="text-lg font-semibold text-[#1A1815]">Published fees</h2>
                     </div>
-                    <p className="text-sm text-[#7A7062]">
+                    <p className="text-sm text-[#6B6255]">
                       Verified fees power benchmarks; fees under review do not.
                     </p>
                   </div>
@@ -239,7 +245,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                           ? "Fees for this institution are under review."
                           : "No published schedule found."}
                       </p>
-                      <p className="mt-1 text-sm leading-relaxed text-[#7A7062]">
+                      <p className="mt-1 text-sm leading-relaxed text-[#6B6255]">
                         {underReviewCount > 0
                           ? "Verified fees will appear here once review is complete."
                           : "Fee comparisons are withheld until a published fee schedule has been reviewed."}
@@ -249,6 +255,23 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
                 )}
               </section>
 
+              {thinProfile ? (
+                <ThinProfilePanel
+                  institutionId={instId}
+                  institutionName={inst.institution_name}
+                  status={status}
+                  verifiedCount={verifiedFees.length}
+                  correctSourceHref={links.correctSourceHref}
+                  claimHref={links.claimHref}
+                />
+              ) : (
+                <InstitutionOfferBand
+                  institutionName={inst.institution_name}
+                  reportOfferHref={links.reportOfferHref}
+                  correctSourceHref={links.correctSourceHref}
+                />
+              )}
+
               <FinancialContext latest={latestFinancial} history={normalizedFinancials} />
             </div>
 
@@ -257,25 +280,17 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
               links={links}
               isAuthenticated={Boolean(user)}
               showAddSource={needsSource}
+              showProCard={!thinProfile}
             />
           </div>
         </div>
       </main>
 
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FinancialService",
-            name: inst.institution_name,
-            description: `Published fees and fee schedule for ${inst.institution_name}`,
-            url: `${SITE_URL}/institution/${instId}`,
-            address: inst.state_code
-              ? { "@type": "PostalAddress", addressLocality: city ?? undefined, addressRegion: inst.state_code }
-              : undefined,
-          }).replace(/</g, "\\u003c"),
-        }}
+      <InstitutionJsonLd
+        institutionId={instId}
+        institutionName={inst.institution_name}
+        city={city}
+        stateCode={inst.state_code}
       />
     </>
   );

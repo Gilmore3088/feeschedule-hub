@@ -1,33 +1,21 @@
 import { SITE_URL } from "@/lib/constants";
 import type { InstitutionWorkspaceInvitation } from "@/lib/hamilton/institution-membership";
+import {
+  escapeHtml,
+  getResendApiKey,
+  getTransactionalFromAddress,
+  sendResendEmail,
+  type EmailDeliveryResult,
+} from "./resend";
 
-export type WorkspaceInviteEmailDeliveryResult =
-  | { status: "sent"; providerId: string | null }
-  | { status: "not_configured"; reason: string }
-  | { status: "failed"; error: string };
-
-const RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails";
+export type WorkspaceInviteEmailDeliveryResult = EmailDeliveryResult;
 
 function getWorkspaceInviteUrl() {
   return `${SITE_URL.replace(/\/$/, "")}/workspace-invite`;
 }
 
 function getInviteEmailFromAddress() {
-  return (
-    process.env.WORKSPACE_INVITE_EMAIL_FROM ||
-    process.env.TRANSACTIONAL_EMAIL_FROM ||
-    process.env.EMAIL_FROM ||
-    ""
-  ).trim();
-}
-
-function escapeHtml(value: string | null | undefined) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  return (process.env.WORKSPACE_INVITE_EMAIL_FROM || "").trim() || getTransactionalFromAddress();
 }
 
 function buildIdempotencyKey(invitation: InstitutionWorkspaceInvitation) {
@@ -37,32 +25,10 @@ function buildIdempotencyKey(invitation: InstitutionWorkspaceInvitation) {
   return `workspace-invite-${invitation.id}-${version || "queued"}`;
 }
 
-async function parseProviderResponse(response: Response): Promise<Record<string, unknown> | null> {
-  try {
-    const body = (await response.json()) as unknown;
-    return body && typeof body === "object" && !Array.isArray(body)
-      ? (body as Record<string, unknown>)
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function providerErrorMessage(payload: Record<string, unknown> | null, fallback: string) {
-  if (!payload) return fallback;
-  const direct = payload.message || payload.error;
-  if (typeof direct === "string" && direct.trim()) return direct.trim();
-  if (direct && typeof direct === "object" && "message" in direct) {
-    const nested = (direct as { message?: unknown }).message;
-    if (typeof nested === "string" && nested.trim()) return nested.trim();
-  }
-  return fallback;
-}
-
 export async function sendWorkspaceInviteEmail(
   invitation: InstitutionWorkspaceInvitation,
 ): Promise<WorkspaceInviteEmailDeliveryResult> {
-  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  const apiKey = getResendApiKey();
   const from = getInviteEmailFromAddress();
 
   if (!apiKey) {
@@ -115,40 +81,15 @@ export async function sendWorkspaceInviteEmail(
     </div>
   `;
 
-  try {
-    const response = await fetch(process.env.RESEND_EMAIL_ENDPOINT || RESEND_EMAIL_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": buildIdempotencyKey(invitation),
-      },
-      body: JSON.stringify({
-        from,
-        to: invitation.email,
-        subject,
-        html,
-        text,
-      }),
-    });
-
-    const payload = await parseProviderResponse(response);
-    if (!response.ok) {
-      return {
-        status: "failed",
-        error: providerErrorMessage(
-          payload,
-          `Resend returned HTTP ${response.status} while sending the workspace invite.`,
-        ),
-      };
-    }
-
-    const providerId = typeof payload?.id === "string" ? payload.id : null;
-    return { status: "sent", providerId };
-  } catch (error) {
-    return {
-      status: "failed",
-      error: error instanceof Error ? error.message : "Workspace invite email send failed.",
-    };
-  }
+  return sendResendEmail(
+    {
+      from,
+      to: invitation.email,
+      subject,
+      html,
+      text,
+      idempotencyKey: buildIdempotencyKey(invitation),
+    },
+    "the workspace invite",
+  );
 }

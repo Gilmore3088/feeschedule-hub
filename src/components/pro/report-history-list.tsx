@@ -60,7 +60,7 @@ function ActionCell({ report }: { report: ReportRow }) {
     return (
       <a
         href={`/api/reports/${report.id}/download`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-[#C44B2E] hover:text-[#B03E24] transition-colors"
+        className="inline-flex items-center gap-1 text-sm font-medium text-[#A93D25] hover:text-[#B03E24] transition-colors"
       >
         <DownloadIcon />
         Download
@@ -78,7 +78,7 @@ function ActionCell({ report }: { report: ReportRow }) {
     );
   }
   return (
-    <span className="text-sm text-[#7A7062]">Generating...</span>
+    <span className="text-sm text-[#6B6255]">Generating...</span>
   );
 }
 
@@ -126,16 +126,16 @@ export function ReportHistoryList({ reports }: ReportHistoryListProps) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#6B6255]">
               Report Type
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#6B6255]">
               Date
             </th>
-            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+            <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[#6B6255]">
               Status
             </th>
-            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#7A7062]">
+            <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[#6B6255]">
               Action
             </th>
           </tr>

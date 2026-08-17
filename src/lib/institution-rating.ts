@@ -6,6 +6,12 @@
  *   overdraft $20.01-$36 → yellow "Average Fee Structure"
  *   overdraft > $36   → red   "Above-Average Fees"
  *
+ * The verdict keys on the paid-item overdraft charge (NSF / returned-item as a
+ * fallback). Overdraft-family rows that are not a paid-item charge — transfer
+ * sweeps, protection enrolment, continuous/daily fees — never drive it, and when
+ * no paid-item overdraft or NSF fee is verified there is no verdict at all
+ * (callers render "Overdraft fee not published").
+ *
  * Security (T-30.1-01): fee amounts are validated as finite, non-negative
  * before any comparison.
  */
@@ -21,11 +27,9 @@ const OVERDRAFT_YELLOW_MAX = 36;   // $20.01–$36 → yellow; > $36 → red
 
 const BONUS_SIGNALS = ["cap", "de minimis", "balance threshold", "maximum", "limit"];
 
-// Typical fee count ranges for context copy (hardcoded per spec §4)
-const TYPICAL_BANK_MIN = 30;
+// Typical fee count range for context copy (hardcoded per spec §4): CU floor, bank ceiling
 const TYPICAL_BANK_MAX = 50;
 const TYPICAL_CU_MIN = 25;
-const TYPICAL_CU_MAX = 35;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,22 +82,41 @@ function buildIndexMap(nationalIndex: IndexEntry[]): Map<string, IndexEntry> {
   return new Map(nationalIndex.map((e) => [e.fee_category, e]));
 }
 
+/** Overdraft-family rows that are not a paid-item charge; excluded from detection. */
+export const NON_PAID_ITEM_OVERDRAFT_PATTERN =
+  /transfer|protection|line of credit|continuous|daily|sweep|extended|sustained/i;
+const OVERDRAFT_NAME_PATTERN = /overdraft/i;
+const NSF_NAME_PATTERN = /\b(nsf|non-?sufficient|insufficient funds|returned item)\b/i;
+
+export interface PaidItemFee {
+  amount: number;
+  conditions: string | null;
+  kind: "overdraft" | "nsf";
+}
+
+function isPaidItemOverdraft(fee: RatingInput): boolean {
+  if (NON_PAID_ITEM_OVERDRAFT_PATTERN.test(fee.fee_name)) return false;
+  return fee.fee_category === "overdraft" || OVERDRAFT_NAME_PATTERN.test(fee.fee_name);
+}
+
+function isNsfFee(fee: RatingInput): boolean {
+  return fee.fee_category === "nsf" || NSF_NAME_PATTERN.test(fee.fee_name);
+}
+
 /**
- * Detect overdraft fee by scanning fee_name for "overdraft" substring.
- * Per D-05: detection is by name, not by category field.
+ * The verified paid-item overdraft fee, falling back to the NSF / returned-item fee.
+ * Category match first, then name match; non-paid-item overdraft rows never qualify.
  */
-function detectOverdraftFee(
-  fees: RatingInput[]
-): { amount: number; conditions: string | null } | null {
-  for (const fee of fees) {
-    if (fee.fee_name.toLowerCase().includes("overdraft")) {
-      const safe = safeAmount(fee.amount);
-      if (safe !== null) {
-        return { amount: safe, conditions: fee.conditions ?? null };
-      }
+export function detectPaidItemFee(fees: RatingInput[]): PaidItemFee | null {
+  const pick = (predicate: (fee: RatingInput) => boolean, kind: PaidItemFee["kind"]) => {
+    for (const fee of fees) {
+      if (!predicate(fee)) continue;
+      const amount = safeAmount(fee.amount);
+      if (amount !== null && amount > 0) return { amount, conditions: fee.conditions ?? null, kind };
     }
-  }
-  return null;
+    return null;
+  };
+  return pick(isPaidItemOverdraft, "overdraft") ?? pick(isNsfFee, "nsf");
 }
 
 function overdraftColor(amount: number): "green" | "yellow" | "red" {
@@ -114,110 +137,62 @@ function fmt(amount: number): string {
 /**
  * Compute an institution's fee rating.
  *
- * Strategy (per D-01 through D-05):
- * 1. Find overdraft fee by fee_name substring "overdraft".
+ * Strategy (per D-01 through D-03):
+ * 1. Find the paid-item overdraft fee (NSF fallback); non-paid-item rows are ignored.
  * 2. Apply locked thresholds.
  * 3. Apply bonus signals that can improve yellow-border cases.
- * 4. Fall back to composite median comparison when no overdraft is detected.
- *
- * Early return for empty array (T-30.1-03 DoS mitigation).
+ * Returns null when no paid-item overdraft/NSF fee is verified — no verdict is
+ * better than a verdict keyed on the wrong fee.
  */
 export function computeInstitutionRating(
   fees: RatingInput[],
   nationalIndex: IndexEntry[]
-): RatingResult {
+): RatingResult | null {
+  if (fees.length === 0) return null;
+
+  const paidItem = detectPaidItemFee(fees);
+  if (paidItem === null) return null;
+
   const bullets: string[] = [];
-
-  // --- Empty fees fast-path (T-30.1-03) ---
-  if (fees.length === 0) {
-    return {
-      label: "Average Fee Structure",
-      color: "yellow",
-      bullets: ["Limited data — fee schedule not yet fully extracted"],
-    };
-  }
-
-  const indexMap = buildIndexMap(nationalIndex);
   const feeCount = fees.length;
+  const base = overdraftColor(paidItem.amount);
+  const hasBonus = hasBonusSignal(paidItem.conditions);
+  const feeLabel = paidItem.kind === "overdraft" ? "Overdraft fee" : "NSF fee";
 
-  // --- Overdraft-based rating ---
-  const overdraft = detectOverdraftFee(fees);
+  bullets.push(`${feeLabel}: ${fmt(paidItem.amount)}`);
 
-  if (overdraft !== null) {
-    const base = overdraftColor(overdraft.amount);
-    const hasBonus = hasBonusSignal(overdraft.conditions);
+  if (hasBonus) {
+    bullets.push("Overdraft fee cap or limit policy detected — fewer surprise charges");
+  }
 
-    // Bullet: overdraft amount
-    bullets.push(`Overdraft fee: ${fmt(overdraft.amount)}`);
+  // D-02: can upgrade yellow→green in 20-25 range with cap
+  let color: "green" | "yellow" | "red" = base;
+  if (base === "yellow" && hasBonus && paidItem.amount <= 25) {
+    color = "green";
+  }
 
-    // Bonus signals: provide a positive bullet regardless of tier upgrade
-    if (hasBonus) {
-      bullets.push("Overdraft fee cap or limit policy detected — fewer surprise charges");
-    }
-
-    // Derive final color (D-02: can upgrade yellow→green in 20-25 range with cap)
-    let color: "green" | "yellow" | "red" = base;
-    if (base === "yellow" && hasBonus && overdraft.amount <= 25) {
-      color = "green";
-    }
-
-    // Bullet: fee count context
-    const nmeOverdraft = nationalIndex.find((e) => e.fee_category === "overdraft");
-    if (nmeOverdraft?.median_amount) {
-      const delta = overdraft.amount - nmeOverdraft.median_amount;
-      const pct = Math.round((delta / nmeOverdraft.median_amount) * 100);
-      if (Math.abs(pct) >= 5) {
-        bullets.push(
-          pct < 0
-            ? `${Math.abs(pct)}% below the national median overdraft fee`
-            : `${Math.abs(pct)}% above the national median overdraft fee`
-        );
-      } else {
-        bullets.push("Overdraft fee is aligned with the national median");
-      }
-    }
-
-    // Fee count bullet (use typical range)
-    const typicalMin = TYPICAL_CU_MIN;
-    const typicalMax = TYPICAL_BANK_MAX;
-    if (feeCount < typicalMin) {
-      bullets.push(`Total fees: ${feeCount} — leaner than most institutions`);
-    } else if (feeCount <= typicalMax) {
-      bullets.push(`Total fees: ${feeCount}`);
+  const benchmark = nationalIndex.find((e) => e.fee_category === paidItem.kind);
+  if (benchmark?.median_amount) {
+    const delta = paidItem.amount - benchmark.median_amount;
+    const pct = Math.round((delta / benchmark.median_amount) * 100);
+    const noun = paidItem.kind === "overdraft" ? "overdraft" : "NSF";
+    if (Math.abs(pct) >= 5) {
+      bullets.push(
+        pct < 0
+          ? `${Math.abs(pct)}% below the national median ${noun} fee`
+          : `${Math.abs(pct)}% above the national median ${noun} fee`
+      );
     } else {
-      bullets.push(`Total fees: ${feeCount} — broader fee menu than most`);
+      bullets.push(`${feeLabel} is aligned with the national median`);
     }
-
-    const label =
-      color === "green"
-        ? "Consumer-Friendly"
-        : color === "yellow"
-          ? "Average Fee Structure"
-          : "Above-Average Fees";
-
-    return { label, color, bullets: bullets.slice(0, 3) };
   }
 
-  // --- Composite fallback: no overdraft detected (D-04) ---
-  const feesWithAmounts = fees.filter((f) => safeAmount(f.amount) !== null);
-  let belowCount = 0;
-  let aboveCount = 0;
-  let matchCount = 0;
-
-  for (const fee of feesWithAmounts) {
-    const entry = indexMap.get(fee.fee_category ?? "");
-    if (!entry || entry.median_amount === null) continue;
-    const amt = safeAmount(fee.amount)!;
-    matchCount++;
-    if (amt < entry.median_amount) belowCount++;
-    else if (amt > entry.median_amount) aboveCount++;
-  }
-
-  let color: "green" | "yellow" | "red" = "yellow";
-  if (matchCount >= 3) {
-    const belowRatio = belowCount / matchCount;
-    if (belowRatio > 0.6) color = "green";
-    else if (belowRatio < 0.4) color = "red";
+  if (feeCount < TYPICAL_CU_MIN) {
+    bullets.push(`Total fees: ${feeCount} — leaner than most institutions`);
+  } else if (feeCount <= TYPICAL_BANK_MAX) {
+    bullets.push(`Total fees: ${feeCount}`);
+  } else {
+    bullets.push(`Total fees: ${feeCount} — broader fee menu than most`);
   }
 
   const label =
@@ -227,22 +202,11 @@ export function computeInstitutionRating(
         ? "Average Fee Structure"
         : "Above-Average Fees";
 
-  if (feeCount < TYPICAL_CU_MIN) {
-    bullets.push(`Only ${feeCount} fees — simpler fee structure than most`);
-  } else if (feeCount > TYPICAL_BANK_MAX) {
-    bullets.push(`${feeCount} fees on record — more fees than most institutions`);
-  } else {
-    bullets.push(`${feeCount} fees on record`);
-  }
-
-  if (matchCount > 0) {
-    bullets.push(
-      `${belowCount} of ${matchCount} matched fees fall below the national median`
-    );
-  }
-
   return { label, color, bullets: bullets.slice(0, 3) };
 }
+
+/** Shown in place of a verdict when no paid-item overdraft/NSF fee is verified. */
+export const NO_VERDICT_LABEL = "Overdraft fee not published";
 
 // ---------------------------------------------------------------------------
 // deriveStrengthsAndWatch

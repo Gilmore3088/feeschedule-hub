@@ -66,7 +66,7 @@ export default async function NewsPage({
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           Live Feed
         </span>
         <span className="relative flex h-2 w-2">
@@ -80,7 +80,7 @@ export default async function NewsPage({
       >
         Regulatory Wire
       </h1>
-      <p className="mt-1 text-[13px] text-[#7A7062]">
+      <p className="mt-1 text-[13px] text-[#6B6255]">
         Real-time regulatory updates from the Federal Reserve, FDIC, OCC, and CFPB.
       </p>
 

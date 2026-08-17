@@ -30,7 +30,7 @@ interface PageProps {
   params: Promise<{ category: string }>;
 }
 
-const EYEBROW = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]";
+const EYEBROW = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]";
 const SERIF = { fontFamily: "var(--font-newsreader), Georgia, serif" };
 
 /** Thousands-separated dollars ("$5,000", "$2.50"); "-" when unavailable. */
@@ -113,9 +113,12 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   const detail = await getFeeCategoryDetail(category);
   const freshness = await getDataFreshness();
 
-  const amounts = detail.fees
-    .filter((f) => f.amount !== null && f.amount > 0)
-    .map((f) => f.amount!);
+  // N and M share one basis: verified fees with a stated amount, and the
+  // distinct institutions those fees came from.
+  const pricedFees = detail.fees.filter((f) => f.amount !== null && f.amount > 0);
+  const amounts = pricedFees.map((f) => f.amount!);
+  const verifiedFeeCount = amounts.length;
+  const institutionCount = new Set(pricedFees.map((f) => f.institution_id)).size;
   const stats = computeStats(amounts);
 
   const familyMembers = family
@@ -133,7 +136,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       />
 
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
+      <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-6">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">
           Home
         </Link>
@@ -154,7 +157,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             {family}
           </span>
         )}
-        <span className="rounded-full bg-[#E8DFD1]/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#7A7062]">
+        <span className="rounded-full bg-[#E8DFD1]/40 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#6B6255]">
           {tier}
         </span>
       </div>
@@ -165,9 +168,9 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       >
         {name} Fee
       </h1>
-      <p className="mt-2 text-[14px] text-[#7A7062]">
-        National benchmarking data based on {amounts.length.toLocaleString()}{" "}
-        observations from {detail.fees.length.toLocaleString()} institutions.
+      <p className="mt-2 text-[14px] text-[#6B6255]">
+        Based on {verifiedFeeCount.toLocaleString()} verified fees from{" "}
+        {institutionCount.toLocaleString()} institutions.
       </p>
       <div className="mt-1">
         <DataFreshness />
@@ -245,11 +248,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                   {money(row.median_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {money(row.min_amount)} &ndash;{" "}
                   {money(row.max_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {row.count.toLocaleString()}
                 </td>
               </tr>
@@ -279,11 +282,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                   {money(row.median_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {money(row.min_amount)} &ndash;{" "}
                   {money(row.max_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {row.count.toLocaleString()}
                 </td>
               </tr>
@@ -315,18 +318,18 @@ export default async function FeeCategoryPage({ params }: PageProps) {
                 >
                   <td className="px-4 py-2.5 font-medium text-[#1A1815]">
                     {distName}{" "}
-                    <span className="text-[#7A7062]">
+                    <span className="text-[#6B6255]">
                       ({row.dimension_value})
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                     {money(row.median_amount)}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                     {money(row.min_amount)} &ndash;{" "}
                     {money(row.max_amount)}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                     {row.count.toLocaleString()}
                   </td>
                 </tr>
@@ -344,7 +347,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             style={SERIF}
           >
             By State
-            <span className="ml-2 text-[12px] font-normal text-[#7A7062]">
+            <span className="ml-2 text-[12px] font-normal text-[#6B6255]">
               Top {detail.by_state.length} by observation count
             </span>
           </h2>
@@ -356,17 +359,17 @@ export default async function FeeCategoryPage({ params }: PageProps) {
               >
                 <td className="px-4 py-2.5 font-medium text-[#1A1815]">
                   {STATE_NAMES[row.dimension_value] ?? row.dimension_value}
-                  <span className="ml-1.5 text-[#7A7062]">
+                  <span className="ml-1.5 text-[#6B6255]">
                     ({row.dimension_value})
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                   {money(row.median_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {money(row.avg_amount)}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                   {row.count.toLocaleString()}
                 </td>
               </tr>
@@ -392,7 +395,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
               <Link
                 key={cat}
                 href={`/fees/${cat}`}
-                className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+                className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
               >
                 {getDisplayName(cat)}
               </Link>
@@ -406,12 +409,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <h3 className={EYEBROW}>
           Methodology
         </h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
-          Data sourced from published fee schedules of {detail.fees.length.toLocaleString()}{" "}
-          US banks and credit unions. Fees are extracted using automated
-          parsing with confidence scoring and human review. Statistics include
-          all non-rejected observations. Institutions are identified via FDIC
-          and NCUA regulatory databases.
+        <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
+          Based on {verifiedFeeCount.toLocaleString()} verified fees from{" "}
+          {institutionCount.toLocaleString()} US banks and credit unions, read from their published
+          fee schedules. Fees the software is not sure about are held for a person to check and are
+          not counted here. Institutions are identified via FDIC and NCUA regulatory databases.
         </p>
       </section>
 
@@ -423,7 +425,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             "@context": "https://schema.org",
             "@type": "Article",
             headline: `${name} Fee - National Benchmarks`,
-            description: `National ${name.toLowerCase()} fee: median ${money(stats.median)}, based on ${amounts.length} observations.`,
+            description: `National ${name.toLowerCase()} fee: median ${money(stats.median)}, based on ${verifiedFeeCount} verified fees from ${institutionCount} institutions.`,
             url: `${SITE_URL}/fees/${category}`,
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {

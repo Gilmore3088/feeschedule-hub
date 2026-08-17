@@ -92,12 +92,12 @@ export function RegisterForm({ redirectTo = "/account" }: { redirectTo?: string 
       <div>
         <label htmlFor="password" className={labelClass}>Password</label>
         <input id="password" name="password" type="password" required minLength={8} autoComplete="new-password" className={inputClass} />
-        <p className="mt-1 text-xs text-[#7A7062]">Minimum 8 characters</p>
+        <p className="mt-1 text-xs text-[#6B6255]">Minimum 8 characters</p>
       </div>
 
       {/* Professional context */}
       <div className="border-t border-[#E8DFD1] pt-4 mt-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062] mb-3">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255] mb-3">
           About your organization
         </p>
 

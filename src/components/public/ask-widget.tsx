@@ -164,13 +164,13 @@ export function AskWidget({ pagePath, entityName }: AskWidgetProps = {}) {
           >
             Ask the Data
           </p>
-          <p className="text-[11px] text-[#7A7062]">
+          <p className="text-[11px] text-[#6B6255]">
             Powered by Bank Fee Index
           </p>
         </div>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg p-1.5 text-[#7A7062] hover:bg-[#E8DFD1]/40 hover:text-[#5A5347] transition-colors"
+          className="rounded-lg p-1.5 text-[#6B6255] hover:bg-[#E8DFD1]/40 hover:text-[#5A5347] transition-colors"
           aria-label="Close widget"
         >
           <svg
@@ -196,7 +196,7 @@ export function AskWidget({ pagePath, entityName }: AskWidgetProps = {}) {
       >
         {messages.length === 0 && (
           <div className="space-y-2">
-            <p className="text-[12px] text-[#7A7062]">
+            <p className="text-[12px] text-[#6B6255]">
               Ask a question about bank and credit union fees across the US.
             </p>
             <div className="space-y-1.5 pt-1">
@@ -246,7 +246,7 @@ export function AskWidget({ pagePath, entityName }: AskWidgetProps = {}) {
                     return (
                       <div
                         key={i}
-                        className="my-1 rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-2 py-1 text-[11px] text-[#7A7062]"
+                        className="my-1 rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-2 py-1 text-[11px] text-[#6B6255]"
                       >
                         Querying {toolPart.toolName ?? "data"}...
                       </div>
@@ -260,7 +260,7 @@ export function AskWidget({ pagePath, entityName }: AskWidgetProps = {}) {
         ))}
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
-          <div className="mb-3 flex items-center gap-1.5 text-[12px] text-[#7A7062]">
+          <div className="mb-3 flex items-center gap-1.5 text-[12px] text-[#6B6255]">
             <div className="h-4 w-4 border-2 border-[#E8DFD1] border-t-[#C44B2E] rounded-full animate-spin" />
             Analyzing...
           </div>
@@ -296,7 +296,7 @@ export function AskWidget({ pagePath, entityName }: AskWidgetProps = {}) {
             Send
           </button>
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-[#7A7062]">
+        <p className="mt-1.5 text-center text-[10px] text-[#6B6255]">
           Data from published fee schedules. Not financial advice.
         </p>
       </form>

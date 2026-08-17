@@ -13,6 +13,18 @@ function isRouteBranch(pathname: string, branch: string) {
   return pathname === branch || pathname.startsWith(`${branch}/`);
 }
 
+/** Retired public paths -> their current homes (exact-path, permanent). */
+const LEGACY_PATH_REDIRECTS: Record<string, string> = {
+  "/consumer": "/institutions",
+  "/check": "/institutions",
+  "/districts": "/research",
+  "/waitlist": "/for-institutions#report",
+};
+
+function permanentRedirectStatus(method: string) {
+  return method === "GET" || method === "HEAD" ? 301 : 308;
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
@@ -26,9 +38,13 @@ export function proxy(request: NextRequest) {
     url.hostname = "feeinsight.com";
     url.port = "";
     url.protocol = "https:";
-    const status =
-      request.method === "GET" || request.method === "HEAD" ? 301 : 308;
-    return NextResponse.redirect(url, status);
+    return NextResponse.redirect(url, permanentRedirectStatus(request.method));
+  }
+
+  const legacyTarget = LEGACY_PATH_REDIRECTS[pathname];
+  if (legacyTarget) {
+    const url = new URL(legacyTarget, request.url);
+    return NextResponse.redirect(url, permanentRedirectStatus(request.method));
   }
 
   // Skip login page itself

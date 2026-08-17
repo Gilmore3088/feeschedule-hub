@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { redirect } from "next/navigation";
-import { CustomerNav } from "@/components/customer-nav";
+import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 import { getPendingWorkspaceInvitationsForEmail } from "@/lib/hamilton/institution-membership";
@@ -10,8 +10,10 @@ import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 import { getPublicStatsSummary } from "@/lib/public-stats";
 import { SITE_NAME } from "@/lib/constants";
+import { HamiltonBenchmarkPreview } from "@/app/for-institutions/hamilton-benchmark-preview";
+import { HAMILTON_CANONICAL, PRO_SECTION_TITLE, PRO_SUBHEAD } from "@/app/for-institutions/hamilton-copy";
 import { ProPlanCards } from "./pro-plan-cards";
-import { AdvisoryCard, ContactSalesCard, FreeTierCard, PricingFaq } from "./pricing-sections";
+import { AdvisoryCard, FreeTierCard, PricingFaq, ReportCard } from "./pricing-sections";
 import {
   ANNUAL_PRICE_LABEL,
   MONTHLY_PRICE_LABEL,
@@ -36,6 +38,8 @@ interface SubscribeSearchParams {
   invite?: string;
   from?: string;
   plan?: string;
+  /** "1" right after signup: start checkout for ?plan= without another click. */
+  checkout?: string;
 }
 
 function buildSubscribeReturnPath(options: {
@@ -62,12 +66,15 @@ export default async function SubscribePage({
   const features = proFeatureList(summary);
   const returnTo = params.from ? sanitizeInternalRedirect(params.from, WELCOME_PATH) : null;
   const requestedPlan: ProPlan | null = isProPlan(params.plan) ? params.plan : null;
+  const checkoutRequested = params.checkout === "1";
 
   if (user && canAccessPremium(user)) {
     redirect(returnTo && returnTo !== WELCOME_PATH ? returnTo : "/account");
   }
 
   const isLoggedIn = !!user;
+  // Only a signed-in, non-premium user with a chosen plan can be handed straight to Stripe.
+  const autoStartPlan = isLoggedIn && checkoutRequested ? requestedPlan : null;
   const pendingInvitations =
     user && !canAccessPremium(user)
       ? await getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
@@ -84,9 +91,9 @@ export default async function SubscribePage({
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
-      <CustomerNav />
+      <ConsumerNav />
 
-      <div className="mx-auto max-w-4xl px-4 py-14">
+      <div className="mx-auto max-w-5xl px-6 py-14">
         {params.success && (
           <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-700">
             Subscription activated. You now have full access.
@@ -121,17 +128,18 @@ export default async function SubscribePage({
             Simple, transparent pricing
           </h1>
           <p className="mx-auto max-w-2xl text-base text-[#5A5347]">
-            Report ({REPORT_PRICE_LABEL}) → {SITE_NAME} Pro ({MONTHLY_PRICE_LABEL}/mo per seat, or{" "}
-            {ANNUAL_PRICE_LABEL}/yr) → {SITE_NAME} Advisory (custom)
+            Free lookup → Report ({REPORT_PRICE_LABEL}) → {SITE_NAME} Pro ({MONTHLY_PRICE_LABEL}/mo
+            per seat, or {ANNUAL_PRICE_LABEL}/yr) → {SITE_NAME} Advisory (custom)
           </p>
         </div>
 
         <div className="space-y-8">
           <FreeTierCard summary={summary} />
+          <ReportCard />
 
-          <section aria-labelledby="pro-heading">
-            <div className="mb-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <section id="pro" aria-labelledby="pro-heading" className="scroll-mt-20">
+            <div className="mb-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
                 {SITE_NAME} Pro
               </p>
               <h2
@@ -139,9 +147,12 @@ export default async function SubscribePage({
                 className="mt-1 text-xl text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Full workspace access, per seat. Same features on either plan.
+                {PRO_SECTION_TITLE}
               </h2>
+              <p className="mt-2 text-base leading-relaxed text-[#1A1815]">{HAMILTON_CANONICAL}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[#5A5347]">{PRO_SUBHEAD}</p>
             </div>
+            <HamiltonBenchmarkPreview className="mb-5" />
             <ProPlanCards
               features={features}
               isLoggedIn={isLoggedIn}
@@ -150,16 +161,16 @@ export default async function SubscribePage({
               returnTo={returnTo ?? undefined}
               registerHrefFor={registerHrefFor}
               highlightedPlan={requestedPlan}
+              autoStartPlan={autoStartPlan}
             />
           </section>
 
           <AdvisoryCard />
           <PricingFaq summary={summary} />
-          <ContactSalesCard />
         </div>
 
         {!isLoggedIn && (
-          <p className="mt-8 text-center text-xs text-[#7A7062]">
+          <p className="mt-8 text-center text-xs text-[#6B6255]">
             Already have an account?{" "}
             <a href={loginHref} className="text-[#5A5347] underline underline-offset-2 hover:text-[#1A1815]">
               Sign in

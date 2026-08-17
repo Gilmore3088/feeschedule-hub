@@ -34,17 +34,17 @@ export function FeeRowsEditor({
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Individual fees (optional)
           </p>
-          <p className="mt-1 text-xs text-[#7A7062]">
+          <p className="mt-1 text-xs text-[#6B6255]">
             Leave amounts blank to send the link only.
           </p>
         </div>
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1 rounded-md border border-[#D5CBBF] px-2 py-1 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
+          className="inline-flex items-center gap-1 rounded-md border border-[#D5CBBF] px-2 py-1 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#A93D25]"
         >
           <Plus className="h-3.5 w-3.5" />
           Add fee
@@ -90,7 +90,7 @@ export function FeeRowsEditor({
               type="button"
               onClick={() => onRemove(i)}
               aria-label="Remove fee"
-              className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#D5CBBF] text-[#7A7062] hover:border-[#C44B2E] hover:text-[#C44B2E]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded border border-[#D5CBBF] text-[#6B6255] hover:border-[#C44B2E] hover:text-[#C44B2E]"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>

@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
-const NAV_ITEMS = [
+const PUBLIC_NAV = [
   { label: "Find Your Institution", href: "/institutions" },
   { label: PRODUCT_NAME, href: "/fees" },
   { label: "Research", href: "/research" },
@@ -13,22 +14,31 @@ const NAV_ITEMS = [
   { label: "For Institutions", href: "/for-institutions" },
 ];
 
-export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
-  const displayItems = [
-    ...NAV_ITEMS,
-    ...(isLoggedIn ? [] : [{ label: "Pricing", href: "/subscribe" }]),
-  ];
+const PRO_NAV = HAMILTON_NAV.filter((item) => item.label !== "Admin");
+const REQUEST_REPORT = { label: "Request a report", href: "/for-institutions#report" };
+
+/** 44px open/close controls: the minimum comfortable touch target. */
+const ICON_BUTTON =
+  "flex h-11 w-11 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors";
+const DRAWER_LINK =
+  "block rounded-lg px-3 py-2.5 text-[14px] font-medium text-[#5A5347] hover:bg-[#E8DFD1]/40 hover:text-[#1A1815] transition-colors";
+
+interface ConsumerMobileNavProps {
+  isLoggedIn: boolean;
+  isPro?: boolean;
+}
+
+export function ConsumerMobileNav({ isLoggedIn, isPro = false }: ConsumerMobileNavProps) {
+  const displayItems = isPro
+    ? PRO_NAV
+    : [...PUBLIC_NAV, ...(isLoggedIn ? [] : [{ label: "Pricing", href: "/subscribe" }])];
 
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
   // Prevent body scroll when open
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    document.body.style.overflow = open ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
@@ -36,20 +46,13 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
 
   return (
     <div className="lg:hidden">
-      {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-11 w-11 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors"
+        className={ICON_BUTTON}
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
       >
-        <svg
-          className="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
           {open ? (
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           ) : (
@@ -67,19 +70,15 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
           />
 
           <div className="fixed top-0 right-0 z-50 h-full w-[min(18rem,calc(100vw-1rem))] bg-[#FAF7F2] border-l border-[#E8DFD1] shadow-xl animate-in slide-in-from-right duration-200">
-            <div className="flex items-center justify-between px-6 h-14 border-b border-[#E8DFD1]">
+            <div className="flex h-14 items-center justify-between border-b border-[#E8DFD1] pl-6 pr-3">
               <span
                 className="text-[14px] font-medium text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
                 Menu
               </span>
-              <button
-                onClick={() => setOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#7A7062] hover:bg-[#E8DFD1]/40 transition-colors"
-                aria-label="Close menu"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <button onClick={() => setOpen(false)} className={ICON_BUTTON} aria-label="Close menu">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -94,11 +93,11 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                       <Link
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className={`block rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors ${
+                        className={
                           isActive
-                            ? "bg-[#C44B2E]/8 text-[#C44B2E]"
-                            : "text-[#5A5347] hover:bg-[#E8DFD1]/40 hover:text-[#1A1815]"
-                        }`}
+                            ? "block rounded-lg bg-[#C44B2E]/8 px-3 py-2.5 text-[14px] font-medium text-[#A93D25] transition-colors"
+                            : DRAWER_LINK
+                        }
                       >
                         {item.label}
                       </Link>
@@ -109,42 +108,35 @@ export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
 
               <div className="mt-4 border-t border-[#E8DFD1] pt-4">
                 {isLoggedIn ? (
-                  <Link
-                    href="/account"
-                    onClick={() => setOpen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-[14px] font-medium text-[#5A5347] hover:bg-[#E8DFD1]/40 hover:text-[#1A1815] transition-colors"
-                  >
+                  <Link href="/account" onClick={() => setOpen(false)} className={DRAWER_LINK}>
                     Account
                   </Link>
                 ) : (
                   <>
-                    <Link
-                      href="/login"
-                      onClick={() => setOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 text-[14px] font-medium text-[#5A5347] hover:bg-[#E8DFD1]/40 hover:text-[#1A1815] transition-colors"
-                    >
+                    <Link href="/login" onClick={() => setOpen(false)} className={DRAWER_LINK}>
                       Sign in
                     </Link>
                     <Link
-                      href="/for-institutions"
+                      href={REQUEST_REPORT.href}
                       onClick={() => setOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 mt-2 text-[14px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A93D25] transition-colors text-center"
+                      className="mt-2 block rounded-md bg-[#C44B2E] px-3 py-2.5 text-center text-[14px] font-semibold text-white transition-colors hover:bg-[#A93D25]"
                     >
-                      Get Pro Access
+                      {REQUEST_REPORT.label}
                     </Link>
                   </>
                 )}
               </div>
             </nav>
 
-            <div className="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-[#E8DFD1]">
-              <div className="flex items-center gap-2 text-[#7A7062]">
+            <div className="absolute bottom-0 left-0 right-0 border-t border-[#E8DFD1] px-6 py-4">
+              <div className="flex items-center gap-2 text-[#6B6255]">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   className="h-4 w-4 text-[#C44B2E]/50"
                   stroke="currentColor"
                   strokeWidth="1.5"
+                  aria-hidden="true"
                 >
                   <rect x="4" y="13" width="4" height="8" rx="1" />
                   <rect x="10" y="8" width="4" height="13" rx="1" />

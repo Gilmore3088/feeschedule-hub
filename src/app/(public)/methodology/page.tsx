@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getPublicStatsSummary } from "@/lib/public-stats";
-import { RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
+import { CONTACT_EMAIL, RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const METHODOLOGY_URL = `${SITE_URL}/methodology`;
 
@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
   title: "Methodology — How Bank Fee Index Works",
   description:
-    `Bank Fee Index collects published fee schedules from ${institutions} banks and credit unions using automated collection, deterministic extraction, and statistical validation. Learn how our data is collected, categorized, and verified.`,
+    `Bank Fee Index collects published fee schedules from ${institutions} banks and credit unions on a rolling calendar, reads the fees, and holds anything uncertain for a person to check. Learn how our data is collected, categorized, and verified.`,
   alternates: {
     canonical: METHODOLOGY_URL,
   },
@@ -67,7 +67,7 @@ export default async function MethodologyPage() {
 
         {/* Header */}
         <div style={{ borderBottom: "2px solid #1A1815", paddingBottom: "24px", marginBottom: "48px" }}>
-          <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#C44B2E", fontWeight: 700, marginBottom: "12px" }}>
+          <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A93D25", fontWeight: 700, marginBottom: "12px" }}>
             Research Methodology
           </p>
           <h1 style={{ fontSize: "36px", fontWeight: 600, letterSpacing: "-0.02em", color: "#1A1815", marginBottom: "12px", fontFamily: "var(--font-newsreader), Georgia, serif", lineHeight: 1.2 }}>
@@ -76,8 +76,8 @@ export default async function MethodologyPage() {
           <p style={{ fontSize: "16px", color: "#5A5347", lineHeight: 1.6, maxWidth: "600px" }}>
             A transparent account of how we collect, classify, and verify fee data across {institutions} financial institutions — and what that means for the accuracy of our benchmarks.
           </p>
-          <p style={{ fontSize: "12px", color: "#A09788", marginTop: "16px" }}>
-            {RESEARCH_IMPRINT} &mdash; Updated {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          <p style={{ fontSize: "12px", color: "#7A7062", marginTop: "16px" }}>
+            {RESEARCH_IMPRINT} &mdash; {summary.freshnessLabel}
           </p>
         </div>
 
@@ -88,55 +88,55 @@ export default async function MethodologyPage() {
           body={[
             `Bank Fee Index draws its institution universe from two authoritative federal databases: the FDIC's BankFind Suite (which tracks every FDIC-insured bank, thrift, and savings institution) and the NCUA's Research & Data portal (which covers all federally chartered credit unions). Together, these sources provide accurate legal names, charter classifications, asset sizes, physical locations, and primary website URLs for roughly ${summary.monitoredLabel} active institutions.`,
             "We do not use purchased data lists, scraped directories, or self-reported feeds. Every institution in our index is traceable to a federal regulator record with a published institution ID. This is the foundation of our data quality commitment: our institution universe is authoritative before the first fee is collected.",
-            `As of the most recent index update, ${institutions} institutions have verified fee schedules in the Bank Fee Index, across all 50 states, Washington D.C., and U.S. territories. Coverage is skewed toward institutions with assets above $100 million, where fee schedules are most consistently published online. Institutions below $50 million in assets are included where fee schedules are publicly discoverable.`,
+            `As of the most recent index update, ${institutions} institutions have verified fee schedules in the Bank Fee Index, across ${summary.statesLabel} states. Coverage is skewed toward institutions with assets above $100 million, where fee schedules are most consistently published online. Institutions below $50 million in assets are included where fee schedules are publicly discoverable.`,
           ]}
         />
 
         {/* Section 2: Collection Process */}
         <Section
           label="Collection Process"
-          title="Agentic collection locates and retrieves fee schedules at scale"
+          title="Automated collection runs on a rolling calendar"
           body={[
-            "Fee schedules are collected through a visible agent pipeline that runs on a scheduled basis. The pipeline has three stages: discovery, retrieval, and extraction.",
-            "Discovery identifies the URL of each institution's fee schedule through a combination of structured URL pattern matching (most institutions follow predictable URL conventions such as /fee-schedule.pdf or /disclosures/fees) and semantic search against the institution's main website. Discovery success rate varies significantly by institution size: large regional banks publish fee schedules reliably, while community banks and credit unions are more variable. Our current discovery coverage is approximately 68% of tracked institutions.",
-            "Retrieval reads the located fee schedule document. HTML pages, plain-text documents, and PDFs with embedded text are supported. Image-only PDFs are tracked separately for OCR instead of being mixed into the general review queue. Retrieval stores source metadata, a content hash for change detection, and a collection timestamp.",
-            "Refreshes run on a rolling schedule. Institutions with frequent fee changes are checked more often than those with stable fee structures. The collection system detects unchanged documents via content hash comparison and skips duplicate extraction when the source has not changed.",
+            "Automated collection runs on a rolling calendar and stores the document, its URL and the date collected. Every fee in the index points back to that stored document, so a figure can always be checked against the schedule it came from.",
+            "Finding the schedule comes first. Most institutions publish it at a predictable address (a fee schedule PDF, or a disclosures page); where they do not, we search the institution's own website. Large regional banks publish reliably; community banks and credit unions are more variable, and coverage is weakest where the schedule is not published online at all.",
+            "We read HTML pages, plain-text documents and PDFs with selectable text. Scanned, image-only PDFs are set aside for separate handling rather than mixed into the general queue.",
+            "Institutions whose fees change often are rechecked more often. Every schedule is rechecked at least quarterly. When a stored document has not changed since the last visit, its fees are carried forward rather than re-read.",
           ]}
         />
 
         {/* Section 3: Extraction */}
         <Section
-          label="Extraction"
-          title="Conservative extraction identifies fee types and amounts with review gates"
+          label="Reading the fees"
+          title="Only what the document says, and a person checks the rest"
           body={[
-            "Fee extraction runs against the readable text of each retrieved fee schedule. The extraction layer identifies fee names, amounts, and applicable conditions such as waivers, tiered pricing, or periodic charges.",
-            "Each extracted fee is assigned a confidence and review status. High-confidence rows can move forward automatically, while low-confidence rows, anomalies, and policy conflicts are held for analyst review.",
-            "The extraction layer does not infer or estimate fees. If a fee amount is not explicitly stated in the document, the system does not synthesize one. This is the primary safeguard against invented fee data.",
-            "Extracted fees are stored with their source document reference, collection timestamp, and review state, enabling a full audit trail from published fee schedule to index entry.",
+            "From the text of each schedule we record the fee name, the amount, and the conditions attached to it — waivers, tiers, whether it is charged per item or per month.",
+            "Fees the software is not sure about are held for a person to check. Only fees that are clearly stated, or that a reviewer has confirmed, appear in the public index.",
+            "We do not infer or estimate fees. If an amount is not written in the document, none is recorded. This is the primary safeguard against invented fee data.",
+            "Each fee is stored with its source document, the date collected and its review status, so there is a full trail from the published schedule to the index entry.",
           ]}
         />
 
         {/* Section 4: Categorization */}
         <Section
           label="Categorization"
-          title="49 standardized fee categories enable cross-institution comparison"
+          title="Standardized fee categories make institutions comparable"
           body={[
             "Raw fee names vary substantially across institutions. \"Monthly service charge,\" \"account maintenance fee,\" and \"checking maintenance\" typically refer to the same economic product. Comparison is only possible after normalization.",
-            "Bank Fee Index uses a 49-category taxonomy organized into 9 fee families: account maintenance, overdraft and NSF, wire transfer, ATM and debit, card services, check services, account events, savings and money market, and miscellaneous. Each category has a canonical name, a set of known aliases, and a fee family assignment.",
-            "Categorization is performed automatically using alias matching — if a raw fee name matches a known alias, it is assigned the corresponding canonical category. The alias list is maintained by the Bank Fee Index team and updated as new fee naming patterns are observed across the institution universe.",
-            "The 49-category system spans what we call \"spotlight\" fees (6 categories that appear at high rates across all institution types: monthly maintenance, overdraft, NSF, ATM non-network, foreign transaction, domestic outgoing wire) through \"core\" and \"extended\" categories. The full taxonomy is disclosed on request.",
+            `Bank Fee Index maps every raw fee name to a standard category — ${summary.categoriesLabel} categories currently carry verified data — organized into fee families such as account maintenance, overdraft and NSF, wire transfers, ATM and card, check services, and account services. Each category has a canonical name and a maintained list of known aliases.`,
+            "Categorization is automatic when a raw fee name matches a known alias. Names that do not match are held for a person to assign, and the alias list grows as new naming patterns appear.",
+            "A small set of spotlight categories (monthly maintenance, overdraft, NSF, non-network ATM, foreign transaction, domestic outgoing wire) appears at high rates across all institution types and anchors the public index; the full list of categories is on the Bank Fee Index page.",
           ]}
         />
 
         {/* Section 5: Statistical Validation */}
         <Section
-          label="Statistical Validation"
-          title="Confidence thresholds and outlier detection protect index integrity"
+          label="Checks before publication"
+          title="Uncertain fees are held; outliers are looked at by a person"
           body={[
-            "Before any fee enters the published index, it passes a two-stage validation gate.",
-            "First, confidence threshold filtering: fees with extraction confidence below 0.70 are excluded from the index entirely. Fees between 0.70 and 0.85 enter a pending queue for analyst review before publication. Only fees with confidence above 0.85 are automatically staged for index inclusion.",
-            "Second, statistical outlier detection: fees that deviate more than three standard deviations from the category median are flagged for review. This catches extraction errors where a fee amount is clearly inconsistent with the distribution — for example, an extracted ATM fee of $300 when the category median is $3.00. Flagged fees are reviewed and either confirmed, corrected, or excluded.",
-            "The published index includes fees at three maturity levels: \"strong\" (10+ approved observations), \"provisional\" (10+ total observations including staged and pending), and \"insufficient\" (fewer than 10 observations). Maturity indicators appear on all index tables so consumers of our data can assess statistical confidence by category.",
+            "Before any fee enters the published index, it passes two checks.",
+            "First, certainty: fees the software is not sure about are held for a person to check and are excluded from public benchmarks until confirmed.",
+            "Second, outliers: fees far outside the rest of their category — an ATM fee of $300 when the category median is $3.00 — are flagged and reviewed. Flagged fees are confirmed, corrected, or excluded.",
+            "Every category and every institution carries a plain status. Verified: 10 or more checked fees, benchmarked publicly. Under review: fees collected but still being checked. Too few to benchmark: fewer than 10 verified fees, shown but not used for medians.",
           ]}
         />
 
@@ -153,9 +153,12 @@ export default async function MethodologyPage() {
         />
 
         {/* Footer */}
-        <div style={{ marginTop: "64px", paddingTop: "24px", borderTop: "1px solid #E8DFD1", fontSize: "12px", color: "#A09788" }}>
-          <p>Fee Insight is independently operated. Our data collection methodology is designed to comply with the terms of service of the financial institutions we monitor. We collect only publicly disclosed fee information.</p>
-          <p style={{ marginTop: "8px" }}>Questions about our methodology: hello@bankfeeindex.com</p>
+        <div style={{ marginTop: "64px", paddingTop: "24px", borderTop: "1px solid #E8DFD1", fontSize: "12px", color: "#7A7062" }}>
+          <p>{SITE_NAME} is independently operated. Our data collection methodology is designed to comply with the terms of service of the financial institutions we monitor. We collect only publicly disclosed fee information.</p>
+          <p style={{ marginTop: "8px" }}>
+            Questions about our methodology:{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "#5A5347" }}>{CONTACT_EMAIL}</a>
+          </p>
         </div>
 
       </div>
@@ -167,7 +170,7 @@ export default async function MethodologyPage() {
 function Section({ label, title, body }: { label: string; title: string; body: string[] }) {
   return (
     <section style={{ marginBottom: "48px" }}>
-      <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#C44B2E", fontWeight: 700, marginBottom: "8px" }}>
+      <p style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.12em", color: "#A93D25", fontWeight: 700, marginBottom: "8px" }}>
         {label}
       </p>
       <h2 style={{ fontSize: "22px", fontWeight: 600, color: "#1A1815", marginBottom: "16px", fontFamily: "var(--font-newsreader), Georgia, serif", letterSpacing: "-0.01em", lineHeight: 1.3 }}>

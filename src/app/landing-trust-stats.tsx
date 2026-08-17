@@ -75,7 +75,7 @@ export function LandingTrustStats({ summary }: LandingTrustStatsProps) {
             {" · "}
             <Link
               href="/methodology"
-              className="text-terra hover:underline underline-offset-2"
+              className="text-terra-dark hover:underline underline-offset-2"
             >
               Methodology
             </Link>

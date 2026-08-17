@@ -151,7 +151,7 @@ export function WelcomeSteps({
             {workspaceMemberships.slice(0, 3).map((membership) => (
               <div key={membership.id} className="rounded-lg border border-emerald-100 bg-white/70 px-3 py-2">
                 <p className="font-semibold text-[#1A1815]">{membership.institutionName}</p>
-                <p className="text-xs text-[#7A7062]">
+                <p className="text-xs text-[#6B6255]">
                   {membership.role} access · institution ID {membership.institutionId}
                 </p>
               </div>
@@ -187,7 +187,7 @@ export function WelcomeSteps({
           >
             Welcome to Fee Insight, {userName.split(" ")[0]}!
           </h1>
-          <p className="text-sm text-[#7A7062] mb-6">
+          <p className="text-sm text-[#6B6255] mb-6">
             Tell us about your organization so we can personalize your experience.
           </p>
 
@@ -247,7 +247,7 @@ export function WelcomeSteps({
           >
             Your fee intelligence
           </h1>
-          <p className="text-sm text-[#7A7062] mb-6">
+          <p className="text-sm text-[#6B6255] mb-6">
             Here are the national median fees across key categories. With your account, you can drill into all 49 categories with peer filters.
           </p>
 
@@ -255,8 +255,8 @@ export function WelcomeSteps({
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1] bg-[#FAF7F2]">
-                  <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">Category</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">National Median</th>
+                  <th className="px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">Category</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">National Median</th>
                 </tr>
               </thead>
               <tbody>
@@ -296,7 +296,7 @@ export function WelcomeSteps({
           >
             Your tools
           </h1>
-          <p className="text-sm text-[#7A7062] mb-6">
+          <p className="text-sm text-[#6B6255] mb-6">
             Everything you need for fee intelligence research and analysis.
           </p>
 
@@ -316,10 +316,10 @@ export function WelcomeSteps({
                   <h3 className="text-sm font-medium text-[#1A1815] mb-1">
                     {tool.name}
                     {tool.requiresPro && !isPro && (
-                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#7A7062] uppercase">Pro</span>
+                      <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#E8DFD1] text-[#6B6255] uppercase">Pro</span>
                     )}
                   </h3>
-                  <p className="text-xs text-[#7A7062] leading-relaxed">{tool.description}</p>
+                  <p className="text-xs text-[#6B6255] leading-relaxed">{tool.description}</p>
                 </Link>
               );
             })}
@@ -348,7 +348,7 @@ export function WelcomeSteps({
           >
             You&apos;re all set
           </h1>
-          <p className="text-sm text-[#7A7062] mb-8">
+          <p className="text-sm text-[#6B6255] mb-8">
             Your account is ready. Start exploring fee intelligence data.
           </p>
           <div className="flex gap-3 justify-center">

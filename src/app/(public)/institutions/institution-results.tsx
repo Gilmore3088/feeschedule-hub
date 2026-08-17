@@ -11,7 +11,7 @@ function statusChip(row: InstitutionSearchResult): { label: string; className: s
   if (row.provisional_fee_count > 0 || row.fee_publication_status === "under_review") {
     return { label: "Under review", className: "border-amber-200 bg-amber-50 text-amber-900" };
   }
-  return { label: getPublicStatusLabel("unavailable"), className: "border-[#E0D7C9] bg-white text-[#7A7062]" };
+  return { label: getPublicStatusLabel("unavailable"), className: "border-[#E0D7C9] bg-white text-[#6B6255]" };
 }
 
 function locationLabel(row: InstitutionSearchResult): string {
@@ -39,7 +39,7 @@ function FeeCount({ row }: { row: InstitutionSearchResult }) {
       <span className="tabular-nums">
         <span className="font-medium text-[#C44B2E]">{row.published_fee_count.toLocaleString("en-US")}</span>
         {row.provisional_fee_count > 0 && (
-          <span className="ml-1 text-xs text-[#7A7062]">+{row.provisional_fee_count} under review</span>
+          <span className="ml-1 text-xs text-[#6B6255]">+{row.provisional_fee_count} under review</span>
         )}
       </span>
     );
@@ -47,10 +47,10 @@ function FeeCount({ row }: { row: InstitutionSearchResult }) {
   if (row.provisional_fee_count > 0) {
     return <span className="tabular-nums text-[#9A5A00]">{row.provisional_fee_count} under review</span>;
   }
-  return <span className="text-[#7A7062]">—</span>;
+  return <span className="text-[#6B6255]">—</span>;
 }
 
-const TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#7A7062]";
+const TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]";
 
 export function InstitutionResultsTable({ rows }: { rows: InstitutionSearchResult[] }) {
   return (
@@ -81,11 +81,11 @@ export function InstitutionResultsTable({ rows }: { rows: InstitutionSearchResul
                     <StatusChip row={row} small />
                   </div>
                 </td>
-                <td className="px-4 py-3 text-[#7A7062]">{locationLabel(row)}</td>
-                <td className="hidden px-4 py-3 text-[#7A7062] md:table-cell">
+                <td className="px-4 py-3 text-[#6B6255]">{locationLabel(row)}</td>
+                <td className="hidden px-4 py-3 text-[#6B6255] md:table-cell">
                   {getCharterLabel(row.charter_type)}
                   {getSegmentLabel(row.asset_size_tier, row.charter_type) && (
-                    <span className="ml-1 text-xs text-[#7A7062]">
+                    <span className="ml-1 text-xs text-[#6B6255]">
                       ({getSegmentLabel(row.asset_size_tier, row.charter_type)})
                     </span>
                   )}
@@ -119,7 +119,7 @@ export function InstitutionMobileCards({ rows }: { rows: InstitutionSearchResult
               <p className="break-words text-sm font-semibold leading-snug text-[#1A1815]">
                 {row.institution_name}
               </p>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#7A7062]">
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#6B6255]">
                 <span>{getCharterLabel(row.charter_type)}</span>
                 {locationLabel(row) && <span>{locationLabel(row)}</span>}
               </div>
@@ -157,7 +157,7 @@ export function DirectoryPagination({
           Previous
         </Link>
       )}
-      <span className="text-xs text-[#7A7062]">
+      <span className="text-xs text-[#6B6255]">
         Page {page} of {totalPages}
       </span>
       {page < totalPages && (

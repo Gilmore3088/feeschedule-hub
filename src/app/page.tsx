@@ -15,11 +15,11 @@ const HOME_TITLE = `${SITE_NAME} — The ${PRODUCT_NAME}`;
 export const metadata: Metadata = {
   title: { absolute: HOME_TITLE },
   description:
-    "Find bank and credit union fees by district, state, size, and type. Consumers: look up your bank free. Institutions: peer benchmarking, analysis, and board-ready reports.",
+    "What does your bank charge? Look up overdraft, ATM, wire and monthly fees for U.S. banks and credit unions — every figure traced to the published schedule. Institutions: peer benchmarking, scenarios, and board-ready reports.",
   openGraph: {
     title: HOME_TITLE,
     description:
-      "Find bank and credit union fees by district, state, size, and type. Free consumer lookup. Professional-grade intelligence for banking teams.",
+      "Look up overdraft, ATM, wire and monthly fees for U.S. banks and credit unions — every figure traced to the published schedule. Free lookup; peer benchmarking for banking teams.",
   },
 };
 

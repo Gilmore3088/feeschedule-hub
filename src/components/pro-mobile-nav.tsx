@@ -38,7 +38,7 @@ export function ProMobileNav({ user }: ProMobileNavProps) {
       {/* Hamburger button */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors"
+        className="flex h-11 w-11 items-center justify-center rounded-lg text-[#5A5347] hover:bg-[#E8DFD1]/40 transition-colors"
         aria-label={open ? "Close menu" : "Open menu"}
         aria-expanded={open}
       >
@@ -79,7 +79,7 @@ export function ProMobileNav({ user }: ProMobileNavProps) {
             </span>
             <button
               onClick={() => setOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#7A7062] hover:bg-[#E8DFD1]/40 transition-colors"
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-[#6B6255] hover:bg-[#E8DFD1]/40 transition-colors"
               aria-label="Close menu"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -91,7 +91,7 @@ export function ProMobileNav({ user }: ProMobileNavProps) {
           {/* Institution context header */}
           {user.institutionName && (
             <div className="px-6 py-4 border-b border-[#E8DFD1] bg-[#F5F1EC]">
-              <p className="text-[12px] text-[#7A7062] uppercase tracking-wider font-semibold">
+              <p className="text-[12px] text-[#6B6255] uppercase tracking-wider font-semibold">
                 Your Institution
               </p>
               <p className="text-[14px] font-medium text-[#1A1815] mt-1">{user.institutionName}</p>
@@ -142,7 +142,7 @@ export function ProMobileNav({ user }: ProMobileNavProps) {
 
           {/* Footer */}
           <div className="absolute bottom-0 left-0 right-0 px-6 py-4 border-t border-[#E8DFD1]">
-            <div className="flex items-center gap-2 text-[#7A7062]">
+            <div className="flex items-center gap-2 text-[#6B6255]">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"

@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 function DeltaPill({ delta }: { delta: number }) {
   if (Math.abs(delta) < 0.5) {
-    return <span className="text-[11px] text-[#7A7062]">-</span>;
+    return <span className="text-[11px] text-[#6B6255]">-</span>;
   }
   const isBelow = delta < 0;
   return (
@@ -114,7 +114,7 @@ export default async function StateReportPage({ params }: PageProps) {
       />
 
       {/* Breadcrumb — sticky on mobile */}
-      <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+      <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
         <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
         <span className="text-[#D4C9BA]">/</span>
         <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
@@ -124,14 +124,14 @@ export default async function StateReportPage({ params }: PageProps) {
 
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           State Fee Report
         </span>
       </div>
       <h1 className="mt-1 font-[Newsreader] text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]">
         {stateName} Bank & Credit Union Fees
       </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-[#7A7062]">
+      <p className="mt-2 max-w-2xl text-[14px] text-[#6B6255]">
         Fee benchmarks for {stats.institution_count.toLocaleString()} financial
         institutions in {stateName}, compared against national medians.
         {district && (
@@ -163,7 +163,7 @@ export default async function StateReportPage({ params }: PageProps) {
             key={card.label}
             className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
               {card.label}
             </p>
             <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -179,7 +179,7 @@ export default async function StateReportPage({ params }: PageProps) {
           <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
             Bank vs. Credit Union — {stateName}
           </h2>
-          <p className="mt-1 text-[13px] text-[#7A7062]">
+          <p className="mt-1 text-[13px] text-[#6B6255]">
             How fees compare between banks and credit unions in this state.
           </p>
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
@@ -187,13 +187,13 @@ export default async function StateReportPage({ params }: PageProps) {
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Charter
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Institutions
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Fee Observations
                   </th>
                 </tr>
@@ -204,7 +204,7 @@ export default async function StateReportPage({ params }: PageProps) {
                   <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                     {stats.bank_count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                     {stateIndex.reduce((sum, e) => sum + e.bank_count, 0).toLocaleString()}
                   </td>
                 </tr>
@@ -213,7 +213,7 @@ export default async function StateReportPage({ params }: PageProps) {
                   <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                     {stats.cu_count.toLocaleString()}
                   </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                     {stateIndex.reduce((sum, e) => sum + e.cu_count, 0).toLocaleString()}
                   </td>
                 </tr>
@@ -230,7 +230,7 @@ export default async function StateReportPage({ params }: PageProps) {
           <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
             Fee Benchmarks — {stateName} vs. National
           </h2>
-          <p className="mt-1 text-[13px] text-[#7A7062]">
+          <p className="mt-1 text-[13px] text-[#6B6255]">
             {comparisons.length} fee categories with sufficient data.
             Green deltas indicate below-national fees; red indicates above.
           </p>
@@ -240,19 +240,19 @@ export default async function StateReportPage({ params }: PageProps) {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Fee Category
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     {stateName} Median
                   </th>
-                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] sm:table-cell">
+                  <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255] sm:table-cell">
                     National Median
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Delta
                   </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Institutions
                   </th>
                 </tr>
@@ -274,17 +274,17 @@ export default async function StateReportPage({ params }: PageProps) {
                     <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
                       {formatAmount(row.median_amount)}
                     </td>
-                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                    <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#6B6255] sm:table-cell">
                       {formatAmount(row.nationalMedian)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {row.delta !== null ? (
                         <DeltaPill delta={row.delta} />
                       ) : (
-                        <span className="text-[11px] text-[#7A7062]">-</span>
+                        <span className="text-[11px] text-[#6B6255]">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                       {row.institution_count.toLocaleString()}
                     </td>
                   </tr>
@@ -295,7 +295,7 @@ export default async function StateReportPage({ params }: PageProps) {
                     <tr>
                       <td
                         colSpan={5}
-                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]"
+                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]"
                       >
                         Extended Categories
                       </td>
@@ -316,17 +316,17 @@ export default async function StateReportPage({ params }: PageProps) {
                         <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
                           {formatAmount(row.median_amount)}
                         </td>
-                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#7A7062] sm:table-cell">
+                        <td className="hidden px-4 py-2.5 text-right tabular-nums text-[#6B6255] sm:table-cell">
                           {formatAmount(row.nationalMedian)}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           {row.delta !== null ? (
                             <DeltaPill delta={row.delta} />
                           ) : (
-                            <span className="text-[11px] text-[#7A7062]">-</span>
+                            <span className="text-[11px] text-[#6B6255]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                           {row.institution_count.toLocaleString()}
                         </td>
                       </tr>
@@ -349,10 +349,10 @@ export default async function StateReportPage({ params }: PageProps) {
 
       {/* Methodology */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
-        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#7A7062]">
+        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#6B6255]">
           Methodology
         </h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062]">
+        <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
           Data sourced from published fee schedules of FDIC-insured banks and
           NCUA-insured credit unions in {stateName}. Medians computed from
           extracted fee amounts excluding rejected reviews. Delta shows

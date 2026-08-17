@@ -23,8 +23,8 @@ export function Metric({
 
   return (
     <div className={`min-w-0 px-4 py-3 ${framed ? "border border-[#E0D7C9] bg-[#FDFBF8]" : ""}`}>
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">{label}</p>
-      <p className={`mt-1 truncate text-lg font-semibold tabular-nums ${valueClass}`} title={value}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">{label}</p>
+      <p className={`mt-1 break-words text-lg font-semibold tabular-nums ${valueClass}`}>
         {value}
       </p>
     </div>
@@ -74,7 +74,7 @@ export function InstitutionOfferBand({
   correctSourceHref: string;
 }) {
   return (
-    <section className="fi-reveal fi-reveal-delay-2 mb-6 border border-[#E0D7C9] bg-white px-4 py-4 sm:px-5">
+    <section className="border border-[#E0D7C9] bg-white px-4 py-4 sm:px-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-[#1A1815]">
@@ -94,7 +94,7 @@ export function InstitutionOfferBand({
           </Link>
           <Link
             href={correctSourceHref}
-            className="text-xs font-semibold text-[#7A7062] underline-offset-2 hover:text-[#C44B2E] hover:underline"
+            className="text-xs font-semibold text-[#6B6255] underline-offset-2 hover:text-[#A93D25] hover:underline"
           >
             Correct or add a fee source
           </Link>

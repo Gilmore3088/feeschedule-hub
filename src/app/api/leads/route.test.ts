@@ -10,10 +10,22 @@ vi.mock("@/lib/api-hardening/audit", () => ({
   getRequestSubjectKey: vi.fn(() => "test"),
 }));
 
+vi.mock("@/lib/email/report-request", () => ({
+  sendReportRequestNotifications: vi.fn(),
+  sendContactRequestNotifications: vi.fn(),
+}));
+
 import { sql } from "@/lib/data-store/connection";
+import {
+  sendContactRequestNotifications,
+  sendReportRequestNotifications,
+} from "@/lib/email/report-request";
 import { POST } from "./route";
 
 const sqlMock = sql as unknown as ReturnType<typeof vi.fn>;
+const reportNotifyMock = sendReportRequestNotifications as unknown as ReturnType<typeof vi.fn>;
+const contactNotifyMock = sendContactRequestNotifications as unknown as ReturnType<typeof vi.fn>;
+const SENT = { status: "sent", providerId: "em_1" };
 
 function post(body: Record<string, unknown>) {
   return POST(
@@ -34,6 +46,10 @@ function issued(callIndex: number): { text: string; values: unknown[] } {
 describe("POST /api/leads", () => {
   beforeEach(() => {
     sqlMock.mockReset();
+    reportNotifyMock.mockReset();
+    contactNotifyMock.mockReset();
+    reportNotifyMock.mockResolvedValue({ notification: SENT, confirmation: SENT });
+    contactNotifyMock.mockResolvedValue({ notification: SENT, confirmation: SENT });
   });
 
   it("inserts a new lead with its source", async () => {
@@ -78,6 +94,115 @@ describe("POST /api/leads", () => {
     expect(update.values[1]).toBe("Dana Lee");
     expect(update.values).toContain("Example CU");
     expect(update.values).toContain("report");
+  });
+
+  it("does not send notifications for newsletter signups", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const res = await post({ name: "Newsletter signup", email: "a@b.co", source: "newsletter" });
+    expect(await res.json()).toEqual({ success: true });
+    expect(reportNotifyMock).not.toHaveBeenCalled();
+    expect(contactNotifyMock).not.toHaveBeenCalled();
+  });
+
+  it("stores institution_id and src on use_case and notifies for report requests", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const res = await post({
+      name: "Dana Lee",
+      email: "dana@cu.org",
+      company: "Example CU",
+      role: "VP Retail",
+      use_case: "competitive-fee-position-report",
+      source: "report",
+      institutionId: 4802,
+      src: "profile",
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      notifications: { notification: "sent", confirmation: "sent" },
+    });
+
+    const insert = issued(1);
+    expect(insert.values).toEqual([
+      "Dana Lee",
+      "dana@cu.org",
+      "Example CU",
+      "VP Retail",
+      "competitive-fee-position-report; institution_id=4802; src=profile",
+      "report",
+    ]);
+    expect(reportNotifyMock).toHaveBeenCalledWith({
+      name: "Dana Lee",
+      email: "dana@cu.org",
+      institution: "Example CU",
+      role: "VP Retail",
+      institutionId: 4802,
+      src: "profile",
+    });
+  });
+
+  it("drops malformed institutionId/src instead of storing them", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await post({
+      name: "Dana Lee",
+      email: "dana@cu.org",
+      company: "Example CU",
+      use_case: "competitive-fee-position-report",
+      source: "report",
+      institutionId: "4802; DROP TABLE leads",
+      src: "bad src!",
+    });
+    expect(issued(1).values[4]).toBe("competitive-fee-position-report");
+    expect(reportNotifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ institutionId: null, src: null }),
+    );
+  });
+
+  it("stores the lead and reports the email status when the notifier is not configured", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const notConfigured = { status: "not_configured", reason: "RESEND_API_KEY is not configured." };
+    reportNotifyMock.mockResolvedValue({ notification: notConfigured, confirmation: notConfigured });
+    const res = await post({ name: "Dana Lee", email: "dana@cu.org", company: "Example CU", source: "report" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      notifications: { notification: "not_configured", confirmation: "not_configured" },
+    });
+    expect(issued(1).text).toContain("INSERT INTO leads");
+  });
+
+  it("still returns success when the notifier throws unexpectedly", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    reportNotifyMock.mockRejectedValue(new Error("boom"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await post({ name: "Dana Lee", email: "dana@cu.org", company: "Example CU", source: "report" });
+    errorSpy.mockRestore();
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      notifications: { notification: "failed", confirmation: "failed" },
+    });
+  });
+
+  it("notifies for contact-form submissions with the inquiry type and message", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await post({
+      name: "Sam Ortiz",
+      email: "sam@bank.example",
+      company: "First Example Bank",
+      role: "CFO",
+      use_case: "Can we license the dataset?",
+      source: "contact_enterprise",
+    });
+    expect(contactNotifyMock).toHaveBeenCalledWith({
+      name: "Sam Ortiz",
+      email: "sam@bank.example",
+      company: "First Example Bank",
+      role: "CFO",
+      message: "Can we license the dataset?",
+      inquiryType: "enterprise",
+    });
+    expect(reportNotifyMock).not.toHaveBeenCalled();
   });
 
   it("rejects missing name or invalid email", async () => {

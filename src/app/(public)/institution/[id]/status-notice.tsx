@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, ClipboardCheck, Clock3, Database, FileText, type LucideIcon } from "lucide-react";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
-import type { RatingResult } from "@/lib/institution-rating";
+import { NO_VERDICT_LABEL, type RatingResult } from "@/lib/institution-rating";
 import { formatFeeAmount } from "@/lib/format";
 import { getPublicStatusLabel } from "./enum-labels";
 import { STATUS_COPY } from "./profile-copy";
@@ -56,7 +56,7 @@ export function StatusNotice({
             </Link>
             <Link
               href={claimHref}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#A93D25]"
             >
               <ClipboardCheck className="h-3.5 w-3.5" />
               Claim or validate
@@ -82,7 +82,7 @@ export function FeeProfileSummary({
     <section className="border border-[#E0D7C9] bg-white p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Verified Fee Profile
           </p>
           <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">{rating.label}</h2>
@@ -90,7 +90,7 @@ export function FeeProfileSummary({
         </div>
         {overdraftAmount !== null && (
           <div className="rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">Overdraft</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">Overdraft</p>
             <p
               className="mt-1 text-3xl text-[#1A1815]"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -112,6 +112,22 @@ export function FeeProfileSummary({
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+/** Shown instead of a verdict when enough fees are verified but no paid-item overdraft/NSF fee is. */
+export function FeeProfileNoVerdict({ verifiedCount }: { verifiedCount: number }) {
+  return (
+    <section className="border border-[#E0D7C9] bg-white p-5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
+        Verified Fee Profile
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-[#1A1815]">{NO_VERDICT_LABEL}</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5A5347]">
+        {verifiedCount} verified fees are on record, but none is a paid-item overdraft or NSF charge,
+        so no benchmark verdict is given. Transfer and protection fees do not stand in for it.
+      </p>
     </section>
   );
 }

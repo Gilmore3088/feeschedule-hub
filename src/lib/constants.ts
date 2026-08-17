@@ -24,3 +24,10 @@ export const REPORT_OFFER = {
   refreshLabel: "$300 per quarterly refresh",
 } as const;
 export const REPORT_OFFER_LINE = `${REPORT_OFFER.name} — ${REPORT_OFFER.priceLabel}, ${REPORT_OFFER.turnaround}`;
+
+// Hamilton, described the same way everywhere. Never "our AI analyst".
+export const HAMILTON_CANONICAL =
+  `Hamilton is the ${SITE_NAME} Pro workspace: benchmark, scenario, report and monitor ` +
+  "your fee position against a verified peer set.";
+export const HAMILTON_MODES = ["Analyze", "Benchmark", "Scenario", "Report", "Monitor"] as const;
+export type HamiltonMode = (typeof HAMILTON_MODES)[number];

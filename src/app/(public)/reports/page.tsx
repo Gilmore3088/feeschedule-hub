@@ -81,7 +81,7 @@ function SampleReportCard() {
         <span className="rounded bg-[#FBEDE8] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A93D25]">
           Sample
         </span>
-        <span className="text-[12px] text-[#7A7062]">Competitive Fee Position Report</span>
+        <span className="text-[12px] text-[#6B6255]">Competitive Fee Position Report</span>
       </div>
       <Link
         href={SAMPLE_REPORT_HREF}
@@ -97,7 +97,7 @@ function SampleReportCard() {
       </p>
       <Link
         href={SAMPLE_REPORT_HREF}
-        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#C44B2E] no-underline"
+        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#A93D25] no-underline"
       >
         Read the sample &rarr;
       </Link>
@@ -113,7 +113,7 @@ function PublishedReportItem({ report }: { report: PublishedReport }) {
         <span className="rounded bg-[#F5F0E8] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5A5347]">
           {typeLabel}
         </span>
-        <span className="text-[12px] text-[#7A7062]">{timeAgo(report.published_at)}</span>
+        <span className="text-[12px] text-[#6B6255]">{timeAgo(report.published_at)}</span>
       </div>
       <Link
         href={`/reports/${report.slug}`}
@@ -124,7 +124,7 @@ function PublishedReportItem({ report }: { report: PublishedReport }) {
       </Link>
       <Link
         href={`/reports/${report.slug}`}
-        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#C44B2E] no-underline"
+        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#A93D25] no-underline"
       >
         Read report &rarr;
       </Link>
@@ -150,7 +150,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-[800px] px-6 pb-24 pt-16">
       <div className="mb-10">
-        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#C44B2E]">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#A93D25]">
           Research
         </p>
         <h1
@@ -177,17 +177,17 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       </ul>
 
       {!hasReports && (
-        <p className="mt-8 text-[14px] leading-relaxed text-[#7A7062]">
+        <p className="mt-8 text-[14px] leading-relaxed text-[#6B6255]">
           {unavailable
             ? "The report catalog is temporarily unavailable. Try again shortly."
             : filtersActive
               ? "No published reports match these filters."
-              : `The ${RESEARCH_IMPRINT} programme publishes national and state fee indexes, peer briefs, and a monthly pulse as the verified index grows — new reports appear here first.`}
+              : `The ${RESEARCH_IMPRINT} program publishes national and state fee indexes, peer briefs, and a monthly pulse as the verified index grows — new reports appear here first.`}
         </p>
       )}
 
       {hasReports && (
-        <p className="mt-10 text-[12px] text-[#7A7062]">
+        <p className="mt-10 text-[12px] text-[#6B6255]">
           Showing {reports.length} report{reports.length !== 1 ? "s" : ""}.
         </p>
       )}

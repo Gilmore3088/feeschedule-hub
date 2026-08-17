@@ -40,7 +40,7 @@ export function EmailSignup() {
   if (status === "success") {
     return (
       <p className="text-[12px] text-emerald-700" role="status">
-        You&apos;re on the list — first issue next month.
+        You&apos;re on the list — the next issue goes out with the next index update.
       </p>
     );
   }
@@ -50,8 +50,8 @@ export function EmailSignup() {
       <label htmlFor="footer-newsletter-email" className="text-[12px] font-semibold text-[#5A5347]">
         Monthly fee index update
       </label>
-      <p className="text-[12px] leading-relaxed text-[#7A7062]">
-        New benchmarks, notable fee changes, one chart. Once a month.
+      <p className="text-[12px] leading-relaxed text-[#6B6255]">
+        New benchmarks, notable fee changes, one chart. About once a month.
       </p>
       <div className="flex gap-2">
         <input
@@ -62,7 +62,7 @@ export function EmailSignup() {
           placeholder="you@company.com"
           autoComplete="email"
           required
-          className="w-full max-w-[200px] rounded-lg border border-[#D4C9BA] bg-[#FAF7F2] px-3 py-1.5 text-[12px] text-[#1A1815] placeholder:text-[#7A7062] focus:border-transparent focus:outline-none focus:ring-1 focus:ring-[#C44B2E]/30"
+          className="w-full max-w-[200px] rounded-lg border border-[#D4C9BA] bg-[#FAF7F2] px-3 py-1.5 text-[12px] text-[#1A1815] placeholder:text-[#6B6255] focus:border-transparent focus:outline-none focus:ring-1 focus:ring-[#C44B2E]/30"
         />
         <button
           type="submit"

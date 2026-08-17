@@ -54,7 +54,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
       />
 
       <div className="max-w-4xl mx-auto px-6 py-14">
-        <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
+        <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-6">
           <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fees</Link>
           <span className="text-[#D4C9BA]">/</span>
           <span className="text-[#5A5347]">{stateName}</span>
@@ -62,7 +62,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
 
         <div className="flex items-center gap-2 mb-4">
           <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
             City Directory
           </span>
         </div>
@@ -73,12 +73,12 @@ export default async function StateCityDirectory({ params }: PageProps) {
         >
           Bank Fees by City in {stateName}
         </h1>
-        <p className="text-[14px] text-[#7A7062] mb-8">
+        <p className="text-[14px] text-[#6B6255] mb-8">
           {cities.length} cities with fee data from {cities.reduce((s, c) => s + c.with_fees, 0)} institutions
         </p>
 
         {cities.length === 0 ? (
-          <p className="text-[#7A7062] py-12 text-center">
+          <p className="text-[#6B6255] py-12 text-center">
             No fee data available for {stateName} yet. Check back soon.
           </p>
         ) : (
@@ -87,9 +87,9 @@ export default async function StateCityDirectory({ params }: PageProps) {
               <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">City</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Total Institutions</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">With Fee Data</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">City</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Total Institutions</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">With Fee Data</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8DFD1]/40">
@@ -103,7 +103,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
                           {c.city}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                      <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                         {c.institution_count}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-medium text-[#1A1815]">
@@ -120,15 +120,15 @@ export default async function StateCityDirectory({ params }: PageProps) {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/research/state/${stateCode.toLowerCase()}`}
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
           >
             {stateName} Fee Report
           </Link>
           <Link
             href="/fees"
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
           >
-            National Fee Index
+            Bank Fee Index
           </Link>
         </div>
       </div>

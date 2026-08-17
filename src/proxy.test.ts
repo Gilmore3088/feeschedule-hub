@@ -44,6 +44,29 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe("https://feeinsight.com/fees?category=wire");
   });
 
+  it("permanently redirects retired public paths to their current homes", () => {
+    const cases: Array<[string, string]> = [
+      ["https://feeinsight.com/consumer", "https://feeinsight.com/institutions"],
+      ["https://feeinsight.com/check", "https://feeinsight.com/institutions"],
+      ["https://feeinsight.com/districts", "https://feeinsight.com/research"],
+      ["https://feeinsight.com/waitlist", "https://feeinsight.com/for-institutions#report"],
+    ];
+    for (const [from, to] of cases) {
+      const response = proxy(request(from));
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get("location"), from).toBe(to);
+    }
+  });
+
+  it("does not redirect nested or similarly named routes as legacy paths", () => {
+    for (const path of ["/pro/districts", "/research/district/2", "/checkout", "/consumers"]) {
+      const response = proxy(
+        request(`https://feeinsight.com${path}`, undefined, { cookie: "fsh_session=present" }),
+      );
+      expect(response.headers.get("x-middleware-next"), path).toBe("1");
+    }
+  });
+
   it("redirects unauthenticated admin routes to login", () => {
     const response = proxy(request("https://feeinsight.com/admin/knox?queue=fees"));
 

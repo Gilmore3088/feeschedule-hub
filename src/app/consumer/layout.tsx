@@ -1,25 +1,4 @@
-import { CustomerNav } from "@/components/customer-nav";
-import { CustomerFooter } from "@/components/customer-footer";
-import type { Metadata } from "next";
-import { SITE_TITLE_TEMPLATE } from "@/lib/constants";
-
-export const metadata: Metadata = {
-  title: {
-    default: "Compare Your Bank's Fees",
-    template: SITE_TITLE_TEMPLATE,
-  },
-};
-
-export default function ConsumerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-h-screen bg-[#FAF7F2]">
-      <CustomerNav />
-      <main>{children}</main>
-      <CustomerFooter />
-    </div>
-  );
+/** /consumer is a permanent redirect to /institutions; no chrome of its own. */
+export default function ConsumerLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

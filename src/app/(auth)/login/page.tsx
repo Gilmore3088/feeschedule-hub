@@ -70,7 +70,7 @@ export default async function LoginPage({
             Welcome back
           </p>
 
-          <p className="text-sm text-[#7A7062] leading-relaxed mb-10">
+          <p className="text-sm text-[#6B6255] leading-relaxed mb-10">
             Published fees for {summary.institutionsLabel} U.S. banks and credit unions: free
             lookup, plus peer benchmarks and competitive reports for banking teams.
           </p>
@@ -79,15 +79,15 @@ export default async function LoginPage({
           <div className="flex gap-8">
             <div>
               <p className="text-lg font-bold text-[#1A1815] tabular-nums">{summary.institutionsLabel}</p>
-              <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Institutions</p>
+              <p className="text-[11px] text-[#6B6255] uppercase tracking-wider font-medium mt-0.5">Institutions</p>
             </div>
             <div>
               <p className="text-lg font-bold text-[#1A1815] tabular-nums">{summary.categoriesLabel}</p>
-              <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Fee categories</p>
+              <p className="text-[11px] text-[#6B6255] uppercase tracking-wider font-medium mt-0.5">Fee categories</p>
             </div>
             <div>
               <p className="text-lg font-bold text-[#1A1815] tabular-nums">{summary.statesLabel}</p>
-              <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">States</p>
+              <p className="text-[11px] text-[#6B6255] uppercase tracking-wider font-medium mt-0.5">States</p>
             </div>
           </div>
         </div>
@@ -118,14 +118,14 @@ export default async function LoginPage({
               Sign in
             </h1>
             <LoginForm redirectTo={params.from || "/account"} forgotPasswordHref={FORGOT_PASSWORD_HREF} />
-            <p className="mt-4 text-center text-sm text-[#7A7062]">
+            <p className="mt-4 text-center text-sm text-[#6B6255]">
               Don&apos;t have an account?{" "}
               <Link href={registerHref} className="text-[#1A1815] font-medium hover:underline">
                 Create one
               </Link>
             </p>
             <p className="mt-6 text-center text-sm">
-              <Link href="/" className="text-[#7A7062] hover:text-[#1A1815] hover:underline">
+              <Link href="/" className="text-[#6B6255] hover:text-[#1A1815] hover:underline">
                 ← Back to {SITE_NAME}
               </Link>
             </p>

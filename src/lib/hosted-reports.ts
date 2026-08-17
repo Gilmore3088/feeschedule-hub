@@ -118,3 +118,51 @@ export function prepareReportForPrint(html: string): string {
   if (at === -1) return `${html}${script}`;
   return `${html.slice(0, at)}${script}\n${html.slice(at)}`;
 }
+
+export interface ReportFinding {
+  stat: string;
+  statLabel: string;
+  headline: string;
+  body: string;
+}
+
+export interface ReportExecutiveSummary {
+  findings: ReportFinding[];
+  /** The "Net position" closing paragraph. */
+  narrative: string | null;
+}
+
+const FINDING_PATTERN =
+  /<div class="finding">\s*<div class="num"[^>]*>([\s\S]*?)<small>([\s\S]*?)<\/small><\/div>\s*<p><b>([\s\S]*?)<\/b>([\s\S]*?)<\/p>\s*<\/div>/g;
+const NARRATIVE_PATTERN = /<p class="narrative drop">([\s\S]*?)<\/p>/;
+
+function decodeText(fragment: string): string {
+  return fragment
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Pull the executive summary (three findings + net position) out of a finished
+ * report so pages can render it as native HTML outside the iframe.
+ */
+export function extractExecutiveSummary(html: string): ReportExecutiveSummary {
+  const findings: ReportFinding[] = [];
+  for (const match of html.matchAll(FINDING_PATTERN)) {
+    findings.push({
+      stat: decodeText(match[1]),
+      statLabel: decodeText(match[2]),
+      headline: decodeText(match[3]),
+      body: decodeText(match[4]),
+    });
+  }
+  const narrativeMatch = NARRATIVE_PATTERN.exec(html);
+  const narrative = narrativeMatch ? decodeText(narrativeMatch[1]) : null;
+  return { findings, narrative: narrative || null };
+}

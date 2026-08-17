@@ -1,6 +1,9 @@
 /**
  * Thin, dependency-free event tracking. Sends to Plausible when its script is
- * loaded (NEXT_PUBLIC_PLAUSIBLE_DOMAIN set); otherwise a no-op. Safe on the server.
+ * loaded (NEXT_PUBLIC_PLAUSIBLE_DOMAIN set). Before the script arrives, the root
+ * layout installs the standard queue shim (`window.plausible.q`), so early events
+ * are buffered and flushed by the script instead of dropped. Without the domain
+ * configured there is no shim and this is a no-op. Safe on the server.
  */
 export type AnalyticsEvent =
   | "create_account"
@@ -9,9 +12,15 @@ export type AnalyticsEvent =
   | "newsletter_signup"
   | "checkout_start"
   | "book_walkthrough"
-  | "contact_sales";
+  | "contact_sales"
+  | "notify_verified_request";
 
-type PlausibleFn = (event: string, options?: { props?: Record<string, string | number | boolean> }) => void;
+export type AnalyticsProps = Record<string, string | number | boolean>;
+
+type PlausibleFn = ((event: string, options?: { props?: AnalyticsProps }) => void) & {
+  /** Pre-load queue populated by the inline shim; drained by the Plausible script. */
+  q?: IArguments[] | unknown[][];
+};
 
 declare global {
   interface Window {
@@ -19,10 +28,11 @@ declare global {
   }
 }
 
-export function trackEvent(
-  event: AnalyticsEvent,
-  props?: Record<string, string | number | boolean>,
-): void {
+/** Inline shim rendered by the root layout when Plausible is configured. */
+export const PLAUSIBLE_QUEUE_SHIM =
+  "window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)}";
+
+export function trackEvent(event: AnalyticsEvent, props?: AnalyticsProps): void {
   if (typeof window === "undefined") return;
   const plausible = window.plausible;
   if (typeof plausible !== "function") return;

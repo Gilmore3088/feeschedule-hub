@@ -98,7 +98,7 @@ export function StateDirectoryMap({
         <div className="min-w-0">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
                 Browse by state
               </p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#1A1815]">
@@ -108,7 +108,7 @@ export function StateDirectoryMap({
             {selectedStateCode && (
               <Link
                 href={charterType ? `/institutions?charter=${charterType}` : "/institutions"}
-                className="text-xs font-semibold text-[#C44B2E] transition-colors hover:text-[#A93D25]"
+                className="text-xs font-semibold text-[#A93D25] transition-colors hover:text-[#A93D25]"
               >
                 Clear state
               </Link>
@@ -154,7 +154,7 @@ export function StateDirectoryMap({
               })}
             </svg>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#E0D7C9] pt-3 text-[11px] font-medium uppercase tracking-[0.12em] text-[#7A7062]">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#E0D7C9] pt-3 text-[11px] font-medium uppercase tracking-[0.12em] text-[#6B6255]">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 bg-[#F8DDD6]" />
                 Fewer verified
@@ -213,7 +213,7 @@ export function StateDirectoryMap({
         </div>
 
         <aside className="hidden border-y border-[#E0D7C9] py-4 lg:block lg:border-l lg:border-y-0 lg:py-1 lg:pl-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
             {focusSummary ? "Selected state" : "Most verified"}
           </p>
           {focusSummary ? (
@@ -253,7 +253,7 @@ export function StateDirectoryMap({
                   <span className="font-medium text-[#1A1815] group-hover:text-[#C44B2E]">
                     {STATE_NAMES[summary.state_code] ?? summary.state_code}
                   </span>
-                  <span className="text-right text-xs tabular-nums text-[#7A7062]">
+                  <span className="text-right text-xs tabular-nums text-[#6B6255]">
                     {formatStateCounts(summary)}
                   </span>
                 </Link>
@@ -269,7 +269,7 @@ export function StateDirectoryMap({
 function SnapshotMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
         {label}
       </p>
       <p className="mt-1 text-lg font-semibold tabular-nums text-[#1A1815]">

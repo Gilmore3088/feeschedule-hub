@@ -81,12 +81,12 @@ export function ProfileForm({ user }: ProfileFormProps) {
     return (
       <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[10px] font-semibold text-[#7A7062] uppercase tracking-wider">
+          <div className="text-[10px] font-semibold text-[#6B6255] uppercase tracking-wider">
             Organization Profile
           </div>
           <button
             onClick={() => setEditing(true)}
-            className="text-xs font-medium text-[#C44B2E] hover:underline"
+            className="text-xs font-medium text-[#A93D25] hover:underline"
           >
             {user.institution_name ? "Edit" : "Complete profile"}
           </button>
@@ -94,14 +94,14 @@ export function ProfileForm({ user }: ProfileFormProps) {
         {user.institution_name ? (
           <div className="space-y-2 text-sm">
             <div className="font-medium text-[#1A1815]">{user.institution_name}</div>
-            <div className="text-[#7A7062]">
+            <div className="text-[#6B6255]">
               {[typeLabel, tierLabel, user.state_code, roleLabel]
                 .filter(Boolean)
                 .join(" / ")}
             </div>
           </div>
         ) : (
-          <p className="text-sm text-[#7A7062]">
+          <p className="text-sm text-[#6B6255]">
             Add your organization details to get personalized fee intelligence.
           </p>
         )}
@@ -114,7 +114,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-5">
-      <div className="text-[10px] font-semibold text-[#7A7062] uppercase tracking-wider mb-3">
+      <div className="text-[10px] font-semibold text-[#6B6255] uppercase tracking-wider mb-3">
         Organization Profile
       </div>
       <div className="space-y-3">

@@ -5,7 +5,7 @@ const SERIF_STACK = "var(--font-newsreader), Georgia, serif";
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF7F2] px-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7A7062]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6B6255]">
         404
       </p>
       <h1

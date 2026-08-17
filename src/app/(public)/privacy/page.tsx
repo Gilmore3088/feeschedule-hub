@@ -10,7 +10,7 @@ export default function PrivacyPage() {
     <div className="mx-auto max-w-3xl px-6 py-14">
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           Legal
         </span>
       </div>
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
       >
         Privacy Policy
       </h1>
-      <p className="mt-2 text-[13px] text-[#7A7062]">
+      <p className="mt-2 text-[13px] text-[#6B6255]">
         Last updated: March 2026
       </p>
 
@@ -161,7 +161,7 @@ export default function PrivacyPage() {
         </section>
 
         <div className="pt-4 border-t border-[#E8DFD1]">
-          <p className="text-[13px] text-[#7A7062]">
+          <p className="text-[13px] text-[#6B6255]">
             Questions about this policy? Contact us at{" "}
             <a href="mailto:hello@bankfeeindex.com" className="text-[#C44B2E] hover:underline">
               hello@bankfeeindex.com

@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Competitive Fee Position Report</title>
+<style>
+  /* Brand system: warm ink on paper, terracotta accent, Newsreader serif — the Hamilton
+     palette (src/lib/report-templates/base/styles.ts). Print edition swaps the web sans
+     for IBM Plex Sans (labels) + IBM Plex Mono (figures) to read as a ledger, not a web page. */
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,300;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink:#1A1815; --ink2:#3D3830; --text2:#6E655A; --muted:#9A9082;
+    --paper:#FFFFFF; --cream:#FDFBF8; --sand:#F4EEE4;
+    --terra:#C44B2E; --terra-deep:#9E3A22; --terra-soft:#FBEDE8; --terra-ghost:#F7E3DC;
+    --good:#1F7A4A; --good-soft:#E8F2EB;
+    --line:#E3DACB; --line-light:#EFE8DC; --line-dark:#1A1815;
+    --serif:"Newsreader","Georgia","Times New Roman",serif;
+    --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  html, body { background:var(--paper); color:var(--ink);
+    font-family:var(--serif); font-size:10.5pt; line-height:1.55;
+    font-feature-settings:"kern","liga"; }
+
+  @page { size:Letter; margin:0.75in 0.85in 0.8in; }
+  @page bleed { margin:0; }
+  .page { page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  .bleed { page:bleed; width:8.5in; height:11in; overflow:hidden; page-break-after:always; }
+
+  /* ---------- Type scale ---------- */
+  .kicker { font-family:var(--mono); font-size:7.2pt; font-weight:500; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--terra); }
+  h2 { font-family:var(--serif); font-size:24pt; font-weight:500; letter-spacing:-0.015em;
+    line-height:1.12; color:var(--ink); margin:6pt 0 0; }
+  h3 { font-family:var(--serif); font-size:12.5pt; font-weight:600; color:var(--ink); line-height:1.3; }
+  p { margin:7pt 0; }
+  b { font-weight:600; }
+  .muted { color:var(--muted); }
+  .small { font-family:var(--sans); font-size:8pt; line-height:1.5; }
+  .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .lede { font-family:var(--sans); font-size:8.6pt; line-height:1.55; color:var(--text2);
+    max-width:5.4in; margin:10pt 0 0; }
+
+  /* Running head: section index + institution, above a heavy ink rule */
+  .runhead { display:flex; justify-content:space-between; align-items:baseline;
+    font-family:var(--mono); font-size:7pt; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text2); padding-bottom:5pt; border-bottom:1.5pt solid var(--line-dark); margin-bottom:16pt; }
+  .runhead .sec { color:var(--terra); font-weight:600; }
+  .runhead .sec::before { content:"§ "; color:var(--muted); font-weight:400; }
+  .rule { border:none; border-top:1.5pt solid var(--terra); width:36pt; margin:10pt 0 14pt; }
+
+  /* Page foot */
+  .pagefoot { margin-top:16pt; padding-top:6pt; border-top:0.5pt solid var(--line);
+    font-family:var(--mono); font-size:6.6pt; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--muted); display:flex; justify-content:space-between;
+    page-break-inside:avoid; page-break-before:avoid; }
+
+  /* ---------- 1. Cover ---------- */
+  .cover { position:relative; background:var(--cream); color:var(--ink);
+    display:grid; grid-template-columns:0.9in 1fr; }
+  .cover .spine { background:var(--terra); position:relative; }
+  .cover .spine .vert { position:absolute; left:50%; bottom:0.9in; transform:translateX(-50%) rotate(180deg);
+    writing-mode:vertical-rl; font-family:var(--mono); font-size:7.4pt; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--cream); white-space:nowrap; font-weight:500; }
+  .cover .spine .vert b { color:#F9D5C8; font-weight:600; }
+  .cover .spine .mark { position:absolute; left:50%; top:0.85in; transform:translateX(-50%);
+    width:22pt; height:22pt; }
+  .cover .spine .mark svg { display:block; width:22pt; height:22pt; }
+  .cover .body { position:relative; padding:0.85in 0.85in 0.8in 0.75in; display:flex; flex-direction:column; }
+  .cover .topline { display:flex; justify-content:space-between; font-family:var(--mono);
+    font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:var(--text2);
+    padding-bottom:8pt; border-bottom:1.5pt solid var(--line-dark); }
+  .cover .topline b { color:var(--terra); font-weight:600; }
+  .cover .title { margin-top:1.55in; }
+  .cover .title .series { font-family:var(--mono); font-size:7.4pt; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--terra); font-weight:500; margin-bottom:14pt; }
+  .cover h1 { font-family:var(--serif); font-size:46pt; font-weight:500; line-height:0.98;
+    letter-spacing:-0.025em; color:var(--ink); }
+  .cover h1 em { font-style:italic; font-weight:400; color:var(--ink2); }
+  .cover .for { margin-top:30pt; font-family:var(--serif); font-size:12.5pt; font-style:italic;
+    font-weight:400; color:var(--text2); }
+  .cover .instname { display:block; font-style:normal; font-weight:600; font-size:24pt;
+    line-height:1.15; color:var(--terra); letter-spacing:-0.01em; margin-top:2pt; }
+  .cover .instmeta { margin-top:10pt; font-family:var(--mono); font-size:7.6pt; letter-spacing:0.06em;
+    color:var(--text2); text-transform:uppercase; }
+  .cover .instmeta i { font-style:normal; color:var(--muted); padding:0 5pt; }
+  .cover .cohortnote { margin-top:14pt; font-family:var(--sans); font-size:8pt; line-height:1.5;
+    color:var(--text2); max-width:5in; }
+  .cover .ghost { position:absolute; right:0.6in; bottom:1.6in; font-family:var(--serif);
+    font-size:160pt; font-weight:600; letter-spacing:-0.06em; line-height:1; color:var(--terra-ghost);
+    z-index:0; pointer-events:none; }
+  .cover .card { position:relative; z-index:1; margin-top:auto; display:grid;
+    grid-template-columns:1.25fr 1.5fr 1fr; border-top:1.5pt solid var(--line-dark); }
+  .cover .card > div { padding:11pt 12pt 0 0; border-right:0.5pt solid var(--line); margin-right:12pt; }
+  .cover .card > div:last-child { border-right:none; margin-right:0; }
+  .cover .card .lbl { font-family:var(--mono); font-size:6.6pt; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:5pt; }
+  .cover .card .val { font-family:var(--serif); font-size:12pt; font-weight:500; line-height:1.3; color:var(--ink); }
+  .cover .card .val.mono { font-family:var(--mono); font-size:9.5pt; font-weight:500; padding-top:2pt; }
+  .cover .card .big { font-family:var(--serif); font-size:30pt; font-weight:600; line-height:1;
+    color:var(--terra); letter-spacing:-0.02em; }
+  .cover .card .big small { display:block; font-family:var(--sans); font-size:7.5pt; color:var(--text2);
+    letter-spacing:0; margin-top:4pt; font-weight:400; }
+
+  /* ---------- 2. Executive findings ---------- */
+  .findings { counter-reset:finding; margin-top:2pt; border-bottom:0.5pt solid var(--line); }
+  .finding { counter-increment:finding; display:grid; grid-template-columns:0.32in 1.42in 1fr;
+    column-gap:14pt; padding:10pt 0 11pt; border-top:0.5pt solid var(--line); page-break-inside:avoid; }
+  .finding::before { content:counter(finding, decimal-leading-zero); font-family:var(--mono);
+    font-size:7.5pt; color:var(--muted); padding-top:8pt; letter-spacing:0.05em; }
+  .finding .num { font-family:var(--serif); font-size:24pt; font-weight:600; color:var(--terra);
+    line-height:1.05; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .finding .num small { display:block; font-family:var(--sans); font-size:7.4pt; font-weight:400;
+    color:var(--text2); margin-top:5pt; line-height:1.4; letter-spacing:0; }
+  .finding p { margin:0; font-size:9.6pt; line-height:1.55; color:var(--ink2); }
+  .finding p b { display:block; font-family:var(--serif); font-size:11.5pt; font-weight:600;
+    color:var(--ink); line-height:1.3; margin-bottom:3pt; }
+  .narrative { font-family:var(--serif); font-size:9.8pt; line-height:1.58; color:var(--ink2); }
+  .narrative p { margin:0 0 9pt; }
+  p.narrative { margin-top:12pt; }
+  .drop::first-letter { font-family:var(--serif); font-size:34pt; font-weight:500; float:left;
+    line-height:0.85; padding:4pt 6pt 0 0; color:var(--terra); }
+
+  /* ---------- Tables (ledger) ---------- */
+  table { width:100%; border-collapse:collapse; font-family:var(--sans); font-size:8.3pt; }
+  thead { display:table-header-group; }
+  tr { page-break-inside:avoid; }
+  thead tr { border-bottom:1pt solid var(--line-dark); }
+  th { text-align:left; font-family:var(--mono); font-size:6.5pt; text-transform:uppercase;
+    letter-spacing:0.12em; color:var(--text2); font-weight:500; padding:0 6pt 5pt; vertical-align:bottom; }
+  td { padding:5pt 6pt; border-bottom:0.5pt solid var(--line-light); vertical-align:middle;
+    color:var(--ink); }
+  td.r, th.r { text-align:right; }
+  td.r { font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:8.2pt; color:var(--ink2); white-space:nowrap; }
+  td.r b { color:var(--ink); font-weight:600; }
+  tbody tr:last-child td { border-bottom:0.5pt solid var(--line); }
+  th:first-child, td:first-child { padding-left:0; }
+  th:last-child, td:last-child { padding-right:0; }
+  /* "You" column carries a paper tint so the eye lands there first */
+  table.position td:nth-child(2), table.position th:nth-child(2) { background:var(--sand); }
+  table.position td:first-child, table.position td:nth-child(7) { white-space:nowrap; }
+  table.position th:nth-child(7) { width:1.6in; }
+  table.position td { padding:4pt 6pt; }
+  table.position th:nth-child(2) { color:var(--terra); }
+
+  /* Percentile track with median tick */
+  .bar-wrap { position:relative; background:var(--line-light); height:5pt; width:84pt;
+    display:inline-block; vertical-align:middle; }
+  .bar-wrap::after { content:""; position:absolute; left:50%; top:-2.5pt; width:0.75pt; height:10pt;
+    background:var(--ink); opacity:0.55; }
+  .bar { background:var(--muted); height:5pt; }
+  .bar.hi { background:var(--terra); }
+  .bar.lo { background:var(--good); }
+  .bar-wrap + .small { font-family:var(--mono); font-size:7pt; margin-left:6pt; color:var(--text2); white-space:nowrap; }
+  .tag { font-family:var(--mono); font-size:6.3pt; font-weight:600; padding:1.5pt 5pt;
+    text-transform:uppercase; letter-spacing:0.1em; white-space:nowrap; border:0.75pt solid currentColor; }
+  .tag.outlier { color:var(--terra); background:var(--terra-soft); }
+  .tag.waived { color:var(--good); background:var(--good-soft); }
+  .tag.gap { color:var(--muted); background:transparent; }
+
+  /* ---------- 4. Callouts: two-column ledger entries ---------- */
+  .callouts { margin-top:4pt; }
+  .callout { display:grid; grid-template-columns:2.05in 1fr; column-gap:20pt;
+    padding:12pt 0 14pt; border-top:2pt solid var(--terra); margin-top:12pt; page-break-inside:avoid; }
+  .callout:first-child { margin-top:8pt; }
+  .callout.opportunity { border-top-color:var(--good); }
+  .callout h3 { grid-column:1; font-size:12.5pt; line-height:1.28; letter-spacing:-0.005em; }
+  .callout .stat { grid-column:1; font-family:var(--mono); font-size:7.2pt; line-height:1.6;
+    color:var(--text2); margin-top:6pt; letter-spacing:0.01em; }
+  .callout p { grid-column:2; grid-row:1 / span 2; margin:0; font-size:9.8pt; line-height:1.6; color:var(--ink2); }
+  .callout.opportunity h3 { color:var(--good); }
+
+  /* ---------- 4b. Revenue lens ---------- */
+  .statgrid { display:grid; grid-template-columns:repeat(3,1fr); margin:12pt 0 0;
+    border-top:1.5pt solid var(--line-dark); border-left:0.5pt solid var(--line); }
+  .statcard { padding:9pt 11pt 10pt; border-right:0.5pt solid var(--line);
+    border-bottom:0.5pt solid var(--line); page-break-inside:avoid; min-height:0.78in; }
+  .statcard .lbl { font-family:var(--mono); font-size:6.5pt; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text2); margin-bottom:7pt; }
+  .statcard .val { font-family:var(--serif); font-size:18pt; font-weight:500; color:var(--ink);
+    font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-0.02em; }
+  .statcard .cmp { font-family:var(--sans); font-size:7.4pt; color:var(--text2); margin-top:6pt;
+    font-variant-numeric:tabular-nums; }
+  .statcard .cmp b { color:var(--terra); font-weight:600; }
+  h3.sub { margin-top:16pt; font-size:11.5pt; }
+  h3.sub + table { margin-top:8pt; }
+  .footnote { font-family:var(--sans); font-size:7.4pt; line-height:1.45; color:var(--muted); margin-top:9pt; }
+
+  /* ---------- 5. Peer table ---------- */
+  tr.self td { background:var(--sand); font-weight:600; border-bottom:1pt solid var(--line-dark); }
+  tr.self td:first-child { border-left:2.5pt solid var(--terra); padding-left:6pt; }
+  tr.self td.r { color:var(--ink); }
+
+  /* ---------- 6. Methodology ---------- */
+  .method { font-family:var(--sans); font-size:8pt; line-height:1.55; color:var(--text2); }
+  .method ul { margin:6pt 0 0 0; list-style:none; }
+  .method li { padding:3pt 0; border-top:0.5pt solid var(--line-light); font-family:var(--mono);
+    font-size:7.2pt; word-break:break-all; }
+  .method li .muted { font-family:var(--sans); }
+  .method li:last-child { border-bottom:0.5pt solid var(--line-light); }
+
+  table.appendix th:first-child { width:2.75in; }
+  table.appendix td:first-child { font-size:8.2pt; }
+
+  /* ---------- 8. Back cover ---------- */
+  .back { background:var(--ink); color:var(--cream); padding:0.85in 0.95in 0.85in;
+    display:flex; flex-direction:column; }
+  .back .brandline { display:flex; justify-content:space-between; font-family:var(--mono);
+    font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:#B8AE9F;
+    padding-bottom:8pt; border-bottom:1pt solid #3D3830; }
+  .back .brandline b { color:#F1A48F; font-weight:600; }
+  .back h2 { color:var(--cream); font-size:34pt; font-weight:400; line-height:1.08;
+    letter-spacing:-0.02em; margin-top:1.9in; max-width:5.4in; }
+  .back h2 em { font-style:italic; color:#F1A48F; }
+  .back .sub { font-family:var(--serif); font-size:12pt; font-weight:300; line-height:1.55;
+    color:#CFC6B8; max-width:5in; margin-top:16pt; }
+  .back .cta { margin-top:auto; border-top:1.5pt solid var(--terra); padding-top:16pt;
+    display:grid; grid-template-columns:1fr 1fr; column-gap:28pt; }
+  .back .cta h4 { font-family:var(--serif); font-size:15pt; font-weight:500; color:var(--cream);
+    line-height:1.3; margin-bottom:6pt; }
+  .back .cta p { font-family:var(--sans); font-size:8.8pt; line-height:1.6; color:#CFC6B8; margin:0; }
+  .back .cta .mail { font-family:var(--mono); font-size:9.5pt; color:var(--cream); font-weight:500;
+    display:block; margin-top:8pt; letter-spacing:0.02em; text-decoration:none; }
+  .back .colophon { margin-top:26pt; padding-top:8pt; border-top:0.5pt solid #3D3830;
+    font-family:var(--mono); font-size:6.6pt; letter-spacing:0.1em; text-transform:uppercase;
+    color:#7A7062; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+
+<!-- 1. COVER -->
+<div class="bleed cover">
+  <div class="spine">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#FDFBF8" stroke-width="1.5" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg></div>
+    <div class="vert"><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</div>
+  </div>
+  <div class="body">
+    <div class="topline"><span><b>Competitive Fee Position</b> &nbsp;·&nbsp; Report</span><span>Aug 16, 2026</span></div>
+    <div class="title">
+      <div class="series">Prepared exclusively for one institution</div>
+      <h1>Competitive<br>Fee <em>Position</em></h1>
+      <div class="for">Prepared for
+        <span class="instname">HomeTrust Bank</span>
+      </div>
+      <div class="instmeta">Asheville, NC<i>·</i>Bank<i>·</i>Community bank, $1B–$10B</div>
+      <p class="cohortnote">Peer cohort: 86 comparable community banks. Not every peer publishes every fee: 35 publish an NSF fee and 12 an overdraft fee, so those are the comparison sets for those lines.</p>
+    </div>
+    <div class="ghost">86</div>
+    <div class="card">
+      <div><div class="lbl">Peer cohort</div><div class="val">Community banks, $1B–$10B</div></div>
+      <div><div class="lbl">Benchmarked against</div>
+        <div class="big">86<small>peer institutions with published fee schedules</small></div></div>
+      <div><div class="lbl">Source</div><div class="val mono">feeinsight.com</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. EXECUTIVE SUMMARY -->
+<div class="page">
+  <div class="runhead"><span class="sec">01 · Executive summary</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">In brief</div>
+  <h2>Three things your fee schedule says about you</h2>
+  <hr class="rule">
+  <div class="findings">
+    <div class="finding"><div class="num" style="font-size:18pt">$25 vs $15<small>incoming domestic wire vs peer median</small></div>
+   <p><b>You charge the most in your cohort to receive money.</b>At $25.00, your incoming domestic wire fee is a statistical outlier — the 100th percentile of 17 peer banks, $10 over the $15 median and above the entire cohort's 75th percentile of $15. Wires arrive from your most attractive customers: businesses and high-balance households. This is a friction fee on exactly the relationships you want more of.</p></div>
+<div class="finding"><div class="num" style="font-size:24pt">P96<small>deposited item return percentile</small></div>
+   <p><b>Returned deposited items are priced near the top of the market.</b>Your $25.00 deposited-item return fee sits at the 96th percentile of 27 peers — $10 over the $15 median. This fee lands on customers whose deposited check bounced through no fault of their own, which makes a top-of-cohort price a reputational bet, not just a revenue line.</p></div>
+<div class="finding"><div class="num" style="font-size:18pt">$5 vs $12<small>your NSF fee vs peer median</small></div>
+   <p><b>Your customer-friendly fees are a story nobody is telling.</b>Your NSF fee ($5 vs a $12 median, 31st percentile), free card replacement ($0 vs a $10 median), and $1.50 paper statement — the lowest of 16 peers — add up to a genuinely below-market consumer fee posture. That is marketing material your competitors' own published schedules substantiate, and today it earns you nothing.</p></div>
+  </div>
+  <p class="narrative drop">Net position: HomeTrust Bank runs a split fee schedule. On consumer-visible penalty and service fees it is at the friendly end of the market — a $5 NSF fee, free card replacement, and the cheapest paper statement in its cohort. On money-movement and exception fees it sits at or near the top: the highest incoming domestic wire fee of 17 peers (a flagged statistical outlier) and a 96th-percentile deposited-item return fee. The exposure is asymmetrical: the two outliers draw the scrutiny while the below-market fees go unadvertised. Both halves of that split are decisions worth making deliberately.</p>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 3. POSITION MAP -->
+<div class="page">
+  <div class="runhead"><span class="sec">02 · Competitive position</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">The position map</div>
+  <h2>Your fees vs. 86 peer institutions</h2>
+  <hr class="rule">
+  <p class="lede">Peer cohort: Community banks, $1B–$10B — 86 institutions with published
+  fee schedules. Not every peer publishes every fee, so each category compares against the
+  peers that publish that line (per-category n noted in § 03). Percentile = share of peers
+  charging the same or less; the tick marks the median. Terracotta bars sit above the 80th
+  percentile, green at or below the 20th.</p>
+  <table class="position" style="margin-top:12pt">
+    <thead><tr>
+      <th>Fee</th><th class="r">You</th><th class="r">Peer P25</th><th class="r">Median</th>
+      <th class="r">P75</th><th class="r">National</th><th>Percentile</th><th></th>
+    </tr></thead>
+    <tbody>
+      <tr><td>Non-network ATM</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$1.00</td><td class="r">$2.00</td>
+    <td class="r">$2.00</td><td class="r">$1.75</td>
+    <td><span class="small muted">not published</span></td><td><span class="tag gap">no data</span></td></tr>
+<tr><td>Foreign transaction</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$2.00</td><td class="r">$2.00</td>
+    <td class="r">$3.00</td><td class="r">$4.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Card replacement</td>
+    <td class="r"><b>$0.00</b></td>
+    <td class="r">$7.63</td><td class="r">$10.00</td>
+    <td class="r">$21.25</td><td class="r">$10.00</td>
+    <td><div class="bar-wrap"><div class="bar lo" style="width:11%"></div></div><span class="small muted"> P11</span></td><td><span class="tag waived">waived</span></td></tr>
+<tr><td>Cashier's check</td>
+    <td class="r"><b>$5.00</b></td>
+    <td class="r">$5.00</td><td class="r">$8.00</td>
+    <td class="r">$10.00</td><td class="r">$6.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:33%"></div></div><span class="small muted"> P33</span></td><td></td></tr>
+<tr><td>Deposited item return</td>
+    <td class="r"><b>$25.00</b></td>
+    <td class="r">$10.00</td><td class="r">$15.00</td>
+    <td class="r">$20.00</td><td class="r">$15.00</td>
+    <td><div class="bar-wrap"><div class="bar hi" style="width:96%"></div></div><span class="small muted"> P96</span></td><td></td></tr>
+<tr><td>Minimum balance</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">—</td><td class="r">—</td>
+    <td class="r">—</td><td class="r">$5.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Monthly maintenance</td>
+    <td class="r"><b>$2.00</b></td>
+    <td class="r">$2.00</td><td class="r">$10.00</td>
+    <td class="r">$15.00</td><td class="r">$6.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:30%"></div></div><span class="small muted"> P30</span></td><td></td></tr>
+<tr><td>NSF / returned item</td>
+    <td class="r"><b>$5.00</b></td>
+    <td class="r">$5.00</td><td class="r">$12.00</td>
+    <td class="r">$30.00</td><td class="r">$15.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:31%"></div></div><span class="small muted"> P31</span></td><td></td></tr>
+<tr><td>OD protection transfer</td>
+    <td class="r"><b>$5.00</b></td>
+    <td class="r">$5.00</td><td class="r">$5.00</td>
+    <td class="r">$10.00</td><td class="r">$5.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:52%"></div></div><span class="small muted"> P52</span></td><td></td></tr>
+<tr><td>Overdraft</td>
+    <td class="r"><b>$33.00</b></td>
+    <td class="r">$17.50</td><td class="r">$31.00</td>
+    <td class="r">$33.25</td><td class="r">$30.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:75%"></div></div><span class="small muted"> P75</span></td><td></td></tr>
+<tr><td>Paper statement</td>
+    <td class="r"><b>$1.50</b></td>
+    <td class="r">$2.00</td><td class="r">$3.00</td>
+    <td class="r">$4.25</td><td class="r">$3.00</td>
+    <td><div class="bar-wrap"><div class="bar lo" style="width:6%"></div></div><span class="small muted"> P6</span></td><td></td></tr>
+<tr><td>Stop payment</td>
+    <td class="r"><b>$30.00</b></td>
+    <td class="r">$28.50</td><td class="r">$30.00</td>
+    <td class="r">$33.50</td><td class="r">$30.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:53%"></div></div><span class="small muted"> P53</span></td><td></td></tr>
+<tr><td>Incoming domestic wire</td>
+    <td class="r"><b>$25.00</b></td>
+    <td class="r">$10.00</td><td class="r">$15.00</td>
+    <td class="r">$15.00</td><td class="r">$15.00</td>
+    <td><div class="bar-wrap"><div class="bar hi" style="width:100%"></div></div><span class="small muted"> P100</span></td><td><span class="tag outlier">outlier</span></td></tr>
+<tr><td>Outgoing domestic wire</td>
+    <td class="r"><b>$25.00</b></td>
+    <td class="r">$15.00</td><td class="r">$20.00</td>
+    <td class="r">$25.00</td><td class="r">$20.00</td>
+    <td><div class="bar-wrap"><div class="bar hi" style="width:80%"></div></div><span class="small muted"> P80</span></td><td></td></tr>
+<tr><td>Outgoing intl. wire</td>
+    <td class="r"><b>$25.00</b></td>
+    <td class="r">$26.25</td><td class="r">$35.00</td>
+    <td class="r">$47.50</td><td class="r">$40.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:30%"></div></div><span class="small muted"> P30</span></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 4. CALLOUTS -->
+<div class="page">
+  <div class="runhead"><span class="sec">03 · What stands out</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">Divergences</div>
+  <h2>Where you diverge from your market</h2>
+  <hr class="rule">
+  <div class="callouts">
+    <div class="callout ">
+     <h3>Incoming domestic wire — $25.00</h3><div class="stat">Peer median $15.00 · P75 $15.00 · 100th percentile · n=17 · flagged: statistical outlier</div><p>No peer in the cohort charges more to receive a domestic wire. At $10 over the median it earns little revenue but sits alone at the top of the distribution — the kind of line item that surfaces in commercial-relationship negotiations and side-by-side fee comparisons. A cut to the $15 median would be nearly invisible in revenue and highly visible in positioning.</p>
+   </div>
+<div class="callout ">
+     <h3>Deposited item return — $25.00</h3><div class="stat">Peer median $15.00 · P75 $20.00 · 96th percentile · n=27</div><p>This fee charges your customer for someone else's bad check. At $25 you are $10 over the median and above the 75th percentile of a 27-bank cohort. Because the triggering event is outside the customer's control, this category attracts junk-fee framing faster than most — it deserves either a reduction or a documented rationale.</p>
+   </div>
+<div class="callout opportunity">
+     <h3>NSF, card replacement, paper statements — below market, unmarketed</h3><div class="stat">NSF $5 vs $12 median (P31) · Card replacement $0 vs $10 median (P11, waived) · Paper statement $1.50 vs $3.00 median (P6)</div><p>Three consumer-facing fees run meaningfully below your cohort, including a fully waived card-replacement fee that most peers still charge. 'Lower everyday fees than most banks in your market' is a claim your competitors' published schedules prove for you. If these prices are deliberate, put them in front of customers; if not, they represent margin available without touching a headline fee.</p>
+   </div>
+<div class="callout ">
+     <h3>Outgoing domestic wire — $25.00</h3><div class="stat">Peer median $20.00 · P75 $25.00 · 80th percentile · n=15</div><p>Combined with the incoming-wire outlier, both directions of domestic wire traffic price in the top quintile of your cohort. Individually defensible, together they give wire-active customers — typically businesses — a consistent premium-price experience on money movement.</p>
+   </div>
+  </div>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 4b. REVENUE LENS (Call Report data) -->
+<div class="page">
+  <div class="runhead"><span class="sec">04 · The revenue lens</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">Posted price vs. realized income</div>
+  <h2>What fees actually mean<br>to your bottom line</h2>
+  <hr class="rule">
+  <p class="lede">Public regulatory filings (FDIC Call Reports) joined with your fee
+  position — the comparison your fee schedule never shows you.</p>
+  <div class="statgrid">
+    <div class="statcard"><div class="lbl">Total assets</div><div class="val">$4.38B</div></div>
+<div class="statcard"><div class="lbl">Total deposits</div><div class="val">$3.65B</div></div>
+<div class="statcard"><div class="lbl">Employees</div><div class="val">576</div><div class="cmp">33 branches</div></div>
+<div class="statcard"><div class="lbl">Service-charge income</div><div class="val">$142,000</div><div class="cmp">0.1% of revenue</div></div>
+<div class="statcard"><div class="lbl">Fee-income intensity</div><div class="val">0.3 bps</div><div class="cmp">cohort median <b>1.5 bps</b> of assets</div></div>
+<div class="statcard"><div class="lbl">Return on assets</div><div class="val">1.53%</div><div class="cmp">cohort median <b>1.13%</b></div></div>
+  </div>
+  <h3 class="sub">Fee economics vs. your cohort</h3>
+  <table>
+    <thead><tr><th>Metric</th><th class="r">You</th><th class="r">P25</th>
+      <th class="r">Median</th><th class="r">P75</th><th>Position</th><th>Assessment</th></tr></thead>
+    <tbody><tr><td>Service-charge income</td><td class="r"><b>$142,000</b></td><td class="r">—</td>
+   <td class="r">$310,000</td><td class="r">—</td>
+   <td>—</td><td>Below cohort</td></tr>
+<tr><td>Fee intensity (income / assets)</td><td class="r"><b>0.3 bps</b></td><td class="r">0.9 bps</td>
+   <td class="r">1.5 bps</td><td class="r">2.1 bps</td>
+   <td>P7</td><td>Light collector</td></tr>
+<tr><td>Fee dependency (share of noninterest income)</td><td class="r"><b>0.4%</b></td><td class="r">1.3%</td>
+   <td class="r">2.5%</td><td class="r">4.1%</td>
+   <td>P8</td><td>Diversified</td></tr>
+<tr><td>Fee income vs. net income</td><td class="r"><b>0.2%</b></td><td class="r">—</td>
+   <td class="r">1.3%</td><td class="r">—</td>
+   <td>—</td><td>Modest</td></tr></tbody>
+  </table>
+  <p class="narrative" style="margin-top:10pt">Your posted prices (50th percentile) and realized fee income (7th percentile) sit near the cohort middle — <b>fee strategy is neither a risk nor an engine today</b>, which makes the individual outliers in this report the whole story.</p>
+  <p class="small muted" style="margin-top:6pt">Fee-intensity trend (year-end filings): 2024: 0.3 bps → 2025: 0.3 bps · cohort median 1.5 bps.</p>
+  <p class="small muted" style="margin-top:6pt">Deposit footprint (FDIC Summary of Deposits, 2025): 33 branch locations across 18 counties holding $3.67B in deposits.</p>
+  <p class="footnote">Financial figures as filed (Mar 31, 2026 snapshot; revenue from
+  Dec 31, 2025 full-year filing). Cohort medians computed across 884
+  same-charter, same-tier institutions' latest full-year filings.</p>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 5. PEER TABLE -->
+<div class="page">
+  <div class="runhead"><span class="sec">05 · The named comparison</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">Peer by peer</div>
+  <h2>How specific peers price<br>the headline fees</h2>
+  <hr class="rule">
+  <p class="lede">All figures from each institution's published fee schedule (public
+  documents), extracted and verified by the Bank Fee Index pipeline.</p>
+  <table style="margin-top:12pt">
+    <thead><tr><th>Institution</th><th class="r">Monthly maintenance</th><th class="r">Overdraft</th><th class="r">NSF / returned item</th><th class="r">Stop payment</th><th class="r">Outgoing domestic wire</th></tr></thead>
+    <tbody>
+      <tr class="self"><td>HomeTrust Bank <span class="small muted">(you)</span></td><td class="r">$2.00</td><td class="r">$33.00</td><td class="r">$5.00</td><td class="r">$30.00</td><td class="r">$25.00</td></tr>
+      <tr><td>Bank of the Pacific <span class="small muted">(Aberdeen, WA)</span></td><td class="r">$10.00</td><td class="r">$32.00</td><td class="r">$32.00</td><td class="r">$27.00</td><td class="r">$20.00</td></tr>
+<tr><td>Lawrence Bank <span class="small muted">(Nashville, TN)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$15.00</td><td class="r">$34.00</td><td class="r">$15.00</td></tr>
+<tr><td>Hanmi Bank <span class="small muted">(Los Angeles, CA)</span></td><td class="r">—</td><td class="r">$25.00</td><td class="r">$0.00</td><td class="r">$15.00</td><td class="r">$5.00</td></tr>
+<tr><td>Forbright Bank <span class="small muted">(Potomac, MD)</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$25.00</td></tr>
+<tr><td>Burke &amp; Herbert Bank &amp; Trust Company <span class="small muted">(Alexandria, VA)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$20.00</td><td class="r">$32.00</td><td class="r">$30.00</td></tr>
+<tr><td>Fidelity Bank <span class="small muted">(New Orleans, LA)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$35.00</td><td class="r">$40.00</td><td class="r">$25.00</td></tr>
+<tr><td>Farm Bureau Bank FSB <span class="small muted">(Reno, NV)</span></td><td class="r">$20.00</td><td class="r">$5.00</td><td class="r">$30.00</td><td class="r">—</td><td class="r">$10.00</td></tr>
+<tr><td>Marquette Savings Bank <span class="small muted">(Erie, PA)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$5.00</td><td class="r">$5.00</td><td class="r">$36.00</td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 6. CONTEXT + METHODOLOGY -->
+<div class="page">
+  <div class="runhead"><span class="sec">06 · Market context</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">The bigger picture</div>
+  <h2>What is moving in your market</h2>
+  <hr class="rule">
+  <div class="narrative"><p>Two currents define the fee landscape your schedule competes in. First, the retreat from NSF: large banks have largely eliminated returned-item fees, and the pressure has migrated down-market — visible in your own cohort, where the NSF median ($12) keeps falling and a meaningful share of peers now charge $5 or less. Your $5 NSF fee already sits on the right side of that trend. Second, deposit competition has turned fee schedules into marketing documents: published fees are public, scraped, and compared, which converts every outlier line into a small reputational bet — and every below-market line into an unclaimed advantage.</p><p>Community-scale institutions ($1B–$10B) occupy the exposed middle: large enough to be included in comparisons, without the brand gravity that lets money-center banks charge premiums quietly. In that position, the highest-leverage moves are usually surgical — retiring or trimming the one or two conspicuous outliers, here both concentrated in money-movement fees, while actively advertising the everyday fees already priced below market.</p></div>
+  <div class="method" style="margin-top:22pt">
+    <h3 class="sub" style="margin-top:0">Methodology &amp; data provenance</h3>
+    <p style="margin-top:6pt">
+      Fee data is drawn exclusively from institutions' published fee schedules — public
+      documents — collected and verified through the Bank Fee Index agentic pipeline
+      (discovery, extraction, independent verification, publication). Peer cohort:
+      Community banks, $1B–$10B — 86 institutions with published data. Percentiles are
+      computed within-cohort per fee category; a category is flagged an outlier when it
+      exceeds 2× the peer median (extreme) or P75 + 1.5×IQR (statistical). Data pulled
+      Aug 16, 2026. Figures reflect the lowest published consumer-facing amount per
+      category and may not capture account-specific waivers.
+    </p>
+    <h3 class="sub" style="margin-top:14pt">Your source documents</h3>
+    <p style="margin-top:4pt">Every figure attributed to HomeTrust Bank in this report
+    was extracted from your own published documents:</p>
+    <ul>
+      <li>Source URLs available on request.</li>
+    </ul>
+  </div>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 7. APPENDIX: FULL SCHEDULE -->
+<div class="page">
+  <div class="runhead"><span class="sec">07 · Appendix</span><span>HomeTrust Bank</span></div>
+  <div class="kicker">The full ledger</div>
+  <h2>Your complete published fee schedule</h2>
+  <hr class="rule">
+  <p class="lede">Every distinct fee line the Bank Fee Index has extracted and verified from
+  HomeTrust Bank's published documents (50 lines, as of Aug 16, 2026).
+  This is the schedule your customers — and your competitors — can see.</p>
+  <table class="appendix" style="margin-top:12pt">
+    <thead><tr><th>Published fee line</th><th class="r">Amount</th><th>Frequency / terms</th></tr></thead>
+    <tbody>
+      <tr><td>Account closing fee</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">one-time · Applies to checking and money market accounts if closed within first six months</td></tr>
+<tr><td>Account reconciliation/research</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence · Per hour</td></tr>
+<tr><td>Account verification</td><td class="r"><b>$10.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Cash Reserve Overdraft Protection - personal accounts</td><td class="r"><b>$7.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Collection items</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Copies of imaged checks</td><td class="r"><b>$1.00</b></td>
+    <td class="small muted">per occurrence · Per page</td></tr>
+<tr><td>Escheat fee</td><td class="r"><b>$75.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Inactive accounts</td><td class="r"><b>$4.00</b></td>
+    <td class="small muted">monthly · After three months with no activity; applies only to checking or money market accounts with balances under $100</td></tr>
+<tr><td>IRA trustee-to-trustee transfer</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Loan over limit fee</td><td class="r"><b>$33.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Mailed paper statement fee</td><td class="r"><b>$1.50</b></td>
+    <td class="small muted">monthly · Premier Checking, Loyalty Checking, Primetime Checking customers, no charge</td></tr>
+<tr><td>Money market excess transfer fee</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence · All money market accounts limited to six preauthorized transfers per month; $5 fee for each excess transaction that clears the account during statement cycle</td></tr>
+<tr><td>Non-automated telephone transfer - manually processed</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence · Each additional manually processed; online or VRU initiated transfers are no charge</td></tr>
+<tr><td>Official check</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence · Premier Checking, Loyalty Checking and Primetime Checking customers, no charge</td></tr>
+<tr><td>Overdraft charge</td><td class="r"><b>$35.00</b></td>
+    <td class="small muted">per occurrence · No charge if account is less than $10.00 overdrawn or for overdrafts caused by transactions less than $5.00; maximum of 5 overdraft fees per day</td></tr>
+<tr><td>Overdraft Daily Cap</td><td class="r"><b>$175.00</b></td>
+    <td class="small muted">daily · Maximum 5 overdraft fees per day at $35 each</td></tr>
+<tr><td>Personal Mobile Banking and Mobile Deposit</td><td class="r"><b>$0.00</b></td>
+    <td class="small muted">monthly</td></tr>
+<tr><td>Personal Online Banking and Bill Pay</td><td class="r"><b>$0.00</b></td>
+    <td class="small muted">monthly</td></tr>
+<tr><td>Processing tax levies, garnishment, etc.</td><td class="r"><b>$75.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Replacement ATM/Debit Card</td><td class="r"><b>$0.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Returned Item charge</td><td class="r"><b>$35.00</b></td>
+    <td class="small muted">per occurrence · Deposited items returned or Checks written by accountholder</td></tr>
+<tr><td>Returned Item charge - checks written by others</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Safe Deposit Box - 10" x 10"</td><td class="r"><b>$189.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 10" x 10" (NC, SC, TN)</td><td class="r"><b>$120.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 10" x 15"</td><td class="r"><b>$300.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 2" x 5"</td><td class="r"><b>$47.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 3" x 10"</td><td class="r"><b>$98.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 3" x 10" (NC, SC, TN)</td><td class="r"><b>$55.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 3" x 5"</td><td class="r"><b>$63.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 3" x 5" (NC, SC, TN)</td><td class="r"><b>$45.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 4" x 5"</td><td class="r"><b>$70.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 5" x 10"</td><td class="r"><b>$131.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 5" x 10" (NC, SC, TN)</td><td class="r"><b>$80.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 5" x 5"</td><td class="r"><b>$84.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 5" x 5" (NC, SC, TN)</td><td class="r"><b>$50.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 7" x 10" (NC, SC, TN)</td><td class="r"><b>$90.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box - 8" x 8"</td><td class="r"><b>$160.00</b></td>
+    <td class="small muted">annual</td></tr>
+<tr><td>Safe Deposit Box drill fee</td><td class="r"><b>$200.00</b></td>
+    <td class="small muted">one-time</td></tr>
+<tr><td>Safe Deposit Box lost key fee</td><td class="r"><b>$75.00</b></td>
+    <td class="small muted">one-time</td></tr>
+<tr><td>Savings Overdraft Protection - personal accounts</td><td class="r"><b>$7.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Select Money Market monthly fee</td><td class="r"><b>$10.00</b></td>
+    <td class="small muted">monthly · If balance falls below $5,000 minimum</td></tr>
+<tr><td>Statement or check copy</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Statement Savings monthly fee</td><td class="r"><b>$2.00</b></td>
+    <td class="small muted">monthly · If minimum balance of $200 not maintained; waived for those under age 18 or over age 50</td></tr>
+<tr><td>Stop payment order</td><td class="r"><b>$30.00</b></td>
+    <td class="small muted">per occurrence · Per check</td></tr>
+<tr><td>Super Saver Account monthly fee</td><td class="r"><b>$10.00</b></td>
+    <td class="small muted">monthly · If minimum balance of $5,000 not maintained</td></tr>
+<tr><td>Wire transfer - incoming domestic U.S. dollar</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Wire transfer - incoming international</td><td class="r"><b>$30.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Wire transfer - outgoing domestic U.S. dollar</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Wire transfer - outgoing foreign exchange country currency</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Wire transfer - outgoing international U.S. dollar</td><td class="r"><b>$50.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — HomeTrust Bank</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 8. BACK -->
+<div class="bleed back">
+  <div class="brandline"><span><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>Aug 16, 2026</span></div>
+  <h2>This report is yours,<br><em>with our compliments.</em></h2>
+  <p class="sub">A Competitive Fee Position Report retails for $300, delivered in 48 hours. It was produced from source-verified fee data — the same index tracking 1,183 institutions nationwide.</p>
+  <div class="cta">
+    <div>
+      <h4>Refresh it every quarter — $300 per refresh.</h4>
+      <p>Or go deeper with Fee Insight Advisory — custom competitor sets, a board-ready deck,
+      pricing-change modeling against your own filings.</p>
+    </div>
+    <div>
+      <p>Reply to the email this arrived with, or write</p>
+      <span class="mail">hello@bankfeeindex.com</span>
+      <p style="margin-top:8pt">feeinsight.com</p>
+    </div>
+  </div>
+  <div class="colophon"><span>Prepared for HomeTrust Bank</span><span>Set in Newsreader &amp; IBM Plex</span></div>
+</div>
+
+</body>
+</html>

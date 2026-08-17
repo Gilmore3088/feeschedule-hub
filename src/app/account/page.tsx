@@ -174,7 +174,7 @@ export default async function AccountPage({
             <div>
               <div className="flex items-center gap-2">
                 <span className="h-px w-6 bg-[#C44B2E]/40" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
                   {isPro ? "Pro Account" : "Free Account"}
                 </span>
               </div>
@@ -184,7 +184,7 @@ export default async function AccountPage({
               >
                 {user.institution_name || "Your Account"}
               </h1>
-              <p className="mt-1 text-[13px] text-[#7A7062]">
+              <p className="mt-1 text-[13px] text-[#6B6255]">
                 {user.email || user.username}
                 {stateName && <> &middot; {stateName}</>}
                 {districtName && <> &middot; District {district}</>}
@@ -206,7 +206,7 @@ export default async function AccountPage({
                 >
                   Unlock the full platform
                 </h2>
-                <p className="text-[13px] text-[#7A7062] mt-1">
+                <p className="text-[13px] text-[#6B6255] mt-1">
                   {pendingWorkspaceInvitations.length > 0
                     ? "Activate Pro to accept delegated Hamilton workspace access for your invited institution."
                     : "All 49 fee categories, peer benchmarks, Hamilton analysis, data exports, and report workflows."}
@@ -241,7 +241,7 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                   Plan
                 </span>
                 <span className="text-[14px] font-medium text-[#1A1815]">Seat License</span>
@@ -269,7 +269,7 @@ export default async function AccountPage({
                 </svg>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                   Your State Insight
                 </p>
                 <p className="mt-1 text-[14px] text-[#1A1815]">
@@ -290,7 +290,7 @@ export default async function AccountPage({
                       : null
                   }
                 </p>
-                <p className="mt-1 text-[11px] text-[#7A7062]">
+                <p className="mt-1 text-[11px] text-[#6B6255]">
                   {VERIFIED_BENCHMARK_POLICY}; provisional rows are excluded from this benchmark.
                 </p>
               </div>
@@ -307,19 +307,19 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                   Hamilton Context
                 </p>
                 <p className="mt-1 text-[15px] font-semibold text-[#1A1815] truncate">
                   {selectedInstitution?.name ?? "No selected institution"}
                 </p>
-                <p className="mt-1 text-[12px] text-[#7A7062]">
+                <p className="mt-1 text-[12px] text-[#6B6255]">
                   {selectedInstitution
                     ? `ID ${selectedInstitution.id} · ${selectedContextSourceLabel ?? "Selected"} · ${selectedInstitution.feePublicationLabel} · ${selectedInstitution.publishedFeeCount} verified / ${selectedInstitution.provisionalFeeCount} provisional · ${PROVISIONAL_ANALYSIS_POLICY}`
                     : "Set an institution once and Hamilton will carry it through Analyze, Reports, Scenarios, and Monitor."}
                 </p>
                 {selectedInstitution && (
-                  <p className="mt-1 text-[11px] text-[#7A7062]">
+                  <p className="mt-1 text-[11px] text-[#6B6255]">
                     Verified benchmark scores use approved rows only; provisional evidence stays labeled for directional analysis.
                   </p>
                 )}
@@ -351,7 +351,7 @@ export default async function AccountPage({
           <div className="rounded-xl border border-[#E8DFD1] bg-white/70 backdrop-blur-sm p-5 mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                   Institution Authority
                 </p>
                 <h2
@@ -362,7 +362,7 @@ export default async function AccountPage({
                     ? "Verified workspace access"
                     : "No verified institution authority yet"}
                 </h2>
-                <p className="mt-1 text-[13px] text-[#7A7062]">
+                <p className="mt-1 text-[13px] text-[#6B6255]">
                   Accepted claims grant workspace authority for Hamilton context, claim badges, and institution-specific workflows.
                 </p>
               </div>
@@ -385,7 +385,7 @@ export default async function AccountPage({
                       <p className="truncate text-[13px] font-semibold text-[#1A1815]">
                         {membership.institutionName}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-[#7A7062]">
+                      <p className="mt-0.5 text-[11px] text-[#6B6255]">
                         ID {membership.institutionId}
                         {[membership.city, membership.stateCode].filter(Boolean).length > 0
                           ? ` · ${[membership.city, membership.stateCode].filter(Boolean).join(", ")}`
@@ -406,7 +406,7 @@ export default async function AccountPage({
 
             {claimHistory.length > 0 && (
               <div className="mt-5">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                   Claim History
                 </p>
                 <div className="divide-y divide-[#E8DFD1] overflow-hidden rounded-lg border border-[#E8DFD1]">
@@ -416,13 +416,13 @@ export default async function AccountPage({
                         <p className="truncate text-[12px] font-semibold text-[#1A1815]">
                           {claim.institutionName}
                         </p>
-                        <p className="text-[11px] text-[#7A7062]">
+                        <p className="text-[11px] text-[#6B6255]">
                           Submitted {formatDate(claim.createdAt)}
                           {claim.reviewedAt ? ` · reviewed ${formatDate(claim.reviewedAt)}` : ""}
                           {claim.resolution ? ` · ${claim.resolution.replaceAll("_", " ")}` : ""}
                         </p>
                       </div>
-                      <span className="inline-flex w-fit rounded-full border border-[#D8CDBD] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">
+                      <span className="inline-flex w-fit rounded-full border border-[#D8CDBD] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                         {claim.reviewStatus.replace("_", " ")}
                       </span>
                     </div>
@@ -436,7 +436,7 @@ export default async function AccountPage({
         {/* ── Quick Actions ── */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
               Quick Actions
             </span>
             <span className="h-px flex-1 bg-[#E8DFD1]" />
@@ -456,7 +456,7 @@ export default async function AccountPage({
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
-                  className={`h-6 w-6 mb-3 ${action.premium && !isPro ? "text-[#7A7062]" : "text-[#C44B2E]"}`}
+                  className={`h-6 w-6 mb-3 ${action.premium && !isPro ? "text-[#6B6255]" : "text-[#C44B2E]"}`}
                   stroke="currentColor"
                   strokeWidth="1.5"
                   strokeLinecap="round"
@@ -465,11 +465,11 @@ export default async function AccountPage({
                 >
                   <path d={action.icon} />
                 </svg>
-                <div className="text-[14px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+                <div className="text-[14px] font-medium text-[#1A1815] group-hover:text-[#A93D25] transition-colors">
                   {action.label}
                   {action.premium && !isPro && <PremiumBadge />}
                 </div>
-                <div className="text-[12px] text-[#7A7062] mt-1">{action.description}</div>
+                <div className="text-[12px] text-[#6B6255] mt-1">{action.description}</div>
               </a>
             ))}
           </div>
@@ -481,14 +481,14 @@ export default async function AccountPage({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                     API and Exports
                   </span>
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-600 uppercase">
                     Active
                   </span>
                 </div>
-                <p className="text-[13px] text-[#7A7062]">
+                <p className="text-[13px] text-[#6B6255]">
                   REST endpoints and verified-only CSV exports are available now. Managed account API keys remain disabled in this account surface until key lifecycle and rate-limit ownership are reconciled.
                 </p>
               </div>
@@ -507,15 +507,15 @@ export default async function AccountPage({
                 </a>
               </div>
             </div>
-            <div className="mt-4 grid gap-2 text-[12px] text-[#7A7062] sm:grid-cols-3">
+            <div className="mt-4 grid gap-2 text-[12px] text-[#6B6255] sm:grid-cols-3">
               <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
                   API Docs
                 </span>
                 Public REST reference and OpenAPI schema.
               </div>
               <div className="rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-2">
-                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
                   CSV Export
                 </span>
                 Seat License export of verified-only fee medians.

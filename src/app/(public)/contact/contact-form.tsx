@@ -18,6 +18,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
   const defaultSource = typeof searchParams.source === "string" ? searchParams.source : "";
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +41,10 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
         body: JSON.stringify(data),
       });
       if (resp.ok) {
+        const body = (await resp.json().catch(() => null)) as {
+          notifications?: { confirmation?: string };
+        } | null;
+        setConfirmationSent(body?.notifications?.confirmation === "sent");
         setStatus("success");
       } else {
         setStatus("error");
@@ -57,19 +62,20 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
         </p>
         <p className="mt-2 text-[13px] text-emerald-700">
           We&apos;ll get back to you within one business day.
+          {confirmationSent ? " A confirmation is on its way to your inbox." : ""}
         </p>
       </div>
     );
   }
 
   const inputClasses =
-    "w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-2.5 text-[13px] text-[#1A1815] placeholder:text-[#A09788] focus:outline-none focus:ring-2 focus:ring-[#C44B2E]/30 focus:border-transparent";
+    "w-full rounded-xl border border-[#E8DFD1] bg-white px-4 py-2.5 text-[13px] text-[#1A1815] placeholder:text-[#6B6255] focus:outline-none focus:ring-2 focus:ring-[#C44B2E]/30 focus:border-transparent";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="name" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+          <label htmlFor="name" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
             Name
           </label>
           <input
@@ -82,7 +88,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
           />
         </div>
         <div>
-          <label htmlFor="email" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+          <label htmlFor="email" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
             Work email
           </label>
           <input
@@ -98,7 +104,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label htmlFor="company" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+          <label htmlFor="company" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
             Company / Institution
           </label>
           <input
@@ -110,7 +116,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
           />
         </div>
         <div>
-          <label htmlFor="role" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+          <label htmlFor="role" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
             Role
           </label>
           <input
@@ -124,7 +130,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
       </div>
 
       <div>
-        <label htmlFor="inquiry_type" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+        <label htmlFor="inquiry_type" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
           Inquiry type
         </label>
         <select
@@ -142,7 +148,7 @@ export function ContactForm({ searchParamsPromise }: ContactFormProps) {
       </div>
 
       <div>
-        <label htmlFor="message" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">
+        <label htmlFor="message" className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">
           Message
         </label>
         <textarea

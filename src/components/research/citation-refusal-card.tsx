@@ -40,7 +40,7 @@ export function CitationRefusalCard({ refusal }: { refusal: CitationRefusal }) {
     >
       <div className="flex items-center gap-2">
         <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#C44B2E]" aria-hidden />
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#C44B2E]">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-[#A93D25]">
           Report withheld
         </p>
       </div>

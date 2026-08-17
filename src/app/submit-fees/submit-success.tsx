@@ -32,7 +32,6 @@ export function SubmitSuccessCard({
           </p>
           {claimFlow && (
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#5A5347]">
-              {contactEmailProvided ? "" : "We'll email you when the profile is updated. "}
               Institution employees can also request their{" "}
               <Link href={REPORT_HREF} className="font-semibold text-[#C44B2E] hover:text-[#A93D25]">
                 Competitive Fee Position report
@@ -53,7 +52,7 @@ export function SubmitSuccessCard({
             <button
               type="button"
               onClick={onSubmitAnother}
-              className="text-sm font-semibold text-[#7A7062] underline-offset-2 hover:text-[#C44B2E] hover:underline"
+              className="text-sm font-semibold text-[#6B6255] underline-offset-2 hover:text-[#A93D25] hover:underline"
             >
               Submit another source
             </button>

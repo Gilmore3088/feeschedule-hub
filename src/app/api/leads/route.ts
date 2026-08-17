@@ -1,6 +1,13 @@
 import { withApiRoutePolicy } from "@/lib/api-hardening/route-wrapper";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "@/lib/data-store/connection";
+import {
+  REPORT_SOURCE,
+  buildReportUseCase,
+  notifyForLead,
+  parseInstitutionId,
+  parseSrc,
+} from "./lead-notifications";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DEFAULT_SOURCE = "website";
@@ -21,8 +28,13 @@ async function handlePOST(request: NextRequest) {
     const email = cleanText(body.email);
     const company = cleanText(body.company);
     const role = cleanText(body.role);
-    const useCase = cleanText(body.use_case);
     const source = cleanText(body.source) ?? DEFAULT_SOURCE;
+    const institutionId = source === REPORT_SOURCE ? parseInstitutionId(body.institutionId) : null;
+    const src = source === REPORT_SOURCE ? parseSrc(body.src) : null;
+    const useCase =
+      source === REPORT_SOURCE
+        ? buildReportUseCase(cleanText(body.use_case), institutionId, src)
+        : cleanText(body.use_case);
 
     if (!name || !email) {
       return NextResponse.json(
@@ -68,7 +80,19 @@ async function handlePOST(request: NextRequest) {
         VALUES (${name}, ${email}, ${company}, ${role}, ${useCase}, ${source})`;
     }
 
-    return NextResponse.json({ success: true });
+    // Storage is done; email is best-effort and its status rides along for the client.
+    const notifications = await notifyForLead({
+      name,
+      email,
+      company,
+      role,
+      useCase,
+      source,
+      institutionId,
+      src,
+    });
+
+    return NextResponse.json(notifications ? { success: true, notifications } : { success: true });
   } catch {
     return NextResponse.json(
       { error: "Internal server error" },

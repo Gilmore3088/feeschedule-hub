@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { getPublicStatsSummary } from "@/lib/public-stats";
+import { SITE_NAME } from "@/lib/constants";
 
 interface UpgradeGateProps {
   message?: string;
   compact?: boolean;
-  count?: number; // e.g., "43 more categories"
+  /**
+   * How many more categories a Pro seat unlocks. Callers pass a computed value
+   * (categories with data minus categories shown); it is capped to the live
+   * category count so it can never overstate the index.
+   */
+  count?: number;
 }
+
+const PRO_LABEL = `${SITE_NAME} Pro`;
 
 /**
  * Shown when a free user encounters a premium-only feature.
@@ -17,18 +25,19 @@ export async function UpgradeGate({
   count,
 }: UpgradeGateProps) {
   const summary = await getPublicStatsSummary();
+  const moreCount = count && count > 0 ? Math.min(count, summary.categories) : 0;
   if (compact) {
     return (
       <div className="text-center py-6 px-4 border-t border-[#E8DFD1] bg-gradient-to-r from-[#FAF7F2] to-white">
-        <div className="text-sm text-[#7A7062]">
-          {count ? `${count} more available` : message || "Premium feature"}
-          {" "}with a Seat License
+        <div className="text-sm text-[#6B6255]">
+          {moreCount ? `${moreCount} more available` : message || "Premium feature"}
+          {" "}with {PRO_LABEL}
         </div>
         <Link
           href="/subscribe"
-          className="inline-block mt-2 text-sm font-bold text-[#C44B2E] hover:underline"
+          className="inline-block mt-2 text-sm font-bold text-[#A93D25] hover:underline"
         >
-          View Plans &rarr;
+          See pricing &rarr;
         </Link>
       </div>
     );
@@ -48,19 +57,19 @@ export async function UpgradeGate({
       >
         {message || "Unlock full access"}
       </h3>
-      <p className="text-sm text-[#7A7062] mb-4">
-        {count
-          ? `${count} more fee categories, peer benchmarks by charter, size and district, CSV exports, and the Hamilton workspace.`
+      <p className="text-sm text-[#6B6255] mb-4">
+        {moreCount
+          ? `${moreCount} more fee categories, peer benchmarks by charter, size and district, CSV exports, and the Hamilton workspace.`
           : `Unlock all ${summary.categoriesLabel} fee categories, peer benchmarks by charter, size and district, CSV exports, and the Hamilton workspace.`}
       </p>
-      <div className="text-[12px] text-[#7A7062] mt-2 mb-4">
+      <div className="text-[12px] text-[#6B6255] mt-2 mb-4">
         Based on {summary.observationsLabel} verified fees from {summary.institutionsLabel} institutions
       </div>
       <Link
         href="/subscribe"
-        className="inline-flex items-center gap-1.5 rounded-md bg-[#C44B2E] px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-[#C44B2E]/15 hover:bg-[#A83D25] hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all"
+        className="inline-flex items-center gap-1.5 rounded-md bg-[#C44B2E] px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-[#C44B2E]/15 hover:bg-[#A93D25] hover:shadow-md hover:shadow-[#C44B2E]/25 transition-all"
       >
-        View Plans
+        See pricing
         <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
           <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
         </svg>
@@ -72,7 +81,7 @@ export async function UpgradeGate({
 /** Lock icon badge for quick action tiles. */
 export function PremiumBadge() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#FFF0ED] text-[#C44B2E] uppercase tracking-wider ml-1">
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-[#FFF0ED] text-[#A93D25] uppercase tracking-wider ml-1">
       Pro
     </span>
   );

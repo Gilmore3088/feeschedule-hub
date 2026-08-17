@@ -20,8 +20,8 @@ export function ReportOfferSection() {
       <div className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:items-start">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
-              Fee Insight Advisory
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
+              {REPORT_NAME}
             </p>
             <h2
               className="mt-3 text-warm-900 text-[28px] leading-tight"

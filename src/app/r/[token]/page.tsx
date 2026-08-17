@@ -7,10 +7,12 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
+import { ReportExecutiveSummaryBlock } from "@/components/public/report-executive-summary";
 import { ReportFrame } from "@/components/public/report-frame";
 import { TrackLink } from "@/components/track-link";
 import { CONTACT_EMAIL, SITE_NAME } from "@/lib/constants";
 import {
+  extractExecutiveSummary,
   formatReportDate,
   getHostedReport,
   prepareReportForEmbed,
@@ -51,7 +53,9 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
   const rawHtml = readHostedReportHtml(report.institution_id);
   if (!rawHtml) notFound();
   const html = prepareReportForEmbed(rawHtml);
+  const summary = extractExecutiveSummary(rawHtml);
   const preparedOn = formatReportDate(report.prepared_on);
+  const printHref = `/r/${report.token}/print`;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -59,7 +63,7 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
       <main className="mx-auto max-w-6xl px-6 pb-24 pt-10">
         <section className="flex flex-col gap-5 rounded-xl border border-[#E0D7C9] bg-[#FDFBF8] p-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#C44B2E]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A93D25]">
               Competitive Fee Position Report
             </p>
             <h1
@@ -73,33 +77,38 @@ export default async function HostedReportPage({ params, searchParams }: PagePro
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <a
+              href={printHref}
+              target="_blank"
+              rel="noopener"
+              className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#A93D25]"
+            >
+              Download PDF
+            </a>
             <TrackLink
               event="book_walkthrough"
               eventProps={{ placement: "hosted_report", institution_id: report.institution_id }}
               href={bookingHref(report.institution_name)}
-              className="inline-flex items-center rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#A93D25]"
+              className="inline-flex items-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#A93D25]"
             >
               Book 15 minutes
             </TrackLink>
-            <a
-              href={`/r/${report.token}/print`}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center rounded-md border border-[#D5CBBF] px-4 py-2.5 text-sm font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]"
-            >
-              Download PDF
-            </a>
           </div>
         </section>
+
+        <div className="mt-8">
+          <ReportExecutiveSummaryBlock summary={summary} />
+        </div>
 
         <section className="mt-8" aria-label="Report">
           <ReportFrame
             html={html}
             title={`Competitive Fee Position Report — ${report.institution_name}`}
+            pdfHref={printHref}
           />
         </section>
 
-        <p className="mt-6 text-[12px] leading-relaxed text-[#7A7062]">
+        <p className="mt-6 text-[12px] leading-relaxed text-[#6B6255]">
           This link was prepared for {report.institution_name} and is not listed publicly. It
           resolves until {formatReportDate(report.expires_on)}. Questions or a
           quarterly refresh:{" "}

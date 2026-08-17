@@ -35,7 +35,7 @@ export interface PublicInstitutionProfileLinks {
   correctSourceHref: string;
   /** Free institution-employee claim path: `/submit-fees?institution=<id>&claim=1`. */
   claimHref: string;
-  /** Competitive Fee Position report offer. */
+  /** Competitive Fee Position report offer, carrying `institution`, `name` and `src=profile` for the form. */
   reportOfferHref: string;
   analyzeHref: string;
   briefHref: string;
@@ -48,16 +48,18 @@ export interface PublicInstitutionProfileLinks {
  */
 export function buildPublicInstitutionProfileLinks({
   institutionId,
+  institutionName,
   isAuthenticated,
 }: PublicInstitutionProfileLinkParams): PublicInstitutionProfileLinks {
   const instId = String(institutionId);
   const profilePath = `/institution/${instId}`;
   const subscribeHref = `/subscribe?from=${encodeURIComponent(profilePath)}`;
   const gate = (proHref: string) => (isAuthenticated ? proHref : subscribeHref);
+  const reportContext = new URLSearchParams({ institution: instId, name: institutionName, src: "profile" });
   return {
     correctSourceHref: `/submit-fees?institution=${instId}`,
     claimHref: `/submit-fees?institution=${instId}&claim=1`,
-    reportOfferHref: "/for-institutions#report",
+    reportOfferHref: `/for-institutions?${reportContext.toString()}#report`,
     analyzeHref: gate(`/pro/analyze?instId=${instId}&intent=institution`),
     briefHref: gate(`/pro/reports?instId=${instId}&intent=competitive-brief`),
     scenarioHref: gate(`/pro/simulate?instId=${instId}`),

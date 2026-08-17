@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { CONTACT_EMAIL, REPORT_OFFER } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Fee Insight terms of service. Subscription terms, data usage, and acceptable use.",
+  description:
+    "Fee Insight terms of service. Subscription terms, commissioned reports, data usage, and acceptable use.",
 };
 
 export default function TermsPage() {
@@ -10,7 +12,7 @@ export default function TermsPage() {
     <div className="mx-auto max-w-3xl px-6 py-14">
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           Legal
         </span>
       </div>
@@ -21,8 +23,8 @@ export default function TermsPage() {
       >
         Terms of Service
       </h1>
-      <p className="mt-2 text-[13px] text-[#7A7062]">
-        Last updated: March 2026
+      <p className="mt-2 text-[13px] text-[#6B6255]">
+        Last updated: August 2026
       </p>
 
       <div className="mt-8 space-y-6 text-[14px] leading-relaxed text-[#5A5347]">
@@ -48,8 +50,9 @@ export default function TermsPage() {
           <p>
             Fee Insight provides fee schedule data, benchmarking tools, and
             analytical capabilities for US bank and credit union fees. The
-            Service includes free public access to select data and premium
-            subscription tiers with additional features.
+            Service includes free public access to select data, premium
+            subscription tiers with additional features, and one-time
+            commissioned reports.
           </p>
         </section>
 
@@ -96,7 +99,33 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            5. Data Usage and Licensing
+            5. Commissioned Reports
+          </h2>
+          <ul className="list-disc pl-6 space-y-1.5">
+            <li>
+              A commissioned report (for example the {REPORT_OFFER.name}) is a one-time
+              purchase at the price stated at the time of order.
+            </li>
+            <li>
+              We confirm the peer set with you before any work starts. The report is
+              delivered as a PDF within 48 hours after the peer set is confirmed.
+            </li>
+            <li>
+              If we cannot find at least 10 comparable institutions with verified fees for
+              your peer set, there is no charge and we tell you.
+            </li>
+            <li>
+              Reports are licensed to the purchasing institution for internal use, including
+              board and committee materials. Redistribution or resale requires a separate
+              agreement.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
+            6. Data Usage and Licensing
           </h2>
           <p>
             Free tier users may reference Bank Fee Index data for personal,
@@ -110,7 +139,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            6. API Usage
+            7. API Usage
           </h2>
           <p>
             API access is subject to rate limits as specified in your
@@ -124,7 +153,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            7. Data Accuracy
+            8. Data Accuracy
           </h2>
           <p>
             Fee Insight strives to provide accurate and timely fee data.
@@ -139,7 +168,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            8. Not Financial Advice
+            9. Not Financial Advice
           </h2>
           <p>
             The Service provides informational data and analytical tools. Nothing
@@ -152,7 +181,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            9. Acceptable Use
+            10. Acceptable Use
           </h2>
           <p>You agree not to:</p>
           <ul className="list-disc pl-6 space-y-1.5 mt-2">
@@ -167,7 +196,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            10. Limitation of Liability
+            11. Limitation of Liability
           </h2>
           <p>
             To the maximum extent permitted by law, Fee Insight shall not be
@@ -181,7 +210,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            11. Termination
+            12. Termination
           </h2>
           <p>
             We may suspend or terminate your access to the Service at any time
@@ -195,7 +224,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-[16px] font-medium text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-            12. Changes to Terms
+            13. Changes to Terms
           </h2>
           <p>
             We may modify these terms at any time. Material changes will be
@@ -206,10 +235,10 @@ export default function TermsPage() {
         </section>
 
         <div className="pt-4 border-t border-[#E8DFD1]">
-          <p className="text-[13px] text-[#7A7062]">
+          <p className="text-[13px] text-[#6B6255]">
             Questions about these terms? Contact us at{" "}
-            <a href="mailto:hello@bankfeeindex.com" className="text-[#C44B2E] hover:underline">
-              hello@bankfeeindex.com
+            <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#C44B2E] hover:underline">
+              {CONTACT_EMAIL}
             </a>
           </p>
         </div>

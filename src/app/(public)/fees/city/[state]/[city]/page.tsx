@@ -103,7 +103,7 @@ export default async function CityFeePage({ params }: PageProps) {
 
       <div className="max-w-5xl mx-auto px-6 py-14">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-[12px] text-[#7A7062] mb-6">
+        <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-6">
           <Link href="/fees" className="hover:text-[#1A1815] transition-colors">Fees</Link>
           <span className="text-[#D4C9BA]">/</span>
           <Link href={`/fees/city/${stateCode.toLowerCase()}`} className="hover:text-[#1A1815] transition-colors">{stateName}</Link>
@@ -114,7 +114,7 @@ export default async function CityFeePage({ params }: PageProps) {
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
             Local Fee Comparison
           </span>
         </div>
@@ -125,7 +125,7 @@ export default async function CityFeePage({ params }: PageProps) {
         >
           Bank Fees in {cityName}, {stateCode}
         </h1>
-        <p className="text-[14px] text-[#7A7062] mb-8">
+        <p className="text-[14px] text-[#6B6255] mb-8">
           {institutions.length} institution{institutions.length !== 1 ? "s" : ""} with fee data
           ({bankCount} bank{bankCount !== 1 ? "s" : ""}, {cuCount} credit union{cuCount !== 1 ? "s" : ""})
         </p>
@@ -134,7 +134,7 @@ export default async function CityFeePage({ params }: PageProps) {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
           {spotlightAverages.map((s) => (
             <div key={s.category} className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062] mb-1.5">{s.displayName}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255] mb-1.5">{s.displayName}</p>
               <p
                 className="text-[22px] font-light tabular-nums text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -146,7 +146,7 @@ export default async function CityFeePage({ params }: PageProps) {
                   {s.delta > 0 ? "+" : ""}{s.delta.toFixed(1)}% vs national
                 </p>
               )}
-              <p className="text-[10px] text-[#7A7062] mt-0.5">
+              <p className="text-[10px] text-[#6B6255] mt-0.5">
                 {s.institutionCount} institution{s.institutionCount !== 1 ? "s" : ""} reporting
               </p>
             </div>
@@ -167,14 +167,14 @@ export default async function CityFeePage({ params }: PageProps) {
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Institution</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Type</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Assets</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Overdraft</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Monthly Fee</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">NSF</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">ATM</th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Fees</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Institution</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Type</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Assets</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Overdraft</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Monthly Fee</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">NSF</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">ATM</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Fees</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8DFD1]/40">
@@ -188,10 +188,10 @@ export default async function CityFeePage({ params }: PageProps) {
                         {inst.institution_name}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-[#7A7062]">
+                    <td className="px-4 py-2.5 text-[#6B6255]">
                       {inst.charter_type === "bank" ? "Bank" : "CU"}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                       {inst.asset_size ? formatAssets(inst.asset_size) : "-"}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[#1A1815]">
@@ -206,7 +206,7 @@ export default async function CityFeePage({ params }: PageProps) {
                     <td className="px-4 py-2.5 text-right tabular-nums text-[#1A1815]">
                       {formatAmount(inst.atm_non_network)}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                       {inst.fee_count}
                     </td>
                   </tr>
@@ -231,11 +231,11 @@ export default async function CityFeePage({ params }: PageProps) {
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Fee Category</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">{cityName} Avg</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">National</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Difference</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#7A7062]">Reporting</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Fee Category</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">{cityName} Avg</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">National</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Difference</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Reporting</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E8DFD1]/40">
@@ -255,7 +255,7 @@ export default async function CityFeePage({ params }: PageProps) {
                         <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#1A1815]">
                           {formatAmount(avg.median)}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                           {natMedian !== undefined ? formatAmount(natMedian) : "-"}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums">
@@ -265,7 +265,7 @@ export default async function CityFeePage({ params }: PageProps) {
                             </span>
                           ) : "-"}
                         </td>
-                        <td className="px-4 py-2.5 text-right tabular-nums text-[#7A7062]">
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
                           {avg.institution_count}
                         </td>
                       </tr>
@@ -281,21 +281,21 @@ export default async function CityFeePage({ params }: PageProps) {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={`/fees/city/${stateCode.toLowerCase()}`}
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
           >
             More cities in {stateName}
           </Link>
           <Link
             href={`/research/state/${stateCode.toLowerCase()}`}
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
           >
             {stateName} Fee Report
           </Link>
           <Link
             href="/fees"
-            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-colors no-underline"
+            className="rounded-full border border-[#E8DFD1] px-4 py-1.5 text-[12px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
           >
-            National Fee Index
+            Bank Fee Index
           </Link>
         </div>
       </div>

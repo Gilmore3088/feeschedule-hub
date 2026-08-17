@@ -14,7 +14,7 @@ export async function DataFreshness() {
   });
 
   return (
-    <p className="text-[11px] text-[#7A7062]">
+    <p className="text-[11px] text-[#6B6255]">
       Data as of {dateStr} &middot;{" "}
       {freshness.total_observations.toLocaleString()} observations
     </p>

@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono";
 import { Newsreader, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL } from "@/lib/constants";
+import { PLAUSIBLE_QUEUE_SHIM } from "@/lib/analytics";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -59,6 +60,14 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
         />
+        {PLAUSIBLE_DOMAIN && (
+          // Standard Plausible queue shim: buffers trackEvent() calls fired before
+          // the deferred script loads; the script drains window.plausible.q.
+          <script
+            id="plausible-queue"
+            dangerouslySetInnerHTML={{ __html: PLAUSIBLE_QUEUE_SHIM }}
+          />
+        )}
       </head>
       <body className={`${GeistSans.variable} ${GeistMono.variable} ${newsreader.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         {children}

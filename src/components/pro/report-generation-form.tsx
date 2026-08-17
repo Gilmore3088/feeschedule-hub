@@ -24,7 +24,7 @@ interface Props {
 const activeChip =
   'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors bg-[#C44B2E] text-white border-[#C44B2E]';
 const inactiveChip =
-  'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#C44B2E] cursor-pointer';
+  'inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-full border transition-colors bg-white text-[#5A5347] border-[#E8DFD1] hover:border-[#C44B2E]/40 hover:text-[#A93D25] cursor-pointer';
 
 export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -200,7 +200,7 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
         <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5 space-y-5">
           {/* Charter */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255] mb-2">
               Charter Type
             </p>
             <div className="flex flex-wrap gap-2">
@@ -223,7 +223,7 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
 
           {/* Asset Tier */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255] mb-2">
               Asset Tier
             </p>
             <div className="flex flex-wrap gap-2">
@@ -242,7 +242,7 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
 
           {/* Fed District */}
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255] mb-2">
               Fed District
             </p>
             <div className="flex flex-wrap gap-2">
@@ -264,7 +264,7 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
       {/* District-only selector (district_outlook) */}
       {isDistrictType && (
         <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062] mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255] mb-3">
             Select Fed District
           </p>
           <div className="flex flex-wrap gap-2">
@@ -280,7 +280,7 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
             ))}
           </div>
           {outlookDistrict === null && (
-            <p className="mt-3 text-xs text-[#7A7062]">
+            <p className="mt-3 text-xs text-[#6B6255]">
               Select a district to generate the outlook report.
             </p>
           )}
@@ -290,12 +290,12 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
       {/* Peer group preview (peer types only) */}
       {isPeerType && (
         <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-5 space-y-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#7A7062]">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255]">
             Peer Group Preview
           </p>
 
           {previewLoading && !preview && (
-            <p className="text-sm text-[#7A7062]">Loading peer group data...</p>
+            <p className="text-sm text-[#6B6255]">Loading peer group data...</p>
           )}
 
           {preview && (
@@ -309,19 +309,19 @@ export function ReportGenerationForm({ limitReached, limitInfo }: Props) {
                   >
                     {preview.institution_count.toLocaleString()}
                   </span>
-                  <span className="ml-1.5 text-xs text-[#7A7062]">institutions</span>
+                  <span className="ml-1.5 text-xs text-[#6B6255]">institutions</span>
                 </div>
                 <div>
                   <span className="text-lg font-semibold tabular-nums text-[#1A1815]">
                     {preview.observation_count.toLocaleString()}
                   </span>
-                  <span className="ml-1.5 text-xs text-[#7A7062]">observations</span>
+                  <span className="ml-1.5 text-xs text-[#6B6255]">observations</span>
                 </div>
                 <div>
                   <span className="text-lg font-semibold tabular-nums text-[#1A1815]">
                     {preview.category_count.toLocaleString()}
                   </span>
-                  <span className="ml-1.5 text-xs text-[#7A7062]">fee categories</span>
+                  <span className="ml-1.5 text-xs text-[#6B6255]">fee categories</span>
                 </div>
               </div>
 

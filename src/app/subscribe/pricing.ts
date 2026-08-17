@@ -14,9 +14,23 @@ const WHOLE_DOLLARS = new Intl.NumberFormat("en-US", {
   currency: "USD",
   maximumFractionDigits: 0,
 });
+const EXACT_DOLLARS = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
-/** "$499" — monthly seat price shown without cents. */
-export const MONTHLY_PRICE_LABEL = WHOLE_DOLLARS.format(Math.floor(MONTHLY_PRICE_USD));
+/** "$499.99" — the billed monthly seat price, never floored. */
+export const MONTHLY_PRICE_LABEL = EXACT_DOLLARS.format(MONTHLY_PRICE_USD);
+/** "Monthly" / "Annual" for copy that names the plan. */
+export const PLAN_DISPLAY_NAME: Record<ProPlan, string> = { monthly: "Monthly", annual: "Annual" };
+/** "$499.99/mo per seat" / "$5,000/yr per seat". */
+export function planPriceLine(plan: ProPlan): string {
+  return plan === "monthly"
+    ? `${MONTHLY_PRICE_LABEL}/mo per seat`
+    : `${ANNUAL_PRICE_LABEL}/yr per seat`;
+}
 /** "$5,000" */
 export const ANNUAL_PRICE_LABEL = WHOLE_DOLLARS.format(ANNUAL_PRICE_USD);
 /** "$300" */
@@ -30,18 +44,17 @@ export function isProPlan(value: string | undefined): value is ProPlan {
   return value === "monthly" || value === "annual";
 }
 
-/** Feature list shared by both Pro cards — annual is a discount, not a tier. */
+/** Feature list shared by both Pro price columns — annual is a discount, not a tier. */
 export function proFeatureList(summary: PublicStatsSummary): string[] {
   return [
     `Full dataset: ${summary.categoriesLabel} fee categories, ${summary.institutionsLabel} institutions with verified fees`,
-    "Peer comparison by charter type, asset tier, Fed district",
-    "National and regional fee index with percentiles",
-    "CSV and bulk data exports",
-    "Hamilton workspace: benchmark, scenario, report, monitor",
-    "Board-ready reports from Hamilton",
-    "Fed district economic context and Beige Book summaries",
-    "CFPB complaint correlation data",
-    "Daily-updated economic indicators (FRED, BLS, NY Fed)",
+    "Hamilton workspace: Analyze, Benchmark, Scenario, Report and Monitor modes",
+    "Unlimited peer sets by charter type, asset tier and Fed district",
+    "Continuous monitoring: know the day a competitor changes a fee",
+    "What-if scenario modeling on your own schedule",
+    "Board-ready reports, every figure cited to its source document",
+    "CSV and API exports",
+    "Fed district economic context, Beige Book summaries, CFPB complaint data",
   ];
 }
 

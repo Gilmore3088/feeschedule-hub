@@ -6,7 +6,7 @@ const STATUS_TONE: Record<FeePublicationStatus, string> = {
   verified: "border-emerald-200 bg-emerald-50 text-emerald-800",
   provisional: "border-amber-200 bg-amber-50 text-amber-900",
   under_review: "border-amber-200 bg-amber-50 text-amber-900",
-  unavailable: "border-[#E0D7C9] bg-white text-[#7A7062]",
+  unavailable: "border-[#E0D7C9] bg-white text-[#6B6255]",
 };
 
 export function StatusBadge({ status }: { status: FeePublicationStatus }) {
@@ -30,7 +30,7 @@ export interface ProfileHeaderProps {
 }
 
 const LINK_CLASS =
-  "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#D5CBBF] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#C44B2E]";
+  "inline-flex items-center justify-center gap-1.5 rounded-md border border-[#D5CBBF] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A1815] transition-colors hover:border-[#C44B2E] hover:text-[#A93D25]";
 
 export function ProfileHeader({
   name,
@@ -50,7 +50,7 @@ export function ProfileHeader({
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <StatusBadge status={status} />
             {segmentLabel && (
-              <span className="rounded-md border border-[#E0D7C9] bg-white px-2 py-1 text-[11px] font-medium text-[#7A7062]">
+              <span className="rounded-md border border-[#E0D7C9] bg-white px-2 py-1 text-[11px] font-medium text-[#6B6255]">
                 {segmentLabel}
               </span>
             )}
@@ -61,7 +61,7 @@ export function ProfileHeader({
           >
             {name}
           </h1>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#7A7062]">
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-[#6B6255]">
             {locationLabel && (
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function ProfileHeader({
             )}
           </div>
           {freshnessLine && (
-            <p className="mt-2 text-sm text-[#7A7062]">{freshnessLine}</p>
+            <p className="mt-2 text-sm text-[#6B6255]">{freshnessLine}</p>
           )}
         </div>
 

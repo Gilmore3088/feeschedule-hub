@@ -1,29 +1,92 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { trackEvent } from "@/lib/analytics";
+import { REPORT_OFFER } from "@/lib/constants";
 
 const LEADS_ENDPOINT = "/api/leads";
 const REPORT_USE_CASE = "competitive-fee-position-report";
 const REPORT_SOURCE = "report";
+const DEFAULT_SRC = "for-institutions";
+const SRC_PATTERN = /^[a-z0-9][a-z0-9_-]{0,39}$/i;
 
-const SUCCESS_MESSAGE = "Thanks — we'll confirm your peer set and deliver within 48 hours.";
+const SUCCESS_HEADLINE = "Request received.";
+const SUCCESS_PROMISE =
+  "We confirm your peer set within one business day; the report follows within 48 hours of confirmation.";
+const CONFIRMATION_SENT = "A confirmation email is on its way to you now.";
+const CONFIRMATION_MISSING =
+  "We couldn't send a confirmation email — we still have your request; expect an email from";
 const GENERIC_ERROR = "We couldn't send that request. Please try again or email us directly.";
 
 const INPUT_CLASS =
   "w-full rounded-md border border-[#D5CBBF] bg-white px-3 py-2 text-sm text-[#1A1815] " +
-  "placeholder:text-[#7A7062] focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent";
+  "placeholder:text-[#6B6255] focus:outline-none focus:ring-2 focus:ring-[#C44B2E] focus:border-transparent " +
+  "read-only:bg-[#F4EFE7] read-only:text-[#5A5347]";
 const LABEL_CLASS = "block text-sm font-medium text-[#1A1815] mb-1";
 
 type Status = "idle" | "submitting" | "success" | "error";
+type ConfirmationStatus = "sent" | "not_configured" | "failed" | "unknown";
+
+interface LeadsResponse {
+  success?: boolean;
+  error?: string;
+  notifications?: { notification?: string; confirmation?: string };
+}
 
 interface RequestReportFormProps {
   contactEmail: string;
 }
 
-export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
+interface Prefill {
+  institutionId: number | null;
+  institutionName: string;
+  src: string;
+}
+
+function readPrefill(params: URLSearchParams): Prefill {
+  const idRaw = Number(params.get("institution"));
+  const srcRaw = (params.get("src") ?? "").trim();
+  return {
+    institutionId: Number.isInteger(idRaw) && idRaw > 0 ? idRaw : null,
+    institutionName: (params.get("name") ?? "").trim(),
+    src: SRC_PATTERN.test(srcRaw) ? srcRaw : DEFAULT_SRC,
+  };
+}
+
+function toConfirmationStatus(body: LeadsResponse | null): ConfirmationStatus {
+  const status = body?.notifications?.confirmation;
+  return status === "sent" || status === "not_configured" || status === "failed"
+    ? status
+    : "unknown";
+}
+
+export function RequestReportForm(props: RequestReportFormProps) {
+  return (
+    <Suspense fallback={<RequestReportFormInner {...props} prefill={null} />}>
+      <RequestReportFormWithParams {...props} />
+    </Suspense>
+  );
+}
+
+function RequestReportFormWithParams(props: RequestReportFormProps) {
+  const params = useSearchParams();
+  return <RequestReportFormInner {...props} prefill={readPrefill(params)} />;
+}
+
+function RequestReportFormInner({
+  contactEmail,
+  prefill,
+}: RequestReportFormProps & { prefill: Prefill | null }) {
   const [status, setStatus] = useState<Status>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationStatus>("unknown");
+  const [institutionLocked, setInstitutionLocked] = useState(
+    Boolean(prefill?.institutionName),
+  );
+
+  const src = prefill?.src ?? DEFAULT_SRC;
+  const lockedInstitutionId = institutionLocked ? prefill?.institutionId ?? null : null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,6 +101,8 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
       role: String(formData.get("role") ?? "").trim() || null,
       use_case: REPORT_USE_CASE,
       source: REPORT_SOURCE,
+      institutionId: lockedInstitutionId,
+      src,
     };
 
     try {
@@ -46,11 +111,12 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      const body = (await response.json().catch(() => null)) as LeadsResponse | null;
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error || GENERIC_ERROR);
       }
-      trackEvent("request_report", { source: REPORT_SOURCE });
+      trackEvent("request_report", { src });
+      setConfirmation(toConfirmationStatus(body));
       setStatus("success");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : GENERIC_ERROR);
@@ -59,28 +125,14 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
   }
 
   if (status === "success") {
-    return (
-      <div
-        role="status"
-        className="rounded-lg border border-[#E0D7C9] bg-[#FDFBF8] p-6 text-sm text-[#1A1815]"
-      >
-        <p className="font-semibold">{SUCCESS_MESSAGE}</p>
-        <p className="mt-2 text-[#5A5347]">
-          Questions in the meantime? Email{" "}
-          <a href={`mailto:${contactEmail}`} className="font-medium underline underline-offset-2">
-            {contactEmail}
-          </a>
-          .
-        </p>
-      </div>
-    );
+    return <RequestReportSuccess contactEmail={contactEmail} confirmation={confirmation} />;
   }
 
   return (
     <form
       onSubmit={handleSubmit}
       className="rounded-lg border border-[#E0D7C9] bg-[#FDFBF8] p-6 space-y-4"
-      aria-label="Request a Competitive Fee Position Report"
+      aria-label={`Request a ${REPORT_OFFER.name}`}
     >
       {status === "error" && errorMessage && (
         <div
@@ -92,14 +144,28 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
       )}
 
       <div>
-        <label htmlFor="report-institution" className={LABEL_CLASS}>
-          Institution
-        </label>
+        <div className="mb-1 flex items-baseline justify-between gap-3">
+          <label htmlFor="report-institution" className={`${LABEL_CLASS} mb-0`}>
+            Institution
+          </label>
+          {institutionLocked && (
+            <button
+              type="button"
+              onClick={() => setInstitutionLocked(false)}
+              className="text-xs font-medium text-[#6B6255] underline underline-offset-2 hover:text-[#1A1815]"
+            >
+              Change
+            </button>
+          )}
+        </div>
         <input
           id="report-institution"
           name="institution"
           type="text"
           required
+          readOnly={institutionLocked}
+          aria-readonly={institutionLocked}
+          defaultValue={prefill?.institutionName ?? ""}
           autoComplete="organization"
           placeholder="First National Bank"
           className={INPUT_CLASS}
@@ -137,7 +203,7 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
 
       <div>
         <label htmlFor="report-role" className={LABEL_CLASS}>
-          Role <span className="font-normal text-[#7A7062]">(optional)</span>
+          Role <span className="font-normal text-[#6B6255]">(optional)</span>
         </label>
         <input
           id="report-role"
@@ -154,12 +220,51 @@ export function RequestReportForm({ contactEmail }: RequestReportFormProps) {
         disabled={status === "submitting"}
         className="w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#A93D25] disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
       >
-        {status === "submitting" ? "Sending…" : "Request a report — $300"}
+        {status === "submitting" ? "Sending…" : `Request your report — ${REPORT_OFFER.priceLabel}`}
       </button>
-      <p className="text-xs leading-relaxed text-[#7A7062]">
-        No payment is taken at this step. We confirm your peer set by email before any work
-        starts.
+      <p className="text-xs leading-relaxed text-[#6B6255]">
+        No payment is taken at this step. You get a confirmation email right away; we confirm
+        your peer set by email before any work starts.
       </p>
     </form>
+  );
+}
+
+function RequestReportSuccess({
+  contactEmail,
+  confirmation,
+}: {
+  contactEmail: string;
+  confirmation: ConfirmationStatus;
+}) {
+  const confirmationSent = confirmation === "sent";
+  return (
+    <div
+      role="status"
+      className="rounded-lg border border-[#E0D7C9] bg-[#FDFBF8] p-6 text-sm text-[#1A1815]"
+    >
+      <p className="font-semibold">{SUCCESS_HEADLINE}</p>
+      <p className="mt-2 text-[#5A5347]">{SUCCESS_PROMISE}</p>
+      <p className="mt-2 text-[#5A5347]">
+        {confirmationSent ? (
+          CONFIRMATION_SENT
+        ) : (
+          <>
+            {CONFIRMATION_MISSING}{" "}
+            <a href={`mailto:${contactEmail}`} className="font-medium underline underline-offset-2">
+              {contactEmail}
+            </a>
+            .
+          </>
+        )}
+      </p>
+      <p className="mt-2 text-[#5A5347]">
+        Questions in the meantime? Email{" "}
+        <a href={`mailto:${contactEmail}`} className="font-medium underline underline-offset-2">
+          {contactEmail}
+        </a>
+        .
+      </p>
+    </div>
   );
 }

@@ -64,7 +64,7 @@ export function ProNav({ user }: ProNavProps) {
                     className={`text-[13px] font-medium transition-colors ${
                       isActive
                         ? "text-[#C44B2E] border-b-2 border-[#C44B2E]"
-                        : "text-[#7A7062] hover:text-[#1A1815]"
+                        : "text-[#6B6255] hover:text-[#1A1815]"
                     }`}
                   >
                     {item.label}
@@ -96,7 +96,7 @@ function ProNavUserMenu({
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors"
+        className="flex items-center gap-2 text-[13px] font-medium text-[#6B6255] hover:text-[#1A1815] transition-colors"
       >
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1815] text-[10px] font-bold text-white">
           {user.initial}
@@ -109,20 +109,20 @@ function ProNavUserMenu({
           <div className="px-4 py-3 border-b border-[#E8DFD1]">
             <p className="text-[13px] font-medium text-[#1A1815]">{user.displayName}</p>
             {user.institutionName && (
-              <p className="text-[12px] text-[#7A7062] mt-0.5">{user.institutionName}</p>
+              <p className="text-[12px] text-[#6B6255] mt-0.5">{user.institutionName}</p>
             )}
           </div>
           <div className="py-2">
             <Link
               href="/account"
-              className="block px-4 py-2 text-[13px] text-[#7A7062] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
+              className="block px-4 py-2 text-[13px] text-[#6B6255] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
             >
               Account Settings
             </Link>
             <form action="/api/auth/logout" method="POST" className="block">
               <button
                 type="submit"
-                className="w-full text-left px-4 py-2 text-[13px] text-[#7A7062] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
+                className="w-full text-left px-4 py-2 text-[13px] text-[#6B6255] hover:bg-[#FAF7F2] hover:text-[#1A1815] transition-colors"
               >
                 Logout
               </button>

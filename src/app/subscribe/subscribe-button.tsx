@@ -1,7 +1,7 @@
 "use client";
 
 import { createCheckoutSession } from "@/lib/stripe-actions";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface SubscribeButtonProps {
@@ -10,7 +10,12 @@ interface SubscribeButtonProps {
   label: string;
   className?: string;
   returnTo?: string;
+  /** Start checkout as soon as the button mounts (post-signup hand-off). */
+  autoStart?: boolean;
 }
+
+const DEFAULT_CLASS =
+  "w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A93D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
 export function SubscribeButton({
   priceId,
@@ -18,12 +23,15 @@ export function SubscribeButton({
   label,
   className,
   returnTo,
+  autoStart = false,
 }: SubscribeButtonProps) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  // When auto-starting, render as pending from the first paint.
+  const [pending, setPending] = useState(autoStart);
   const [error, setError] = useState<string | null>(null);
+  const autoStarted = useRef(false);
 
-  async function handleClick() {
+  const startCheckout = useCallback(async () => {
     setPending(true);
     setError(null);
     try {
@@ -46,23 +54,24 @@ export function SubscribeButton({
         setPending(false);
       }
     }
-  }
+  }, [priceId, mode, returnTo, router]);
+
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || !priceId) return;
+    // Deferred so the hand-off to Stripe happens after mount, not inside the effect body.
+    const timer = window.setTimeout(() => {
+      autoStarted.current = true;
+      void startCheckout();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [autoStart, priceId, startCheckout]);
 
   return (
     <div>
-      <button
-        onClick={handleClick}
-        disabled={pending}
-        className={
-          className ||
-          "w-full rounded-md bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        }
-      >
+      <button onClick={startCheckout} disabled={pending} className={className || DEFAULT_CLASS}>
         {pending ? "Redirecting to checkout..." : label}
       </button>
-      {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
-      )}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

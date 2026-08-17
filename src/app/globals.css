@@ -64,7 +64,7 @@
   --color-warm-300: #E0D7C9;  /* border / muted bg */
   --color-warm-400: #C4B89F;  /* mid neutral, rare */
   --color-warm-500: #A09788;  /* rules / dividers / disabled / decorative marks — NOT text */
-  --color-warm-600: #7A7062;  /* muted text; minimum for text at or below 14px; eyebrows */
+  --color-warm-600: #6B6255;  /* muted text; floor for text at or below 14px (5.6:1 on parchment); eyebrows */
   --color-warm-700: #5A5347;  /* body / dark label */
   --color-warm-800: #3D3830;  /* heading */
   --color-warm-900: #1A1815;  /* near-black headline */
@@ -852,8 +852,8 @@
 .consumer-brand .text-slate-800 { color: #2D2A26; }
 .consumer-brand .text-slate-700 { color: #3D3830; }
 .consumer-brand .text-slate-600 { color: #5A5347; }
-.consumer-brand .text-slate-500 { color: #7A7062; }
-.consumer-brand .text-slate-400 { color: #7A7062; } /* lifted from #A09788: text floor for <=14px */
+.consumer-brand .text-slate-500 { color: #6B6255; }
+.consumer-brand .text-slate-400 { color: #6B6255; } /* lifted from #A09788: text floor for <=14px */
 .consumer-brand .text-slate-300 { color: #B0A89C; }
 
 /* ── Accent swap: amber/blue → terracotta ── */
@@ -937,7 +937,7 @@
 
 /* ── Table headers: warm tint (#7A7062 minimum — header text is <=14px) ── */
 .consumer-brand thead tr { border-color: #F0E8DC; }
-.consumer-brand thead th { color: #7A7062; }
+.consumer-brand thead th { color: #6B6255; }
 
 /* ── Table cells: more padding ── */
 .consumer-brand td { padding-top: 0.75rem; padding-bottom: 0.75rem; }
@@ -963,7 +963,7 @@
 
 /* ── Analyst Hub prose styles ── */
 .prose-hub table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0; }
-.prose-hub th { text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #7A7062; border-bottom: 1px solid #E8DFD1; }
+.prose-hub th { text-align: left; padding: 6px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6B6255; border-bottom: 1px solid #E8DFD1; }
 .prose-hub td { padding: 5px 10px; color: #1A1815; border-bottom: 1px solid rgba(232, 223, 209, 0.4); }
 .prose-hub tr:hover td { background: rgba(250, 247, 242, 0.6); }
 .prose-hub strong { font-weight: 600; color: #1A1815; }

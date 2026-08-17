@@ -92,7 +92,7 @@ function GuideCard({
             {family}
           </span>
           {topFee && featured && (
-            <span className="text-[11px] font-medium text-[#7A7062] tabular-nums">
+            <span className="text-[11px] font-medium text-[#6B6255] tabular-nums">
               median
             </span>
           )}
@@ -111,7 +111,7 @@ function GuideCard({
         </h2>
 
         {featured && (
-          <p className="mt-2 text-[13px] leading-relaxed text-[#7A7062] line-clamp-2">
+          <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255] line-clamp-2">
             {guide.description}
           </p>
         )}
@@ -126,7 +126,7 @@ function GuideCard({
               >
                 {formatAmount(topFee.median_amount)}
               </span>
-              <span className="text-[11px] text-[#7A7062]">
+              <span className="text-[11px] text-[#6B6255]">
                 {getDisplayName(topFee.fee_category)}
               </span>
             </div>
@@ -138,7 +138,7 @@ function GuideCard({
                     key={fee.fee_category}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-[11px] text-[#7A7062]">
+                    <span className="text-[11px] text-[#6B6255]">
                       {getDisplayName(fee.fee_category)}
                     </span>
                     <div className="flex items-center gap-2">
@@ -162,12 +162,12 @@ function GuideCard({
             >
               {formatAmount(topFee.median_amount)}
             </span>
-            <span className="text-[10px] text-[#7A7062]">median</span>
+            <span className="text-[10px] text-[#6B6255]">median</span>
           </div>
         )}
 
         {/* Read prompt */}
-        <div className={`flex items-center gap-1.5 text-[12px] font-medium text-[#C44B2E]/60 group-hover:text-[#C44B2E] transition-colors duration-300 ${featured ? "mt-4" : "mt-3"}`}>
+        <div className={`flex items-center gap-1.5 text-[12px] font-medium text-[#A93D25]/60 group-hover:text-[#A93D25] transition-colors duration-300 ${featured ? "mt-4" : "mt-3"}`}>
           <span>Read guide</span>
           <svg
             className="h-3 w-3 transition-transform duration-500 group-hover:translate-x-1"
@@ -211,7 +211,7 @@ export default async function GuidesIndexPage() {
       <div className="max-w-2xl">
         <div className="flex items-center gap-2 mb-4">
           <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
             Consumer Guides
           </span>
         </div>
@@ -224,7 +224,7 @@ export default async function GuidesIndexPage() {
           <em style={{ fontWeight: 300 }}>charges</em>
         </h1>
 
-        <p className="mt-4 text-[15px] leading-relaxed text-[#7A7062]">
+        <p className="mt-4 text-[15px] leading-relaxed text-[#6B6255]">
           Plain-language guides backed by live benchmark data from{" "}
           <span className="font-medium text-[#5A5347] tabular-nums">
             {stats.total_institutions.toLocaleString()}
@@ -232,7 +232,7 @@ export default async function GuidesIndexPage() {
           institutions.
         </p>
 
-        <div className="mt-4 flex items-center gap-4 text-[12px] text-[#7A7062]">
+        <div className="mt-4 flex items-center gap-4 text-[12px] text-[#6B6255]">
           <span className="tabular-nums">
             {totalObservations.toLocaleString()} fee observations
           </span>
@@ -268,7 +268,7 @@ export default async function GuidesIndexPage() {
               More Fee Guides
             </h2>
             <span className="h-px flex-1 bg-[#E8DFD1]" />
-            <span className="text-[11px] text-[#7A7062] tabular-nums">
+            <span className="text-[11px] text-[#6B6255] tabular-nums">
               {secondaryGuides.length} guides
             </span>
           </div>
@@ -290,7 +290,7 @@ export default async function GuidesIndexPage() {
       <div className="mt-16 rounded-xl border border-[#E8DFD1] bg-white/50 backdrop-blur-sm px-7 py-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="h-px w-6 bg-[#C44B2E]/30" />
-          <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7A7062]">
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
             Explore More
           </h2>
         </div>
@@ -307,10 +307,10 @@ export default async function GuidesIndexPage() {
               href={item.href}
               className="group rounded-lg border border-[#E8DFD1]/60 bg-[#FAF7F2]/50 px-4 py-3 transition-all duration-300 hover:border-[#C44B2E]/20 hover:bg-white no-underline"
             >
-              <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#C44B2E] transition-colors">
+              <span className="text-[13px] font-medium text-[#1A1815] group-hover:text-[#A93D25] transition-colors">
                 {item.label}
               </span>
-              <span className="block mt-0.5 text-[11px] text-[#7A7062]">
+              <span className="block mt-0.5 text-[11px] text-[#6B6255]">
                 {item.desc}
               </span>
             </Link>
@@ -324,7 +324,7 @@ export default async function GuidesIndexPage() {
           <p className="text-[13px] font-medium text-[#1A1815]">
             Want to benchmark your institution?
           </p>
-          <p className="mt-0.5 text-[12px] text-[#7A7062]">
+          <p className="mt-0.5 text-[12px] text-[#6B6255]">
             Pro members get evidence-labeled peer comparisons, FDIC financial data, and Hamilton analysis workflows.
           </p>
         </div>

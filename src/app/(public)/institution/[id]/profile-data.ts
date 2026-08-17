@@ -3,6 +3,7 @@ import { getFeesByInstitution, getPublicInstitutionById } from "@/lib/data-store
 import type { ExtractedFee } from "@/lib/data-store/types";
 import type { InstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
 import { formatFeeAmount } from "@/lib/format";
+import { NON_PAID_ITEM_OVERDRAFT_PATTERN } from "@/lib/institution-rating";
 import type { DisplayFee } from "./fee-schedule-table";
 
 export const getPublicInstitutionForPage = cache(getPublicInstitutionById);
@@ -71,19 +72,27 @@ export interface HeadlineFees {
   monthly: number | null;
 }
 
-function pickAmount(fees: ExtractedFee[], category: string, nameHint: RegExp): number | null {
-  const byCategory = fees.find((fee) => fee.fee_category === category && fee.amount !== null && fee.amount > 0);
-  if (byCategory) return byCategory.amount;
-  const byName = fees.find((fee) => nameHint.test(fee.fee_name) && fee.amount !== null && fee.amount > 0);
-  return byName?.amount ?? null;
+function pickAmount(fees: ExtractedFee[], category: string, exclude?: RegExp): number | null {
+  const match = fees.find(
+    (fee) =>
+      fee.fee_category === category &&
+      fee.amount !== null &&
+      fee.amount > 0 &&
+      !(exclude && exclude.test(fee.fee_name)),
+  );
+  return match?.amount ?? null;
 }
 
-/** Top verified amounts for the page title: overdraft, NSF, monthly maintenance. */
+/**
+ * Top verified amounts for the page title: overdraft, NSF, monthly maintenance.
+ * Exact fee_category only — no name matching, so "Overdraft Fee - Per Transfer"
+ * can never stand in for the paid-item overdraft charge.
+ */
 export function pickHeadlineFees(verifiedFees: ExtractedFee[]): HeadlineFees {
   return {
-    overdraft: pickAmount(verifiedFees, "overdraft", /overdraft/i),
-    nsf: pickAmount(verifiedFees, "nsf", /\b(nsf|non-?sufficient|returned item)\b/i),
-    monthly: pickAmount(verifiedFees, "monthly_maintenance", /monthly (service|maintenance)/i),
+    overdraft: pickAmount(verifiedFees, "overdraft", NON_PAID_ITEM_OVERDRAFT_PATTERN),
+    nsf: pickAmount(verifiedFees, "nsf"),
+    monthly: pickAmount(verifiedFees, "monthly_maintenance"),
   };
 }
 

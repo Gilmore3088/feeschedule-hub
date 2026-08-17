@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  NO_VERDICT_LABEL,
   computeInstitutionRating,
   deriveStrengthsAndWatch,
+  detectPaidItemFee,
   generateInterpretation,
 } from "./institution-rating";
 import type { IndexEntry } from "./data-store/fee-index";
@@ -41,27 +43,31 @@ const NATIONAL_INDEX: IndexEntry[] = [
 // computeInstitutionRating
 // ---------------------------------------------------------------------------
 
+function rated(fees: Parameters<typeof computeInstitutionRating>[0]) {
+  const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+  if (result === null) throw new Error("expected a rating");
+  return result;
+}
+
 describe("computeInstitutionRating", () => {
-  it("returns green/Consumer-Friendly when overdraft fee name contains 'overdraft' and amount ≤ 20", () => {
-    const fees = [
+  it("returns green/Consumer-Friendly when the overdraft fee is ≤ $20", () => {
+    const result = rated([
       { id: 1, fee_name: "overdraft", amount: 15, fee_category: "overdraft", conditions: null },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.color).toBe("green");
     expect(result.label).toBe("Consumer-Friendly");
     expect(result.bullets.length).toBeGreaterThan(0);
   });
 
-  it("returns green when fee_name has 'overdraft' as substring and amount is exactly 20", () => {
-    const fees = [
+  it("returns green when the overdraft fee is exactly $20", () => {
+    const result = rated([
       { id: 1, fee_name: "Overdraft Fee", amount: 20, fee_category: "overdraft", conditions: null },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.color).toBe("green");
   });
 
   it("returns yellow/Average Fee Structure when overdraft is $30 with 18 total fees", () => {
-    const fees = [
+    const result = rated([
       { id: 1, fee_name: "overdraft", amount: 30, fee_category: "overdraft", conditions: null },
       ...Array.from({ length: 17 }, (_, i) => ({
         id: i + 2,
@@ -70,53 +76,64 @@ describe("computeInstitutionRating", () => {
         fee_category: `other_${i}`,
         conditions: null,
       })),
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.color).toBe("yellow");
     expect(result.label).toBe("Average Fee Structure");
     expect(result.bullets.length).toBeGreaterThan(0);
   });
 
   it("returns yellow when overdraft is in range 20.01-36", () => {
-    const fees = [
+    const result = rated([
       { id: 1, fee_name: "overdraft fee", amount: 28, fee_category: "overdraft", conditions: null },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.color).toBe("yellow");
   });
 
   it("returns red/Above-Average Fees when overdraft > $36", () => {
-    const fees = [
+    const result = rated([
       { id: 1, fee_name: "overdraft", amount: 40, fee_category: "overdraft", conditions: null },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.color).toBe("red");
     expect(result.label).toBe("Above-Average Fees");
     expect(result.bullets.length).toBeGreaterThan(0);
   });
 
-  it("returns a rating based on fee count and median comparison when no overdraft fee detected", () => {
+  it("ignores transfer/protection overdraft rows and falls back to the NSF fee", () => {
+    const fees = [
+      {
+        id: 1,
+        fee_name: "Overdraft Fee - Per Transfer from Another Deposit Account",
+        amount: 5,
+        fee_category: "overdraft",
+        conditions: null,
+      },
+      { id: 2, fee_name: "Overdraft Protection Enrollment", amount: 3, fee_category: "overdraft", conditions: null },
+      { id: 3, fee_name: "NSF Fee", amount: 33, fee_category: "nsf", conditions: null },
+    ];
+    expect(detectPaidItemFee(fees)).toEqual({ amount: 33, conditions: null, kind: "nsf" });
+    const result = rated(fees);
+    expect(result.color).toBe("yellow");
+    expect(result.bullets[0]).toBe("NSF fee: $33");
+    expect(result.bullets.some((b) => /aligned with the national median/.test(b))).toBe(true);
+  });
+
+  it("returns null (no verdict) when no paid-item overdraft or NSF fee is verified", () => {
     const fees = [
       { id: 1, fee_name: "monthly_maintenance", amount: 5, fee_category: "monthly_maintenance", conditions: null },
       { id: 2, fee_name: "wire_domestic_outgoing", amount: 20, fee_category: "wire_domestic_outgoing", conditions: null },
-      { id: 3, fee_name: "nsf", amount: 20, fee_category: "nsf", conditions: null },
+      { id: 3, fee_name: "Overdraft Transfer Fee", amount: 5, fee_category: "overdraft", conditions: null },
     ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
-    expect(["green", "yellow", "red"]).toContain(result.color);
-    expect(result.label).toBeTruthy();
-    expect(result.bullets.length).toBeGreaterThan(0);
+    expect(computeInstitutionRating(fees, NATIONAL_INDEX)).toBeNull();
+    expect(NO_VERDICT_LABEL).toBe("Overdraft fee not published");
   });
 
-  it("returns fallback rating with a bullet when fees array is empty", () => {
-    const result = computeInstitutionRating([], NATIONAL_INDEX);
-    expect(["green", "yellow", "red"]).toContain(result.color);
-    expect(result.label).toBeTruthy();
-    expect(result.bullets.some((b) => /limited data|no fee/i.test(b))).toBe(true);
+  it("returns null when fees array is empty", () => {
+    expect(computeInstitutionRating([], NATIONAL_INDEX)).toBeNull();
   });
 
   it("bonus signals: fee cap in conditions can upgrade yellow-border overdraft toward green", () => {
     // overdraft at $22 (technically yellow) with a daily cap policy
-    const fees = [
+    const result = rated([
       {
         id: 1,
         fee_name: "overdraft",
@@ -124,8 +141,7 @@ describe("computeInstitutionRating", () => {
         fee_category: "overdraft",
         conditions: "maximum 4 fees per day cap applies",
       },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     // Should still be yellow or green -- importantly should NOT be red
     expect(result.color).not.toBe("red");
     // Bullets should mention the cap signal
@@ -133,12 +149,11 @@ describe("computeInstitutionRating", () => {
   });
 
   it("returns at most 3 bullets", () => {
-    const fees = [
+    const result = rated([
       { id: 1, fee_name: "overdraft", amount: 35, fee_category: "overdraft", conditions: "daily cap" },
       { id: 2, fee_name: "monthly_maintenance", amount: 5, fee_category: "monthly_maintenance", conditions: null },
       { id: 3, fee_name: "nsf", amount: 25, fee_category: "nsf", conditions: null },
-    ];
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
+    ]);
     expect(result.bullets.length).toBeLessThanOrEqual(3);
   });
 
@@ -147,9 +162,8 @@ describe("computeInstitutionRating", () => {
       { id: 1, fee_name: "overdraft", amount: NaN, fee_category: "overdraft", conditions: null },
       { id: 2, fee_name: "monthly_maintenance", amount: -5, fee_category: "monthly_maintenance", conditions: null },
     ];
-    // Should not throw, should return a valid rating
-    const result = computeInstitutionRating(fees, NATIONAL_INDEX);
-    expect(["green", "yellow", "red"]).toContain(result.color);
+    // Should not throw; NaN overdraft is not a usable paid-item fee, so no verdict
+    expect(computeInstitutionRating(fees, NATIONAL_INDEX)).toBeNull();
   });
 });
 

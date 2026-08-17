@@ -11,6 +11,9 @@ export const COMPETITIVE_FEE_POSITION_REPORT = {
 /** Auto-generated narrative and score bullets are hidden below this many verified fees. */
 export const MIN_VERIFIED_FEES_FOR_NARRATIVE = 5;
 
+/** The report offer band and the sidebar Pro card only show once this many fees are verified. */
+export const MIN_VERIFIED_FEES_FOR_OFFER = 5;
+
 export const STATUS_COPY: Record<FeePublicationStatus, string> = {
   verified:
     "Fees on this page were checked against the institution's own published fee schedule. Benchmark scores use verified fees only.",

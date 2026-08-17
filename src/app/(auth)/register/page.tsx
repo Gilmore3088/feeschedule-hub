@@ -7,12 +7,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/constants";
 import { getPublicStatsSummary } from "@/lib/public-stats";
-import { isProPlan } from "@/app/subscribe/pricing";
+import { PLAN_DISPLAY_NAME, isProPlan, planPriceLine, type ProPlan } from "@/app/subscribe/pricing";
+import { checkoutPathFor } from "./checkout-path";
 
 export const metadata: Metadata = {
   title: "Create Account",
   description: "Create your Fee Insight account to access fee benchmarking data",
 };
+
+const FREE_ACCOUNT_BENEFITS = [
+  "Save your institution and a peer group to come back to",
+  "Monthly index update by email: what changed, where",
+  `A one-click path to ${SITE_NAME} Pro when you need benchmarks, scenarios and monitoring`,
+];
+
+const PRO_ACCOUNT_BENEFITS = [
+  "Hamilton workspace: Analyze, Benchmark, Scenario, Report and Monitor",
+  "Unlimited peer sets, CSV and API exports",
+  "Cancel monthly seats at the end of any billing period",
+];
 
 export default async function RegisterPage({
   searchParams,
@@ -22,10 +35,11 @@ export default async function RegisterPage({
   const user = await getCurrentUser();
   const params = await searchParams;
   const summary = await getPublicStatsSummary();
-  const plan = isProPlan(params.plan) ? params.plan : null;
-  // A ?plan= arriving without a return path resumes on pricing with the plan preselected.
-  const fallbackFrom = plan ? `/subscribe?plan=${plan}` : "/account";
-  const destination = sanitizeInternalRedirect(params.from, fallbackFrom);
+  const plan: ProPlan | null = isProPlan(params.plan) ? params.plan : null;
+  // With ?plan=, signup hands straight to checkout on /subscribe; otherwise honor ?from=.
+  const destination = plan
+    ? checkoutPathFor(plan, params.from)
+    : sanitizeInternalRedirect(params.from, "/account");
 
   if (user) redirect(resolvePostLoginRedirect(destination, user.role));
 
@@ -65,21 +79,20 @@ export default async function RegisterPage({
             className="text-3xl text-[#1A1815] tracking-tight leading-snug mb-3"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif", fontStyle: "italic" }}
           >
-            Start exploring for free
+            {plan
+              ? `Finish setting up ${SITE_NAME} Pro — ${PLAN_DISPLAY_NAME[plan]}, ${planPriceLine(plan)}`
+              : "Create your free account"}
           </p>
 
-          <p className="text-sm text-[#7A7062] leading-relaxed mb-10">
-            Published fees for {summary.institutionsLabel} U.S. banks and credit unions: free
-            lookup, plus peer benchmarks and competitive reports for banking teams.
+          <p className="text-sm text-[#6B6255] leading-relaxed mb-10">
+            {plan
+              ? "Create your account, then continue straight to checkout. Your seat is active as soon as payment clears."
+              : `Published fees for ${summary.institutionsLabel} U.S. banks and credit unions. An account keeps your place and opens the path to ${SITE_NAME} Pro.`}
           </p>
 
-          {/* Feature list */}
+          {/* Feature list: what an account gives, not what the public index already gives. */}
           <ul className="space-y-4">
-            {[
-              `Look up published fees for ${summary.institutionsLabel} banks and credit unions`,
-              `${summary.categoriesLabel} fee categories, every figure traced to a source`,
-              "Plain-language consumer guides",
-            ].map((feature) => (
+            {(plan ? PRO_ACCOUNT_BENEFITS : FREE_ACCOUNT_BENEFITS).map((feature) => (
               <li key={feature} className="flex items-start gap-3">
                 <svg
                   viewBox="0 0 20 20"
@@ -114,7 +127,7 @@ export default async function RegisterPage({
                 {SITE_NAME}
               </span>
             </Link>
-            <Link href={loginHref} className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">
+            <Link href={loginHref} className="text-[13px] font-medium text-[#6B6255] hover:text-[#1A1815] transition-colors">
               Sign in
             </Link>
           </div>
@@ -127,21 +140,21 @@ export default async function RegisterPage({
               >
                 Create your account
               </h1>
-              <p className="mt-2 text-sm text-[#7A7062]">
+              <p className="mt-2 text-sm text-[#6B6255]">
                 {plan
-                  ? `Create your account, then finish setting up your ${SITE_NAME} Pro ${plan} seat.`
-                  : "Free lookup now; upgrade to Fee Insight Pro whenever you need peer benchmarks."}
+                  ? `Create your account, then continue to checkout for ${SITE_NAME} Pro — ${PLAN_DISPLAY_NAME[plan]}.`
+                  : `Save your institution and peer group; upgrade to ${SITE_NAME} Pro whenever you need benchmarks.`}
               </p>
             </div>
             <RegisterForm redirectTo={destination} />
-            <p className="mt-4 text-center text-sm text-[#7A7062]">
+            <p className="mt-4 text-center text-sm text-[#6B6255]">
               Already have an account?{" "}
               <Link href={loginHref} className="text-[#1A1815] font-medium hover:underline">
                 Sign in
               </Link>
             </p>
             <p className="mt-6 text-center text-sm">
-              <Link href="/" className="text-[#7A7062] hover:text-[#1A1815] hover:underline">
+              <Link href="/" className="text-[#6B6255] hover:text-[#1A1815] hover:underline">
                 ← Back to {SITE_NAME}
               </Link>
             </p>

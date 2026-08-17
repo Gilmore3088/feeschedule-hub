@@ -2,8 +2,8 @@ import Link from "next/link";
 import { EmailSignup } from "./public/email-signup";
 import { CONTACT_EMAIL, PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
-const FOOTER_LINK_CLASS = "text-[#7A7062] hover:text-[#1A1815] transition-colors";
-const FOOTER_HEADING_CLASS = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062] mb-3";
+const FOOTER_LINK_CLASS = "text-[#6B6255] hover:text-[#1A1815] transition-colors";
+const FOOTER_HEADING_CLASS = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255] mb-3";
 
 export function CustomerFooter() {
   return (
@@ -32,7 +32,7 @@ export function CustomerFooter() {
                 {SITE_NAME}
               </span>
             </Link>
-            <p className="mt-3 text-[12px] leading-relaxed text-[#7A7062] max-w-xs">
+            <p className="mt-3 text-[12px] leading-relaxed text-[#6B6255] max-w-xs">
               Home of the {PRODUCT_NAME} — U.S. bank and credit union fees
               by district, state, size, and type. Published-source benchmarks
               for consumers and banking teams.
@@ -94,7 +94,7 @@ export function CustomerFooter() {
             <ul className="space-y-2 text-[13px]">
               <li>
                 <Link href="/research/national-fee-index" className={FOOTER_LINK_CLASS}>
-                  National Fee Benchmarks
+                  National benchmarks
                 </Link>
               </li>
               <li>
@@ -146,7 +146,7 @@ export function CustomerFooter() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#7A7062]">
+        <div className="mt-8 pt-6 border-t border-[#E8DFD1]/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#6B6255]">
           <span>{SITE_NAME} &copy; {new Date().getFullYear()}</span>
           <a href={`mailto:${CONTACT_EMAIL}`} className="text-[#5A5347] hover:text-[#1A1815] hover:underline">
             {CONTACT_EMAIL}

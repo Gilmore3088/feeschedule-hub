@@ -167,7 +167,7 @@ export function SubmitForm({
     <form onSubmit={handleSubmit} className="min-w-0 overflow-hidden border border-[#E0D7C9] bg-white p-5">
       <div className="space-y-5">
         <div className="relative">
-          <label htmlFor="institution-name" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <label htmlFor="institution-name" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Institution
           </label>
           <input
@@ -181,7 +181,7 @@ export function SubmitForm({
             className="mt-1 w-full min-w-0 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm outline-none transition-colors focus:border-[#C44B2E]"
           />
           {institutionId && (
-            <p className="mt-1 text-xs text-[#7A7062]">
+            <p className="mt-1 text-xs text-[#6B6255]">
               Matched to an institution in the {PRODUCT_NAME}
             </p>
           )}
@@ -196,7 +196,7 @@ export function SubmitForm({
                 >
                   <span className="font-medium text-[#1A1815]">{suggestion.name}</span>
                   {suggestion.state && (
-                    <span className="ml-1 text-[#7A7062]">({suggestion.state})</span>
+                    <span className="ml-1 text-[#6B6255]">({suggestion.state})</span>
                   )}
                 </button>
               ))}
@@ -205,7 +205,7 @@ export function SubmitForm({
         </div>
 
         <div>
-          <label htmlFor="source-url" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <label htmlFor="source-url" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Link to the published fee schedule
           </label>
           <div className="mt-1 flex min-w-0 gap-2">
@@ -220,14 +220,14 @@ export function SubmitForm({
               className="min-w-0 flex-1 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm outline-none transition-colors focus:border-[#C44B2E]"
             />
           </div>
-          <p className="mt-1 text-xs text-[#7A7062]">
+          <p className="mt-1 text-xs text-[#6B6255]">
             Use a fee schedule page, PDF, disclosure, or account agreement from the institution.
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="submitter-role" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+            <label htmlFor="submitter-role" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
               Your role
             </label>
             <select
@@ -244,7 +244,7 @@ export function SubmitForm({
             </select>
           </div>
           <div>
-            <label htmlFor="notes" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+            <label htmlFor="notes" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
               Notes
             </label>
             <input
@@ -259,7 +259,7 @@ export function SubmitForm({
         </div>
 
         <div>
-          <label htmlFor="contact-email" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <label htmlFor="contact-email" className="block text-xs font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Work email <span className="font-normal normal-case tracking-normal">(optional)</span>
           </label>
           <input
@@ -271,7 +271,7 @@ export function SubmitForm({
             placeholder="you@yourinstitution.com"
             className="mt-1 w-full min-w-0 rounded-md border border-[#D5CBBF] px-3 py-2 text-sm outline-none transition-colors focus:border-[#C44B2E]"
           />
-          <p className="mt-1 text-xs text-[#7A7062]">We&apos;ll tell you when it&apos;s reviewed.</p>
+          <p className="mt-1 text-xs text-[#6B6255]">We&apos;ll tell you when it&apos;s reviewed.</p>
         </div>
 
         <FeeRowsEditor fees={fees} onUpdate={updateFee} onAdd={addFeeRow} onRemove={removeFeeRow} />

@@ -30,13 +30,13 @@ export function FinancialContext({
     <section className="border border-[#E0D7C9] bg-white p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
             Financial Context
           </p>
           <h2 className="text-lg font-semibold text-[#1A1815]">Size and fee revenue</h2>
         </div>
         {latest && asOf && (
-          <p className="text-sm text-[#7A7062]">
+          <p className="text-sm text-[#6B6255]">
             Financials as of {asOf} · {sourceLabel(latest.source)}
           </p>
         )}
@@ -63,7 +63,7 @@ export function FinancialContext({
 
           {history.length > 1 && (
             <div className="mt-5 rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A7062]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">
                 Service charge income by quarter
               </p>
               <div className="mt-3 space-y-2">
@@ -85,7 +85,7 @@ export function FinancialContext({
           )}
         </>
       ) : (
-        <p className="mt-4 rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] p-4 text-sm text-[#7A7062]">
+        <p className="mt-4 rounded-lg border border-[#E0D7C9] bg-[#FAF7F2] p-4 text-sm text-[#6B6255]">
           Financial context is not available for this institution in the current dataset.
         </p>
       )}

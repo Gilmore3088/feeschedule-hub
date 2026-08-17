@@ -2,8 +2,14 @@ import { describe, expect, it } from "vitest";
 import { formatCompactDollars } from "@/lib/format";
 import { getFrequencyLabel, getPublicStatusLabel, getSegmentLabel, toTitleCase } from "./enum-labels";
 import { groupFeesByFamily, type DisplayFee } from "./fee-schedule-table";
-import { assetSizeToDollars, formatReportQuarter, normalizeFinancial } from "./financial-units";
-import { buildProfileTitle } from "./profile-data";
+import {
+  assetSizeToDollars,
+  formatReportQuarter,
+  normalizeFinancial,
+  selectFinancialsByQuarter,
+} from "./financial-units";
+import { buildProfileTitle, pickHeadlineFees } from "./profile-data";
+import type { ExtractedFee } from "@/lib/data-store/types";
 
 const ncuaRecord = {
   institution_id: 4802,
@@ -35,12 +41,86 @@ describe("financial units", () => {
     expect(financial).toBe("$158.7M");
   });
 
-  it("keeps FFIEC whole-dollar rows unscaled and hides zero ROA", () => {
+  it("keeps FFIEC whole-dollar balances unscaled and hides zero ROA", () => {
     const ffiec = normalizeFinancial({ ...ncuaRecord, source: "ffiec", total_assets: 158_694_000, roa: 0.9 });
     expect(ffiec.totalAssets).toBe(158_694_000);
     expect(ffiec.roaPct).toBe(0.9);
     expect(normalizeFinancial(ncuaRecord).roaPct).toBeNull();
     expect(normalizeFinancial(ncuaRecord).feeIncomeRatioPct).toBeCloseTo(8.23);
+  });
+
+  // First Bank (1391), Q1 2026 as stored: fdic 689,430 / 6 / 0.0006 vs ffiec 689,430,000 / 6,834,000 / 0.6817.
+  const firstBankFdicQ1 = {
+    ...ncuaRecord,
+    institution_id: 1391,
+    source: "fdic",
+    total_assets: 689_430,
+    total_deposits: 591_377,
+    service_charge_income: 6,
+    fee_income_ratio: 0.0006,
+    roa: 1.74,
+    branch_count: 9,
+  };
+  const firstBankFfiecQ1 = {
+    ...firstBankFdicQ1,
+    source: "ffiec",
+    total_assets: 689_430_000,
+    total_deposits: 591_377_000,
+    service_charge_income: 6_834_000,
+    fee_income_ratio: 0.6817,
+  };
+  const firstBankFdicQ4 = {
+    ...firstBankFdicQ1,
+    report_date: "2025-12-31",
+    total_assets: 677_348,
+    service_charge_income: 8,
+    fee_income_ratio: 0.0002,
+  };
+  const firstBankFfiecQ4 = {
+    ...firstBankFdicQ4,
+    source: "ffiec",
+    total_assets: 677_348_000,
+    service_charge_income: 8_464_000,
+    fee_income_ratio: 0.1892,
+  };
+
+  it("scales FFIEC and FDIC rows for the same quarter to the same magnitude", () => {
+    const fdic = normalizeFinancial(firstBankFdicQ1);
+    const ffiec = normalizeFinancial(firstBankFfiecQ1);
+    expect(formatCompactDollars(fdic.totalAssets)).toBe("$689.4M");
+    expect(formatCompactDollars(ffiec.totalAssets)).toBe("$689.4M");
+    expect(formatCompactDollars(fdic.serviceChargeIncome)).toBe("$6K");
+    expect(ffiec.serviceChargeIncome).toBe(6_834);
+    expect(fdic.feeIncomeRatioPct).toBeCloseTo(0.06, 2);
+    expect(ffiec.feeIncomeRatioPct).toBeCloseTo(0.068, 2);
+  });
+
+  it("renders one row per quarter, preferring fdic over ffiec, newest first", () => {
+    const rows = selectFinancialsByQuarter([
+      firstBankFfiecQ1,
+      firstBankFdicQ1,
+      firstBankFdicQ4,
+      firstBankFfiecQ4,
+    ]);
+    expect(rows.map((row) => [row.reportDate, row.source])).toEqual([
+      ["2026-03-31", "fdic"],
+      ["2025-12-31", "fdic"],
+    ]);
+    expect(formatCompactDollars(rows[0].totalAssets)).toBe("$689.4M");
+    expect(formatCompactDollars(rows[1].serviceChargeIncome)).toBe("$8K");
+  });
+
+  it("falls back to ffiec, then ncua, when fdic is missing for a quarter", () => {
+    const rows = selectFinancialsByQuarter([firstBankFfiecQ4, { ...ncuaRecord, report_date: "2025-12-31" }]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].source).toBe("ffiec");
+    expect(formatCompactDollars(rows[0].totalAssets)).toBe("$677.3M");
+  });
+
+  it("leaves a single-source credit union untouched", () => {
+    const rows = selectFinancialsByQuarter([ncuaRecord]);
+    expect(rows).toHaveLength(1);
+    expect(formatCompactDollars(rows[0].totalAssets)).toBe("$158.7M");
   });
 
   it("formats report quarters", () => {
@@ -65,6 +145,41 @@ describe("enum labels", () => {
     expect(toTitleCase("WINSTON-SALEM")).toBe("Winston-Salem");
     expect(toTitleCase("Fort Worth")).toBe("Fort Worth");
     expect(toTitleCase(null)).toBeNull();
+  });
+});
+
+describe("headline fees", () => {
+  const fee = (overrides: Partial<ExtractedFee>): ExtractedFee =>
+    ({
+      id: 1,
+      institution_id: 4802,
+      fee_name: "Fee",
+      fee_category: null,
+      amount: 10,
+      frequency: null,
+      conditions: null,
+      review_status: "approved",
+      source_url: null,
+      ...overrides,
+    }) as ExtractedFee;
+
+  it("headlines exact categories only and skips transfer/protection overdraft rows", () => {
+    const headline = pickHeadlineFees([
+      fee({ id: 1, fee_name: "Overdraft Fee - Per Transfer from Another Deposit Account", fee_category: "overdraft", amount: 5 }),
+      fee({ id: 2, fee_name: "Overdraft Protection", fee_category: "overdraft", amount: 3 }),
+      fee({ id: 3, fee_name: "Courtesy Overdraft", fee_category: "courtesy_pay", amount: 29 }),
+      fee({ id: 4, fee_name: "NSF Fee", fee_category: "nsf", amount: 33 }),
+      fee({ id: 5, fee_name: "Monthly Service Fee", fee_category: "monthly_maintenance", amount: 1 }),
+    ]);
+    expect(headline).toEqual({ overdraft: null, nsf: 33, monthly: 1 });
+  });
+
+  it("uses the paid-item overdraft fee when it is categorized", () => {
+    const headline = pickHeadlineFees([
+      fee({ id: 1, fee_name: "Overdraft Transfer", fee_category: "overdraft", amount: 5 }),
+      fee({ id: 2, fee_name: "Overdraft Item Paid", fee_category: "overdraft", amount: 30 }),
+    ]);
+    expect(headline.overdraft).toBe(30);
   });
 });
 

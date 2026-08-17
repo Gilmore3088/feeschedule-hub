@@ -36,10 +36,10 @@ function PendingInviteCard({ invitation }: { invitation: InstitutionWorkspaceInv
           <p className="truncate text-sm font-semibold text-[#1A1815]">
             {invitation.institutionName}
           </p>
-          <p className="mt-1 text-xs text-[#7A7062]">
+          <p className="mt-1 text-xs text-[#6B6255]">
             {[locationLabel(invitation), roleLabel(invitation.role)].filter(Boolean).join(" · ")}
           </p>
-          <p className="mt-1 text-xs text-[#7A7062]">
+          <p className="mt-1 text-xs text-[#6B6255]">
             Invited by {invitation.invitedByDisplayName ?? invitation.invitedByEmail ?? "a workspace owner"}
           </p>
         </div>
@@ -59,7 +59,7 @@ function MembershipCard({ membership }: { membership: InstitutionWorkspaceMember
           <p className="truncate text-sm font-semibold text-[#1A1815]">
             {membership.institutionName}
           </p>
-          <p className="mt-1 text-xs text-[#7A7062]">
+          <p className="mt-1 text-xs text-[#6B6255]">
             {[locationLabel(membership), roleLabel(membership.role)].filter(Boolean).join(" · ")}
           </p>
         </div>
@@ -101,7 +101,7 @@ export default async function WorkspaceInvitePage() {
       <main className="mx-auto max-w-3xl px-4 py-12">
         <div className="rounded-xl border border-[#E8DFD1] bg-[#FFFDF9] p-6 shadow-sm">
           <div className="mb-6">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#C44B2E]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#A93D25]">
               Hamilton Workspace
             </p>
             <h1
@@ -110,7 +110,7 @@ export default async function WorkspaceInvitePage() {
             >
               Institution workspace invitation
             </h1>
-            <p className="mt-3 text-sm leading-6 text-[#7A7062]">
+            <p className="mt-3 text-sm leading-6 text-[#6B6255]">
               Workspace access is tied to your signed-in email and an active Pro seat. Once both match,
               Hamilton grants the delegated institution role automatically and carries that institution
               into Analyze, Reports, Simulate, Monitor, and Settings.
@@ -122,7 +122,7 @@ export default async function WorkspaceInvitePage() {
               <h2 className="text-base font-semibold text-[#1A1815]">
                 Sign in with the invited email
               </h2>
-              <p className="mt-2 text-sm text-[#7A7062]">
+              <p className="mt-2 text-sm text-[#6B6255]">
                 Use the same email address your institution owner invited. If you do not have an
                 account yet, create one first, then activate a Pro seat.
               </p>
@@ -159,7 +159,7 @@ export default async function WorkspaceInvitePage() {
                   <p className="text-sm font-semibold text-[#1A1815]">
                     No pending invitation found for {userEmail}
                   </p>
-                  <p className="mt-2 text-sm text-[#7A7062]">
+                  <p className="mt-2 text-sm text-[#6B6255]">
                     Ask the institution owner to invite this exact email from Hamilton Settings, or
                     continue to Pro if you need your own workspace.
                   </p>
@@ -196,7 +196,7 @@ export default async function WorkspaceInvitePage() {
                   <p className="text-sm font-semibold text-[#1A1815]">
                     No active institution workspace yet
                   </p>
-                  <p className="mt-2 text-sm text-[#7A7062]">
+                  <p className="mt-2 text-sm text-[#6B6255]">
                     Your Pro seat is active, but this email has no pending delegated workspace invite.
                     Ask the institution owner to invite {userEmail} from Hamilton Settings.
                   </p>

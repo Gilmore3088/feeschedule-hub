@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getPublicStatsSummary } from "@/lib/public-stats";
+import { CONTACT_EMAIL, REPORT_OFFER } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "About",
@@ -16,7 +17,7 @@ export default async function AboutPage() {
     <div className="mx-auto max-w-3xl px-6 py-14">
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           About
         </span>
       </div>
@@ -44,6 +45,40 @@ export default async function AboutPage() {
           and regulatory context to make pricing decisions.
         </p>
 
+        <p>
+          Everything is built on one ladder. The Bank Fee Index is the free lookup: any
+          institution, any published fee, with its source. The{" "}
+          <Link href="/for-institutions#report" className="text-[#C44B2E] hover:underline">
+            {REPORT_OFFER.name}
+          </Link>{" "}
+          ({REPORT_OFFER.priceLabel}) is a one-time report placing one institution against
+          its verified peer set. Fee Insight Pro is the subscription; Hamilton is its
+          workspace for benchmarking, scenarios, reports and monitoring. Fee Insight Advisory
+          covers custom competitor sets, board decks and multi-institution work.
+        </p>
+
+        <h2
+          className="text-[18px] font-medium text-[#1A1815] pt-4"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+        >
+          Who&apos;s behind this
+        </h2>
+
+        {/* TODO(founder): add photo + LinkedIn */}
+        <p>
+          Fee Insight is built and run by James Gilmore, a banking data analyst. The Bank
+          Fee Index exists because published fee schedules were never collected in one
+          verifiable place — every figure here links to the document it came from.
+        </p>
+        <p>
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className="text-[#C44B2E] hover:underline"
+          >
+            Write to James
+          </a>
+        </p>
+
         <h2
           className="text-[18px] font-medium text-[#1A1815] pt-4"
           style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -65,7 +100,7 @@ export default async function AboutPage() {
               <p className="text-[20px] font-bold tabular-nums text-[#1A1815]">
                 {stat.value}
               </p>
-              <p className="mt-0.5 text-[11px] text-[#7A7062]">{stat.label}</p>
+              <p className="mt-0.5 text-[11px] text-[#6B6255]">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -108,7 +143,7 @@ export default async function AboutPage() {
           <li>FRED economic indicators for macro benchmarking</li>
         </ul>
 
-        <p className="text-[13px] text-[#7A7062]">{summary.freshnessLabel}.</p>
+        <p className="text-[13px] text-[#6B6255]">{summary.freshnessLabel}.</p>
 
         <h2
           className="text-[18px] font-medium text-[#1A1815] pt-4"
@@ -121,10 +156,10 @@ export default async function AboutPage() {
           For questions, partnership inquiries, or data licensing, reach us
           at{" "}
           <a
-            href="mailto:hello@bankfeeindex.com"
+            href={`mailto:${CONTACT_EMAIL}`}
             className="text-[#C44B2E] hover:underline"
           >
-            hello@bankfeeindex.com
+            {CONTACT_EMAIL}
           </a>{" "}
           or use our{" "}
           <Link href="/contact" className="text-[#C44B2E] hover:underline">

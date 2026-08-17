@@ -13,7 +13,7 @@ export default function PublicError({
       <div className="mx-auto max-w-lg px-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-6">
           <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
             Error
           </span>
           <span className="h-px w-8 bg-[#C44B2E]/40" />
@@ -24,7 +24,7 @@ export default function PublicError({
         >
           Something went wrong
         </h1>
-        <p className="text-[14px] text-[#7A7062] mb-8">
+        <p className="text-[14px] text-[#6B6255] mb-8">
           We hit an unexpected error loading this page. Please try again.
         </p>
         <div className="flex items-center justify-center gap-3">
@@ -36,7 +36,7 @@ export default function PublicError({
           </button>
           <Link
             href="/"
-            className="rounded-full border border-[#E8DFD1] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-all no-underline"
+            className="rounded-full border border-[#E8DFD1] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-all no-underline"
           >
             Go home
           </Link>

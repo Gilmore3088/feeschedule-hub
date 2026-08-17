@@ -70,13 +70,14 @@ function GroupBadge({ group }: { group: FeeGroup }) {
         {verified ? "Verified" : "Under review"}
       </span>
       {verified && group.provisionalCount > 0 && (
-        <span className="text-[11px] text-[#7A7062]">{group.provisionalCount} under review</span>
+        <span className="text-[11px] text-[#6B6255]">{group.provisionalCount} under review</span>
       )}
     </span>
   );
 }
 
-const HEADER_CELL = "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#7A7062]";
+const HEADER_CELL = "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B6255]";
+const SERIF_STYLE = { fontFamily: "var(--font-newsreader), Georgia, serif" } as const;
 
 export function FeeScheduleTable({
   fees,
@@ -88,34 +89,65 @@ export function FeeScheduleTable({
   const groups = groupFeesByFamily(fees);
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-[#E0D7C9] bg-[#FDFBF8]">
-            <th scope="col" className={HEADER_CELL}>Fee</th>
-            <th scope="col" className={`${HEADER_CELL} text-right`}>Amount</th>
-            <th scope="col" className={HEADER_CELL}>Basis</th>
-            <th scope="col" className={HEADER_CELL}>Note</th>
-            <th scope="col" className={`${HEADER_CELL} text-right`}>Source</th>
-          </tr>
-        </thead>
-        {groups.map((group) => (
-          <tbody key={group.family} className="border-t border-[#E0D7C9]">
-            <tr className="bg-[#FAF7F2]">
-              <th scope="rowgroup" colSpan={5} className="px-4 py-2.5 text-left">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-[#1A1815]">{group.family}</span>
-                  <GroupBadge group={group} />
-                </div>
-              </th>
-            </tr>
-            {group.rows.map((fee) => (
-              <FeeRow key={fee.id} fee={fee} disclosureUrl={disclosureUrl} mixedGroup={group.verifiedCount > 0} />
+    <>
+      <FeeScheduleStack groups={groups} disclosureUrl={disclosureUrl} />
+      <div className="hidden sm:block">
+        <p className="border-b border-[#F0EBE3] px-4 py-1.5 text-xs text-[#6B6255] lg:hidden">
+          Swipe for source and notes &rarr;
+        </p>
+        <div className="table-scroll">
+          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-[#E0D7C9] bg-[#FDFBF8]">
+                <th scope="col" className={HEADER_CELL}>Fee</th>
+                <th scope="col" className={`${HEADER_CELL} text-right`}>Amount</th>
+                <th scope="col" className={HEADER_CELL}>Basis</th>
+                <th scope="col" className={HEADER_CELL}>Note</th>
+                <th scope="col" className={`${HEADER_CELL} text-right`}>Source</th>
+              </tr>
+            </thead>
+            {groups.map((group) => (
+              <tbody key={group.family} className="border-t border-[#E0D7C9]">
+                <tr className="bg-[#FAF7F2]">
+                  <th scope="rowgroup" colSpan={5} className="px-4 py-2.5 text-left">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-[#1A1815]">{group.family}</span>
+                      <GroupBadge group={group} />
+                    </div>
+                  </th>
+                </tr>
+                {group.rows.map((fee) => (
+                  <FeeRow key={fee.id} fee={fee} disclosureUrl={disclosureUrl} mixedGroup={group.verifiedCount > 0} />
+                ))}
+              </tbody>
             ))}
-          </tbody>
-        ))}
-      </table>
-    </div>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function UnderReviewChip() {
+  return (
+    <span className="ml-2 inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+      Under review
+    </span>
+  );
+}
+
+function SourceLink({ href }: { href: string | null }) {
+  if (!href) return <span className="text-xs text-[#6B6255]">&mdash;</span>;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-xs font-semibold text-[#A93D25] hover:text-[#A93D25]"
+    >
+      Source
+      <ExternalLink className="h-3 w-3" />
+    </a>
   );
 }
 
@@ -137,37 +169,59 @@ function FeeRow({
     <tr className="fi-row-interaction border-b border-[#F0EBE3] last:border-0">
       <td className="max-w-[320px] px-4 py-2.5 align-top">
         <span className="break-words font-medium text-[#1A1815]">{fee.feeName}</span>
-        {showUnderReview && (
-          <span className="ml-2 inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
-            Under review
-          </span>
-        )}
+        {showUnderReview && <UnderReviewChip />}
       </td>
-      <td
-        className="whitespace-nowrap px-4 py-2.5 text-right align-top text-base tabular-nums text-[#1A1815]"
-        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-      >
-        {amount ?? "—"}
+      <td className="whitespace-nowrap px-4 py-2.5 text-right align-top text-base tabular-nums text-[#1A1815]" style={SERIF_STYLE}>
+        {amount ?? "\u2014"}
       </td>
-      <td className="whitespace-nowrap px-4 py-2.5 align-top text-[#5A5347]">{basis || "—"}</td>
-      <td className="max-w-[280px] px-4 py-2.5 align-top text-xs leading-relaxed text-[#7A7062]">
-        {fee.conditions ? <span className="break-words">{fee.conditions}</span> : "—"}
+      <td className="whitespace-nowrap px-4 py-2.5 align-top text-[#5A5347]">{basis || "\u2014"}</td>
+      <td className="max-w-[280px] px-4 py-2.5 align-top text-xs leading-relaxed text-[#6B6255]">
+        {fee.conditions ? <span className="break-words">{fee.conditions}</span> : "\u2014"}
       </td>
       <td className="whitespace-nowrap px-4 py-2.5 text-right align-top">
-        {sourceUrl ? (
-          <a
-            href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-[#C44B2E] hover:text-[#A93D25]"
-          >
-            Source
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : (
-          <span className="text-xs text-[#7A7062]">—</span>
-        )}
+        <SourceLink href={sourceUrl} />
       </td>
     </tr>
+  );
+}
+
+/** Below 640px: stacked rows — fee + amount on one line; basis, note and source beneath. */
+function FeeScheduleStack({ groups, disclosureUrl }: { groups: FeeGroup[]; disclosureUrl: string | null }) {
+  return (
+    <div className="sm:hidden">
+      {groups.map((group) => (
+        <section key={group.family} className="border-t border-[#E0D7C9]">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF7F2] px-4 py-2.5">
+            <span className="text-sm font-semibold text-[#1A1815]">{group.family}</span>
+            <GroupBadge group={group} />
+          </div>
+          <ul>
+            {group.rows.map((fee) => {
+              const sourceUrl = fee.sourceUrl ?? disclosureUrl;
+              const basis = getFrequencyLabel(fee.frequency);
+              const showUnderReview = group.verifiedCount > 0 && fee.status === "provisional";
+              return (
+                <li key={fee.id} className="border-b border-[#F0EBE3] px-4 py-2.5 last:border-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0 break-words text-sm font-medium text-[#1A1815]">
+                      {fee.feeName}
+                      {showUnderReview && <UnderReviewChip />}
+                    </span>
+                    <span className="shrink-0 text-base tabular-nums text-[#1A1815]" style={SERIF_STYLE}>
+                      {formatFeeAmount(fee.amount) ?? "\u2014"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-[#6B6255]">
+                    {[basis || null, fee.conditions].filter(Boolean).join(" \u00b7 ")}
+                    {(basis || fee.conditions) && sourceUrl ? " \u00b7 " : null}
+                    {sourceUrl && <SourceLink href={sourceUrl} />}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

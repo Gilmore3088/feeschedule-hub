@@ -92,7 +92,7 @@ export function InstitutionSearchBar({
       <div className="relative">
         <Search
           aria-hidden="true"
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-[#7A7062]"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-[#6B6255]"
           strokeWidth={1.75}
         />
         <input
@@ -105,8 +105,8 @@ export function InstitutionSearchBar({
           autoFocus={autoFocus}
           className={
             isDark
-              ? "w-full rounded-md border border-[#3D3830] bg-[#2D2A26] pl-10 pr-4 py-3 text-sm text-[#F5EFE6] placeholder:text-[#7A7062] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
-              : "w-full rounded-md border border-[#D5CBBF] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#7A7062] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
+              ? "w-full rounded-md border border-[#3D3830] bg-[#2D2A26] pl-10 pr-4 py-3 text-sm text-[#F5EFE6] placeholder:text-[#6B6255] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
+              : "w-full rounded-md border border-[#D5CBBF] bg-[#FFFDF9] pl-10 pr-4 py-3 text-sm text-[#1A1815] placeholder:text-[#6B6255] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#C44B2E]"
           }
         />
         {loading && (
@@ -129,10 +129,10 @@ export function InstitutionSearchBar({
               <div className="text-sm font-medium text-[#1A1815]">
                 {r.institution_name}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#7A7062]">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#6B6255]">
                 {[r.city, r.state_code].filter(Boolean).join(", ")}
                 {r.charter_type && (
-                  <span className="text-[#7A7062]">
+                  <span className="text-[#6B6255]">
                     {r.charter_type === "bank" ? "Bank" : "Credit Union"}
                   </span>
                 )}
@@ -147,7 +147,7 @@ export function InstitutionSearchBar({
                   </span>
                 )}
                 {(r.published_fee_count ?? 0) === 0 && (r.provisional_fee_count ?? 0) === 0 && (
-                  <span className="rounded-sm border border-[#E0D7C9] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#7A7062]">
+                  <span className="rounded-sm border border-[#E0D7C9] bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[#6B6255]">
                     {r.fee_publication_status === "under_review" ? "Under review" : "No published schedule found"}
                   </span>
                 )}
@@ -159,7 +159,7 @@ export function InstitutionSearchBar({
 
       {showResults && results.length === 0 && query.trim().length >= 2 && !loading && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-[#E8DFD1] bg-[#FFFDF9] p-4 shadow-lg">
-          <p className="text-sm text-[#7A7062]">No institutions found for {query}</p>
+          <p className="text-sm text-[#6B6255]">No institutions found for {query}</p>
         </div>
       )}
     </div>

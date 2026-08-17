@@ -108,7 +108,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         <section className="fi-reveal border-b border-[#D8CBB8] pb-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
                 Institution Directory
               </p>
               <h1
@@ -121,7 +121,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                 Pick your state, then your bank or credit union, to see its published fees and how
                 they compare.
               </p>
-              <p className="mt-1 text-sm text-[#7A7062]">
+              <p className="mt-1 text-sm text-[#6B6255]">
                 Verified fee schedules for {stats.institutionsLabel} institutions and growing.
               </p>
               <div className="mt-5 max-w-2xl">
@@ -156,7 +156,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
               <p className="text-sm font-semibold text-[#1A1815]">
                 Select a state to view institution profiles.
               </p>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#7A7062]">
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[#6B6255]">
                 Or search by name above to jump straight to an institution.
               </p>
             </div>
@@ -166,10 +166,10 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         {shouldShowResults && results.total > 0 && (
           <section className="fi-reveal fi-reveal-delay-2 pt-5">
             <div className="mb-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#7A7062]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
                 {selectedStateName ? `${selectedStateName} directory` : "Search results"}
               </p>
-              <p className="mt-1 text-sm text-[#7A7062]">
+              <p className="mt-1 text-sm text-[#6B6255]">
                 {results.total.toLocaleString("en-US")} institution{results.total !== 1 ? "s" : ""} found
                 {query && (
                   <span>
@@ -188,7 +188,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
 
         {shouldShowResults && results.total === 0 && (
           <div className="fi-reveal fi-reveal-delay-2 py-8 text-center">
-            <p className="text-sm text-[#7A7062]">
+            <p className="text-sm text-[#6B6255]">
               No institutions found. Try adjusting your search or filters.
             </p>
           </div>
@@ -201,7 +201,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
 function DirectoryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 px-3 py-3">
-      <p className="text-[11px] font-bold uppercase leading-tight tracking-[0.1em] text-[#7A7062]">
+      <p className="text-[11px] font-bold uppercase leading-tight tracking-[0.1em] text-[#6B6255]">
         {label}
       </p>
       <p className="mt-1 truncate text-base font-semibold tabular-nums text-[#1A1815]" title={value}>

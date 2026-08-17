@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Competitive Fee Position Report</title>
+<style>
+  /* Brand system: warm ink on paper, terracotta accent, Newsreader serif — the Hamilton
+     palette (src/lib/report-templates/base/styles.ts). Print edition swaps the web sans
+     for IBM Plex Sans (labels) + IBM Plex Mono (figures) to read as a ledger, not a web page. */
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,300;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --ink:#1A1815; --ink2:#3D3830; --text2:#6E655A; --muted:#9A9082;
+    --paper:#FFFFFF; --cream:#FDFBF8; --sand:#F4EEE4;
+    --terra:#C44B2E; --terra-deep:#9E3A22; --terra-soft:#FBEDE8; --terra-ghost:#F7E3DC;
+    --good:#1F7A4A; --good-soft:#E8F2EB;
+    --line:#E3DACB; --line-light:#EFE8DC; --line-dark:#1A1815;
+    --serif:"Newsreader","Georgia","Times New Roman",serif;
+    --sans:"IBM Plex Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+    --mono:"IBM Plex Mono","SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  html, body { background:var(--paper); color:var(--ink);
+    font-family:var(--serif); font-size:10.5pt; line-height:1.55;
+    font-feature-settings:"kern","liga"; }
+
+  @page { size:Letter; margin:0.75in 0.85in 0.8in; }
+  @page bleed { margin:0; }
+  .page { page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  .bleed { page:bleed; width:8.5in; height:11in; overflow:hidden; page-break-after:always; }
+
+  /* ---------- Type scale ---------- */
+  .kicker { font-family:var(--mono); font-size:7.2pt; font-weight:500; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--terra); }
+  h2 { font-family:var(--serif); font-size:24pt; font-weight:500; letter-spacing:-0.015em;
+    line-height:1.12; color:var(--ink); margin:6pt 0 0; }
+  h3 { font-family:var(--serif); font-size:12.5pt; font-weight:600; color:var(--ink); line-height:1.3; }
+  p { margin:7pt 0; }
+  b { font-weight:600; }
+  .muted { color:var(--muted); }
+  .small { font-family:var(--sans); font-size:8pt; line-height:1.5; }
+  .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .lede { font-family:var(--sans); font-size:8.6pt; line-height:1.55; color:var(--text2);
+    max-width:5.4in; margin:10pt 0 0; }
+
+  /* Running head: section index + institution, above a heavy ink rule */
+  .runhead { display:flex; justify-content:space-between; align-items:baseline;
+    font-family:var(--mono); font-size:7pt; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text2); padding-bottom:5pt; border-bottom:1.5pt solid var(--line-dark); margin-bottom:16pt; }
+  .runhead .sec { color:var(--terra); font-weight:600; }
+  .runhead .sec::before { content:"§ "; color:var(--muted); font-weight:400; }
+  .rule { border:none; border-top:1.5pt solid var(--terra); width:36pt; margin:10pt 0 14pt; }
+
+  /* Page foot */
+  .pagefoot { margin-top:16pt; padding-top:6pt; border-top:0.5pt solid var(--line);
+    font-family:var(--mono); font-size:6.6pt; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--muted); display:flex; justify-content:space-between;
+    page-break-inside:avoid; page-break-before:avoid; }
+
+  /* ---------- 1. Cover ---------- */
+  .cover { position:relative; background:var(--cream); color:var(--ink);
+    display:grid; grid-template-columns:0.9in 1fr; }
+  .cover .spine { background:var(--terra); position:relative; }
+  .cover .spine .vert { position:absolute; left:50%; bottom:0.9in; transform:translateX(-50%) rotate(180deg);
+    writing-mode:vertical-rl; font-family:var(--mono); font-size:7.4pt; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--cream); white-space:nowrap; font-weight:500; }
+  .cover .spine .vert b { color:#F9D5C8; font-weight:600; }
+  .cover .spine .mark { position:absolute; left:50%; top:0.85in; transform:translateX(-50%);
+    width:22pt; height:22pt; }
+  .cover .spine .mark svg { display:block; width:22pt; height:22pt; }
+  .cover .body { position:relative; padding:0.85in 0.85in 0.8in 0.75in; display:flex; flex-direction:column; }
+  .cover .topline { display:flex; justify-content:space-between; font-family:var(--mono);
+    font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:var(--text2);
+    padding-bottom:8pt; border-bottom:1.5pt solid var(--line-dark); }
+  .cover .topline b { color:var(--terra); font-weight:600; }
+  .cover .title { margin-top:1.55in; }
+  .cover .title .series { font-family:var(--mono); font-size:7.4pt; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--terra); font-weight:500; margin-bottom:14pt; }
+  .cover h1 { font-family:var(--serif); font-size:46pt; font-weight:500; line-height:0.98;
+    letter-spacing:-0.025em; color:var(--ink); }
+  .cover h1 em { font-style:italic; font-weight:400; color:var(--ink2); }
+  .cover .for { margin-top:30pt; font-family:var(--serif); font-size:12.5pt; font-style:italic;
+    font-weight:400; color:var(--text2); }
+  .cover .instname { display:block; font-style:normal; font-weight:600; font-size:24pt;
+    line-height:1.15; color:var(--terra); letter-spacing:-0.01em; margin-top:2pt; }
+  .cover .instmeta { margin-top:10pt; font-family:var(--mono); font-size:7.6pt; letter-spacing:0.06em;
+    color:var(--text2); text-transform:uppercase; }
+  .cover .instmeta i { font-style:normal; color:var(--muted); padding:0 5pt; }
+  .cover .cohortnote { margin-top:14pt; font-family:var(--sans); font-size:8pt; line-height:1.5;
+    color:var(--text2); max-width:5in; }
+  .cover .ghost { position:absolute; right:0.6in; bottom:1.6in; font-family:var(--serif);
+    font-size:160pt; font-weight:600; letter-spacing:-0.06em; line-height:1; color:var(--terra-ghost);
+    z-index:0; pointer-events:none; }
+  .cover .card { position:relative; z-index:1; margin-top:auto; display:grid;
+    grid-template-columns:1.25fr 1.5fr 1fr; border-top:1.5pt solid var(--line-dark); }
+  .cover .card > div { padding:11pt 12pt 0 0; border-right:0.5pt solid var(--line); margin-right:12pt; }
+  .cover .card > div:last-child { border-right:none; margin-right:0; }
+  .cover .card .lbl { font-family:var(--mono); font-size:6.6pt; letter-spacing:0.16em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:5pt; }
+  .cover .card .val { font-family:var(--serif); font-size:12pt; font-weight:500; line-height:1.3; color:var(--ink); }
+  .cover .card .val.mono { font-family:var(--mono); font-size:9.5pt; font-weight:500; padding-top:2pt; }
+  .cover .card .big { font-family:var(--serif); font-size:30pt; font-weight:600; line-height:1;
+    color:var(--terra); letter-spacing:-0.02em; }
+  .cover .card .big small { display:block; font-family:var(--sans); font-size:7.5pt; color:var(--text2);
+    letter-spacing:0; margin-top:4pt; font-weight:400; }
+
+  /* ---------- 2. Executive findings ---------- */
+  .findings { counter-reset:finding; margin-top:2pt; border-bottom:0.5pt solid var(--line); }
+  .finding { counter-increment:finding; display:grid; grid-template-columns:0.32in 1.42in 1fr;
+    column-gap:14pt; padding:10pt 0 11pt; border-top:0.5pt solid var(--line); page-break-inside:avoid; }
+  .finding::before { content:counter(finding, decimal-leading-zero); font-family:var(--mono);
+    font-size:7.5pt; color:var(--muted); padding-top:8pt; letter-spacing:0.05em; }
+  .finding .num { font-family:var(--serif); font-size:24pt; font-weight:600; color:var(--terra);
+    line-height:1.05; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; }
+  .finding .num small { display:block; font-family:var(--sans); font-size:7.4pt; font-weight:400;
+    color:var(--text2); margin-top:5pt; line-height:1.4; letter-spacing:0; }
+  .finding p { margin:0; font-size:9.6pt; line-height:1.55; color:var(--ink2); }
+  .finding p b { display:block; font-family:var(--serif); font-size:11.5pt; font-weight:600;
+    color:var(--ink); line-height:1.3; margin-bottom:3pt; }
+  .narrative { font-family:var(--serif); font-size:9.8pt; line-height:1.58; color:var(--ink2); }
+  .narrative p { margin:0 0 9pt; }
+  p.narrative { margin-top:12pt; }
+  .drop::first-letter { font-family:var(--serif); font-size:34pt; font-weight:500; float:left;
+    line-height:0.85; padding:4pt 6pt 0 0; color:var(--terra); }
+
+  /* ---------- Tables (ledger) ---------- */
+  table { width:100%; border-collapse:collapse; font-family:var(--sans); font-size:8.3pt; }
+  thead { display:table-header-group; }
+  tr { page-break-inside:avoid; }
+  thead tr { border-bottom:1pt solid var(--line-dark); }
+  th { text-align:left; font-family:var(--mono); font-size:6.5pt; text-transform:uppercase;
+    letter-spacing:0.12em; color:var(--text2); font-weight:500; padding:0 6pt 5pt; vertical-align:bottom; }
+  td { padding:5pt 6pt; border-bottom:0.5pt solid var(--line-light); vertical-align:middle;
+    color:var(--ink); }
+  td.r, th.r { text-align:right; }
+  td.r { font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:8.2pt; color:var(--ink2); white-space:nowrap; }
+  td.r b { color:var(--ink); font-weight:600; }
+  tbody tr:last-child td { border-bottom:0.5pt solid var(--line); }
+  th:first-child, td:first-child { padding-left:0; }
+  th:last-child, td:last-child { padding-right:0; }
+  /* "You" column carries a paper tint so the eye lands there first */
+  table.position td:nth-child(2), table.position th:nth-child(2) { background:var(--sand); }
+  table.position td:first-child, table.position td:nth-child(7) { white-space:nowrap; }
+  table.position th:nth-child(7) { width:1.6in; }
+  table.position td { padding:4pt 6pt; }
+  table.position th:nth-child(2) { color:var(--terra); }
+
+  /* Percentile track with median tick */
+  .bar-wrap { position:relative; background:var(--line-light); height:5pt; width:84pt;
+    display:inline-block; vertical-align:middle; }
+  .bar-wrap::after { content:""; position:absolute; left:50%; top:-2.5pt; width:0.75pt; height:10pt;
+    background:var(--ink); opacity:0.55; }
+  .bar { background:var(--muted); height:5pt; }
+  .bar.hi { background:var(--terra); }
+  .bar.lo { background:var(--good); }
+  .bar-wrap + .small { font-family:var(--mono); font-size:7pt; margin-left:6pt; color:var(--text2); white-space:nowrap; }
+  .tag { font-family:var(--mono); font-size:6.3pt; font-weight:600; padding:1.5pt 5pt;
+    text-transform:uppercase; letter-spacing:0.1em; white-space:nowrap; border:0.75pt solid currentColor; }
+  .tag.outlier { color:var(--terra); background:var(--terra-soft); }
+  .tag.waived { color:var(--good); background:var(--good-soft); }
+  .tag.gap { color:var(--muted); background:transparent; }
+
+  /* ---------- 4. Callouts: two-column ledger entries ---------- */
+  .callouts { margin-top:4pt; }
+  .callout { display:grid; grid-template-columns:2.05in 1fr; column-gap:20pt;
+    padding:12pt 0 14pt; border-top:2pt solid var(--terra); margin-top:12pt; page-break-inside:avoid; }
+  .callout:first-child { margin-top:8pt; }
+  .callout.opportunity { border-top-color:var(--good); }
+  .callout h3 { grid-column:1; font-size:12.5pt; line-height:1.28; letter-spacing:-0.005em; }
+  .callout .stat { grid-column:1; font-family:var(--mono); font-size:7.2pt; line-height:1.6;
+    color:var(--text2); margin-top:6pt; letter-spacing:0.01em; }
+  .callout p { grid-column:2; grid-row:1 / span 2; margin:0; font-size:9.8pt; line-height:1.6; color:var(--ink2); }
+  .callout.opportunity h3 { color:var(--good); }
+
+  /* ---------- 4b. Revenue lens ---------- */
+  .statgrid { display:grid; grid-template-columns:repeat(3,1fr); margin:12pt 0 0;
+    border-top:1.5pt solid var(--line-dark); border-left:0.5pt solid var(--line); }
+  .statcard { padding:9pt 11pt 10pt; border-right:0.5pt solid var(--line);
+    border-bottom:0.5pt solid var(--line); page-break-inside:avoid; min-height:0.78in; }
+  .statcard .lbl { font-family:var(--mono); font-size:6.5pt; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text2); margin-bottom:7pt; }
+  .statcard .val { font-family:var(--serif); font-size:18pt; font-weight:500; color:var(--ink);
+    font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-0.02em; }
+  .statcard .cmp { font-family:var(--sans); font-size:7.4pt; color:var(--text2); margin-top:6pt;
+    font-variant-numeric:tabular-nums; }
+  .statcard .cmp b { color:var(--terra); font-weight:600; }
+  h3.sub { margin-top:16pt; font-size:11.5pt; }
+  h3.sub + table { margin-top:8pt; }
+  .footnote { font-family:var(--sans); font-size:7.4pt; line-height:1.45; color:var(--muted); margin-top:9pt; }
+
+  /* ---------- 5. Peer table ---------- */
+  tr.self td { background:var(--sand); font-weight:600; border-bottom:1pt solid var(--line-dark); }
+  tr.self td:first-child { border-left:2.5pt solid var(--terra); padding-left:6pt; }
+  tr.self td.r { color:var(--ink); }
+
+  /* ---------- 6. Methodology ---------- */
+  .method { font-family:var(--sans); font-size:8pt; line-height:1.55; color:var(--text2); }
+  .method ul { margin:6pt 0 0 0; list-style:none; }
+  .method li { padding:3pt 0; border-top:0.5pt solid var(--line-light); font-family:var(--mono);
+    font-size:7.2pt; word-break:break-all; }
+  .method li .muted { font-family:var(--sans); }
+  .method li:last-child { border-bottom:0.5pt solid var(--line-light); }
+
+  table.appendix th:first-child { width:2.75in; }
+  table.appendix td:first-child { font-size:8.2pt; }
+
+  /* ---------- 8. Back cover ---------- */
+  .back { background:var(--ink); color:var(--cream); padding:0.85in 0.95in 0.85in;
+    display:flex; flex-direction:column; }
+  .back .brandline { display:flex; justify-content:space-between; font-family:var(--mono);
+    font-size:7.2pt; letter-spacing:0.16em; text-transform:uppercase; color:#B8AE9F;
+    padding-bottom:8pt; border-bottom:1pt solid #3D3830; }
+  .back .brandline b { color:#F1A48F; font-weight:600; }
+  .back h2 { color:var(--cream); font-size:34pt; font-weight:400; line-height:1.08;
+    letter-spacing:-0.02em; margin-top:1.9in; max-width:5.4in; }
+  .back h2 em { font-style:italic; color:#F1A48F; }
+  .back .sub { font-family:var(--serif); font-size:12pt; font-weight:300; line-height:1.55;
+    color:#CFC6B8; max-width:5in; margin-top:16pt; }
+  .back .cta { margin-top:auto; border-top:1.5pt solid var(--terra); padding-top:16pt;
+    display:grid; grid-template-columns:1fr 1fr; column-gap:28pt; }
+  .back .cta h4 { font-family:var(--serif); font-size:15pt; font-weight:500; color:var(--cream);
+    line-height:1.3; margin-bottom:6pt; }
+  .back .cta p { font-family:var(--sans); font-size:8.8pt; line-height:1.6; color:#CFC6B8; margin:0; }
+  .back .cta .mail { font-family:var(--mono); font-size:9.5pt; color:var(--cream); font-weight:500;
+    display:block; margin-top:8pt; letter-spacing:0.02em; text-decoration:none; }
+  .back .colophon { margin-top:26pt; padding-top:8pt; border-top:0.5pt solid #3D3830;
+    font-family:var(--mono); font-size:6.6pt; letter-spacing:0.1em; text-transform:uppercase;
+    color:#7A7062; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+
+<!-- 1. COVER -->
+<div class="bleed cover">
+  <div class="spine">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#FDFBF8" stroke-width="1.5" aria-hidden="true"><rect x="4" y="13" width="4" height="8" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="16" y="3" width="4" height="18" rx="1"/></svg></div>
+    <div class="vert"><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</div>
+  </div>
+  <div class="body">
+    <div class="topline"><span><b>Competitive Fee Position</b> &nbsp;·&nbsp; Report</span><span>Aug 16, 2026</span></div>
+    <div class="title">
+      <div class="series">Prepared exclusively for one institution</div>
+      <h1>Competitive<br>Fee <em>Position</em></h1>
+      <div class="for">Prepared for
+        <span class="instname">Union Square Credit Union</span>
+      </div>
+      <div class="instmeta">Wichita Falls, TX<i>·</i>Credit Union<i>·</i>Community credit union, $300M–$1B</div>
+      <p class="cohortnote">Peer cohort: 41 comparable community credit unions. Not every peer publishes every fee: 6 publish an NSF fee and 6 an overdraft fee, so those are the comparison sets for those lines.</p>
+    </div>
+    <div class="ghost">41</div>
+    <div class="card">
+      <div><div class="lbl">Peer cohort</div><div class="val">Community credit unions, $300M–$1B</div></div>
+      <div><div class="lbl">Benchmarked against</div>
+        <div class="big">41<small>peer institutions with published fee schedules</small></div></div>
+      <div><div class="lbl">Source</div><div class="val mono">feeinsight.com</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. EXECUTIVE SUMMARY -->
+<div class="page">
+  <div class="runhead"><span class="sec">01 · Executive summary</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">In brief</div>
+  <h2>Three things your fee schedule says about you</h2>
+  <hr class="rule">
+  <div class="findings">
+    <div class="finding"><div class="num" style="font-size:13pt">$30 vs $24.50<small>overdraft fee vs peer median</small></div>
+   <p><b>Your overdraft fee ties for highest in the cohort.</b>At $30.00, your overdraft fee sits at the 100th percentile of 6 comparable credit unions — matching the cohort maximum, $5.50 over the median. The cohort is small, so treat the percentile with care, but the direction is unambiguous: on the one fee regulators and members watch most, you are at the top of your peer group.</p></div>
+<div class="finding"><div class="num" style="font-size:18pt">$5 vs $35<small>card replacement vs peer median</small></div>
+   <p><b>You charge a fraction of what peers charge to replace a card.</b>Card replacement runs $5.00 against a $35.00 median across 23 comparable credit unions — the 17th percentile, $30 below the middle of the pack. This is a genuinely member-friendly price on a high-emotion service moment (cards are usually replaced after loss or fraud), and today it earns you no credit because nobody knows.</p></div>
+<div class="finding"><div class="num" style="font-size:24pt">P20<small>deposited item return percentile</small></div>
+   <p><b>You are priced at or below market almost everywhere else.</b>Deposited-item returns ($15 vs a $32 median, 20th percentile), paper statements ($1 vs $3), and overdraft-protection transfers ($2 vs a $2 median) all sit at or below peers. Outside of overdraft, this schedule reads as one of the most member-friendly in the cohort — a story worth telling deliberately.</p></div>
+  </div>
+  <p class="narrative drop">Net position: Union Square Credit Union runs one of the most member-friendly published schedules in its cohort — card replacement at a seventh of the peer median, deposited-item returns at less than half, paper statements at a third — with a single exception: an overdraft fee that ties for the highest among 6 comparable credit unions. That is an unusual and fixable asymmetry. The overdraft line is the one members and examiners will notice; everything else is a marketing asset going unused. One decision and one communications plan cover the whole agenda.</p>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 3. POSITION MAP -->
+<div class="page">
+  <div class="runhead"><span class="sec">02 · Competitive position</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">The position map</div>
+  <h2>Your fees vs. 41 peer institutions</h2>
+  <hr class="rule">
+  <p class="lede">Peer cohort: Community credit unions, $300M–$1B — 41 institutions with published
+  fee schedules. Not every peer publishes every fee, so each category compares against the
+  peers that publish that line (per-category n noted in § 03). Percentile = share of peers
+  charging the same or less; the tick marks the median. Terracotta bars sit above the 80th
+  percentile, green at or below the 20th.</p>
+  <table class="position" style="margin-top:12pt">
+    <thead><tr>
+      <th>Fee</th><th class="r">You</th><th class="r">Peer P25</th><th class="r">Median</th>
+      <th class="r">P75</th><th class="r">National</th><th>Percentile</th><th></th>
+    </tr></thead>
+    <tbody>
+      <tr><td>Non-network ATM</td>
+    <td class="r"><b>$3.00</b></td>
+    <td class="r">$1.75</td><td class="r">$3.00</td>
+    <td class="r">$3.75</td><td class="r">$1.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:67%"></div></div><span class="small muted"> P67</span></td><td></td></tr>
+<tr><td>Foreign transaction</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">—</td><td class="r">—</td>
+    <td class="r">—</td><td class="r">$1.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Card replacement</td>
+    <td class="r"><b>$5.00</b></td>
+    <td class="r">$17.50</td><td class="r">$35.00</td>
+    <td class="r">$50.00</td><td class="r">$28.75</td>
+    <td><div class="bar-wrap"><div class="bar lo" style="width:17%"></div></div><span class="small muted"> P17</span></td><td></td></tr>
+<tr><td>Cashier's check</td>
+    <td class="r"><b>$5.00</b></td>
+    <td class="r">$5.00</td><td class="r">$5.00</td>
+    <td class="r">$5.00</td><td class="r">$5.00</td>
+    <td><div class="bar-wrap"><div class="bar hi" style="width:100%"></div></div><span class="small muted"> P100</span></td><td></td></tr>
+<tr><td>Deposited item return</td>
+    <td class="r"><b>$15.00</b></td>
+    <td class="r">$25.00</td><td class="r">$32.00</td>
+    <td class="r">$35.00</td><td class="r">$20.00</td>
+    <td><div class="bar-wrap"><div class="bar lo" style="width:20%"></div></div><span class="small muted"> P20</span></td><td></td></tr>
+<tr><td>Minimum balance</td>
+    <td class="r"><b>$3.00</b></td>
+    <td class="r">$3.00</td><td class="r">$3.00</td>
+    <td class="r">$6.50</td><td class="r">$5.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:67%"></div></div><span class="small muted"> P67</span></td><td></td></tr>
+<tr><td>Monthly maintenance</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$5.00</td><td class="r">$5.00</td>
+    <td class="r">$8.75</td><td class="r">$5.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>NSF / returned item</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$15.00</td><td class="r">$17.50</td>
+    <td class="r">$27.13</td><td class="r">$25.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>OD protection transfer</td>
+    <td class="r"><b>$2.00</b></td>
+    <td class="r">$1.50</td><td class="r">$2.00</td>
+    <td class="r">$3.50</td><td class="r">$5.00</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:67%"></div></div><span class="small muted"> P67</span></td><td></td></tr>
+<tr><td>Overdraft</td>
+    <td class="r"><b>$30.00</b></td>
+    <td class="r">$12.50</td><td class="r">$24.50</td>
+    <td class="r">$29.00</td><td class="r">$25.00</td>
+    <td><div class="bar-wrap"><div class="bar hi" style="width:100%"></div></div><span class="small muted"> P100</span></td><td></td></tr>
+<tr><td>Paper statement</td>
+    <td class="r"><b>$1.00</b></td>
+    <td class="r">$1.00</td><td class="r">$3.00</td>
+    <td class="r">$3.00</td><td class="r">$2.75</td>
+    <td><div class="bar-wrap"><div class="bar " style="width:40%"></div></div><span class="small muted"> P40</span></td><td></td></tr>
+<tr><td>Stop payment</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$20.00</td><td class="r">$25.00</td>
+    <td class="r">$33.75</td><td class="r">$20.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Incoming domestic wire</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$10.00</td><td class="r">$10.00</td>
+    <td class="r">$10.00</td><td class="r">$10.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Outgoing domestic wire</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$22.50</td><td class="r">$25.00</td>
+    <td class="r">$41.50</td><td class="r">$20.00</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+<tr><td>Outgoing intl. wire</td>
+    <td class="r"><b>—</b></td>
+    <td class="r">$42.50</td><td class="r">$45.00</td>
+    <td class="r">$47.50</td><td class="r">$42.50</td>
+    <td><span class="small muted">not published</span></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 4. CALLOUTS -->
+<div class="page">
+  <div class="runhead"><span class="sec">03 · What stands out</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">Divergences</div>
+  <h2>Where you diverge from your market</h2>
+  <hr class="rule">
+  <div class="callouts">
+    <div class="callout ">
+     <h3>Overdraft — $30.00</h3><div class="stat">Peer median $24.50 · peer max $30.00 · 100th percentile · n=6</div><p>You share the top of the cohort on the single most scrutinized fee in consumer finance. The peer group here is small (6 credit unions), which argues for caution on the percentile — but not on the exposure: overdraft is the fee that appears in examiner conversations and member complaints, and yours is $5.50 over the median while the rest of your schedule undercuts peers. A modest cut would make the whole schedule consistent with the member-friendly posture you already have everywhere else.</p>
+   </div>
+<div class="callout opportunity">
+     <h3>Card replacement — $5.00 vs a $35.00 median</h3><div class="stat">Peer median $35.00 · 17th percentile · n=23</div><p>This is the largest below-market gap on your schedule — $30 under the median, against the broadest peer sample in your pack. Members compare exactly this kind of fee when a card is lost or compromised. 'We replace your card for $5; most comparable credit unions charge $35' is a claim your peers' own published schedules substantiate, and it costs nothing to make.</p>
+   </div>
+<div class="callout opportunity">
+     <h3>The rest of the member-service stack — below market, unmarketed</h3><div class="stat">Deposited item return $15 vs $32 median (P20) · Paper statement $1 vs $3 (P40) · OD protection transfer $2 vs $2 median</div><p>Beyond card replacement, the service fees members actually encounter run at or below the cohort across the board. If this is deliberate strategy, it belongs in member communications and new-member onboarding; if it is inertia, it is at least worth confirming as policy before a future repricing quietly erodes it.</p>
+   </div>
+  </div>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 4b. REVENUE LENS (Call Report data) -->
+<div class="page">
+  <div class="runhead"><span class="sec">04 · The revenue lens</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">Posted price vs. realized income</div>
+  <h2>What fees actually mean<br>to your bottom line</h2>
+  <hr class="rule">
+  <p class="lede">Public regulatory filings (NCUA Call Reports) joined with your fee
+  position — the comparison your fee schedule never shows you.</p>
+  <div class="statgrid">
+    <div class="statcard"><div class="lbl">Total assets</div><div class="val">$599.4M</div></div>
+<div class="statcard"><div class="lbl">Total deposits</div><div class="val">$549.3M</div></div>
+<div class="statcard"><div class="lbl">Members</div><div class="val">35,371</div><div class="cmp">5 branches</div></div>
+<div class="statcard"><div class="lbl">Service-charge income</div><div class="val">$3.2M</div><div class="cmp">6.8% of revenue</div></div>
+<div class="statcard"><div class="lbl">Fee-income intensity</div><div class="val">53.3 bps</div><div class="cmp">cohort median <b>49.5 bps</b> of assets</div></div>
+<div class="statcard"><div class="lbl">Fee schedule</div><div class="val">8 of 15</div><div class="cmp">featured categories published</div></div>
+  </div>
+  <h3 class="sub">Fee economics vs. your cohort</h3>
+  <table>
+    <thead><tr><th>Metric</th><th class="r">You</th><th class="r">P25</th>
+      <th class="r">Median</th><th class="r">P75</th><th>Position</th><th>Assessment</th></tr></thead>
+    <tbody><tr><td>Service-charge income</td><td class="r"><b>$3.2M</b></td><td class="r">—</td>
+   <td class="r">$2.5M</td><td class="r">—</td>
+   <td>—</td><td>In line</td></tr>
+<tr><td>Fee intensity (income / assets)</td><td class="r"><b>53.3 bps</b></td><td class="r">32.9 bps</td>
+   <td class="r">49.5 bps</td><td class="r">72.3 bps</td>
+   <td>P55</td><td>In line</td></tr>
+<tr><td>Fee dependency (share of noninterest income)</td><td class="r"><b>28.3%</b></td><td class="r">25.3%</td>
+   <td class="r">30.1%</td><td class="r">35.3%</td>
+   <td>P40</td><td>In line</td></tr>
+</tbody>
+  </table>
+  <p class="narrative" style="margin-top:10pt">Your posted prices (60th percentile) and realized fee income (55th percentile) sit near the cohort middle — <b>fee strategy is neither a risk nor an engine today</b>, which makes the individual outliers in this report the whole story.</p>
+  
+  
+  <p class="footnote">Financial figures as filed (Mar 31, 2026 snapshot; revenue from
+  Dec 31, 2025 full-year filing). Cohort medians computed across 569
+  same-charter, same-tier institutions' latest full-year filings.</p>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 5. PEER TABLE -->
+<div class="page">
+  <div class="runhead"><span class="sec">05 · The named comparison</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">Peer by peer</div>
+  <h2>How specific peers price<br>the headline fees</h2>
+  <hr class="rule">
+  <p class="lede">All figures from each institution's published fee schedule (public
+  documents), extracted and verified by the Bank Fee Index pipeline.</p>
+  <table style="margin-top:12pt">
+    <thead><tr><th>Institution</th><th class="r">Monthly maintenance</th><th class="r">Overdraft</th><th class="r">NSF / returned item</th><th class="r">Stop payment</th><th class="r">Outgoing domestic wire</th></tr></thead>
+    <tbody>
+      <tr class="self"><td>Union Square Credit Union <span class="small muted">(you)</span></td><td class="r">—</td><td class="r">$30.00</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+      <tr><td>Tampa Bay Federal Credit Union <span class="small muted">(Tampa, FL)</span></td><td class="r">$5.00</td><td class="r">$5.00</td><td class="r">$15.00</td><td class="r">$5.00</td><td class="r">$25.00</td></tr>
+<tr><td>First Credit Union <span class="small muted">(Chandler, AZ)</span></td><td class="r">$3.50</td><td class="r">$20.00</td><td class="r">$20.00</td><td class="r">$20.00</td><td class="r">$20.00</td></tr>
+<tr><td>Emblem Credit Union <span class="small muted">(GADSDEN, AL)</span></td><td class="r">$10.00</td><td class="r">—</td><td class="r">$15.00</td><td class="r">$20.00</td><td class="r">$20.00</td></tr>
+<tr><td>Holy Rosary Federal Credit Union <span class="small muted">(Rochester, NH)</span></td><td class="r">—</td><td class="r">$29.00</td><td class="r">$15.00</td><td class="r">—</td><td class="r">—</td></tr>
+<tr><td>Lookout Federal Credit Union <span class="small muted">(Pocatello, ID)</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td></tr>
+<tr><td>First Alliance Federal Credit Union <span class="small muted">(Rochester, MN)</span></td><td class="r">—</td><td class="r">—</td><td class="r">$30.00</td><td class="r">$30.00</td><td class="r">—</td></tr>
+<tr><td>Garden Savings Federal Credit Union <span class="small muted">(PARSIPPANY, NJ)</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">$35.00</td></tr>
+<tr><td>Idb Global Federal Credit Union <span class="small muted">(WASHINGTON, DC)</span></td><td class="r">—</td><td class="r">—</td><td class="r">—</td><td class="r">$35.00</td><td class="r">—</td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 6. CONTEXT + METHODOLOGY -->
+<div class="page">
+  <div class="runhead"><span class="sec">06 · Market context</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">The bigger picture</div>
+  <h2>What is moving in your market</h2>
+  <hr class="rule">
+  <div class="narrative"><p>Two currents define the fee landscape your schedule competes in. First, the industry-wide retreat from penalty pricing: NSF and overdraft fees have been falling across consumer finance under regulatory and reputational pressure, and overdraft in particular has become the line examiners and journalists check first. Second, published fee schedules have become marketing documents — public, scraped, and compared — which turns every outlier line into a small reputational bet and every below-market line into an unclaimed asset.</p><p>Mid-sized credit unions sit in an exposed middle: large enough to appear in fee comparisons alongside banks and larger credit unions, without the marketing budgets that let bigger institutions shape the narrative. For an institution whose schedule already undercuts comparable credit unions almost everywhere, the highest-leverage moves are narrow — bring the one top-of-cohort fee back toward the pack, then make the member-friendly pricing you already practice a named, advertised policy rather than an accident of history.</p></div>
+  <div class="method" style="margin-top:22pt">
+    <h3 class="sub" style="margin-top:0">Methodology &amp; data provenance</h3>
+    <p style="margin-top:6pt">
+      Fee data is drawn exclusively from institutions' published fee schedules — public
+      documents — collected and verified through the Bank Fee Index agentic pipeline
+      (discovery, extraction, independent verification, publication). Peer cohort:
+      Community credit unions, $300M–$1B — 41 institutions with published data. Percentiles are
+      computed within-cohort per fee category; a category is flagged an outlier when it
+      exceeds 2× the peer median (extreme) or P75 + 1.5×IQR (statistical). Data pulled
+      Aug 16, 2026. Figures reflect the lowest published consumer-facing amount per
+      category and may not capture account-specific waivers.
+    </p>
+    <h3 class="sub" style="margin-top:14pt">Your source documents</h3>
+    <p style="margin-top:4pt">Every figure attributed to Union Square Credit Union in this report
+    was extracted from your own published documents:</p>
+    <ul>
+      <li>Source URLs available on request.</li>
+    </ul>
+  </div>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 7. APPENDIX: FULL SCHEDULE -->
+<div class="page">
+  <div class="runhead"><span class="sec">07 · Appendix</span><span>Union Square Credit Union</span></div>
+  <div class="kicker">The full ledger</div>
+  <h2>Your complete published fee schedule</h2>
+  <hr class="rule">
+  <p class="lede">Every distinct fee line the Bank Fee Index has extracted and verified from
+  Union Square Credit Union's published documents (19 lines, as of Aug 16, 2026).
+  This is the schedule your customers — and your competitors — can see.</p>
+  <table class="appendix" style="margin-top:12pt">
+    <thead><tr><th>Published fee line</th><th class="r">Amount</th><th>Frequency / terms</th></tr></thead>
+    <tbody>
+      <tr><td>ATM Foreign Transaction</td><td class="r"><b>$3.00</b></td>
+    <td class="small muted">per occurrence · non-USCU ATM</td></tr>
+<tr><td>Below Minimum Share</td><td class="r"><b>$3.00</b></td>
+    <td class="small muted">monthly · assessed when share accounts fall below $25 minimum balance</td></tr>
+<tr><td>Cashier's Check</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Check Cashing</td><td class="r"><b>$20.00</b></td>
+    <td class="small muted">per occurrence · applies only to member accounts with balances below $300</td></tr>
+<tr><td>Collection Draft Item</td><td class="r"><b>$15.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Copy of Canceled Check</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Copy of Statement</td><td class="r"><b>$1.00</b></td>
+    <td class="small muted">per occurrence · per page</td></tr>
+<tr><td>Courtesy Pay</td><td class="r"><b>$30.00</b></td>
+    <td class="small muted">per occurrence · assessed for transactions paid when no other overdraft protection available; automatically added to consumer accounts</td></tr>
+<tr><td>Debit Card Replacement</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Debit Card Rush Delivery</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Foreign Negotiable Instrument</td><td class="r"><b>$15.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Gift Card</td><td class="r"><b>$4.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Levies/Garnishment</td><td class="r"><b>$75.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+<tr><td>Notary Service</td><td class="r"><b>$0.00</b></td>
+    <td class="small muted">per occurrence · free for members, $5.00 for non-members</td></tr>
+<tr><td>Overdraft Transfer</td><td class="r"><b>$2.00</b></td>
+    <td class="small muted">per occurrence · automatic</td></tr>
+<tr><td>Paper Statement</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">monthly</td></tr>
+<tr><td>Research and Account Reconciliation</td><td class="r"><b>$25.00</b></td>
+    <td class="small muted">other · per hour with $25.00 minimum</td></tr>
+<tr><td>Returned Mail</td><td class="r"><b>$5.00</b></td>
+    <td class="small muted">monthly</td></tr>
+<tr><td>Safe Deposit Replacement Key</td><td class="r"><b>$50.00</b></td>
+    <td class="small muted">per occurrence</td></tr>
+    </tbody>
+  </table>
+  <div class="pagefoot"><span>Competitive Fee Position — Union Square Credit Union</span><span>Fee Insight</span></div>
+</div>
+
+<!-- 8. BACK -->
+<div class="bleed back">
+  <div class="brandline"><span><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>Aug 16, 2026</span></div>
+  <h2>This report is yours,<br><em>with our compliments.</em></h2>
+  <p class="sub">A Competitive Fee Position Report retails for $300, delivered in 48 hours. It was produced from source-verified fee data — the same index tracking 1,183 institutions nationwide.</p>
+  <div class="cta">
+    <div>
+      <h4>Refresh it every quarter — $300 per refresh.</h4>
+      <p>Or go deeper with Fee Insight Advisory — custom competitor sets, a board-ready deck,
+      pricing-change modeling against your own filings.</p>
+    </div>
+    <div>
+      <p>Reply to the email this arrived with, or write</p>
+      <span class="mail">hello@bankfeeindex.com</span>
+      <p style="margin-top:8pt">feeinsight.com</p>
+    </div>
+  </div>
+  <div class="colophon"><span>Prepared for Union Square Credit Union</span><span>Set in Newsreader &amp; IBM Plex</span></div>
+</div>
+
+</body>
+</html>

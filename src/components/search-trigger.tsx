@@ -11,7 +11,7 @@ export function SearchTrigger() {
   return (
     <button
       onClick={openSearch}
-      className="hidden md:flex items-center gap-2 rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-1.5 text-[12px] text-[#7A7062] hover:border-[#C44B2E]/30 hover:text-[#5A5347] transition-colors"
+      className="hidden md:flex items-center gap-2 rounded-lg border border-[#E8DFD1] bg-white/60 px-3 py-1.5 text-[12px] text-[#6B6255] hover:border-[#C44B2E]/30 hover:text-[#5A5347] transition-colors"
       aria-label="Search (Cmd+K)"
     >
       <svg

@@ -5,7 +5,7 @@ export default function NotFound() {
     <div className="mx-auto max-w-2xl px-6 py-24 text-center">
       <div className="flex items-center justify-center gap-2 mb-6">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#C44B2E]/60">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
           Page Not Found
         </span>
         <span className="h-px w-8 bg-[#C44B2E]/40" />
@@ -18,7 +18,7 @@ export default function NotFound() {
         404
       </h1>
 
-      <p className="mt-4 text-[15px] leading-relaxed text-[#7A7062]">
+      <p className="mt-4 text-[15px] leading-relaxed text-[#6B6255]">
         The page you&apos;re looking for doesn&apos;t exist or has been moved.
       </p>
 
@@ -31,7 +31,7 @@ export default function NotFound() {
         </Link>
         <Link
           href="/institutions"
-          className="rounded-full border border-[#E8DFD1] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#C44B2E] transition-all no-underline"
+          className="rounded-full border border-[#E8DFD1] bg-white/80 px-5 py-2.5 text-[13px] font-medium text-[#5A5347] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-all no-underline"
         >
           Find Your Bank
         </Link>
@@ -47,7 +47,7 @@ export default function NotFound() {
           <Link
             key={item.href}
             href={item.href}
-            className="text-[#7A7062] hover:text-[#C44B2E] transition-colors"
+            className="text-[#6B6255] hover:text-[#C44B2E] transition-colors"
           >
             {item.label}
           </Link>

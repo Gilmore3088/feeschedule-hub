@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractExecutiveSummary,
   getHostedReport,
   isHostedReportExpired,
   prepareReportForEmbed,
@@ -85,5 +86,30 @@ describe("formatReportDate", () => {
     const { formatReportDate } = await import("./hosted-reports");
     expect(formatReportDate("2026-08-16")).toBe("Aug 16, 2026");
     expect(formatReportDate("not-a-date")).toBe("not-a-date");
+  });
+});
+
+describe("extractExecutiveSummary", () => {
+  it("pulls the three findings and the net-position paragraph out of a report", () => {
+    const html = `<div class="findings">
+      <div class="finding"><div class="num" style="font-size:18pt">$33 vs $15<small>your NSF fee vs peer median</small></div>
+   <p><b>Your NSF fee is an outlier.</b>At $33.00 it is 2.2x the median &amp; flagged.</p></div>
+      <div class="finding"><div class="num" style="font-size:24pt">$1<small>overdraft</small></div>
+   <p><b>Friendly overdraft.</b>Body two.</p></div>
+    </div>
+    <p class="narrative drop">Net position: bifurcated schedule.</p>`;
+    const summary = extractExecutiveSummary(html);
+    expect(summary.findings).toHaveLength(2);
+    expect(summary.findings[0]).toEqual({
+      stat: "$33 vs $15",
+      statLabel: "your NSF fee vs peer median",
+      headline: "Your NSF fee is an outlier.",
+      body: "At $33.00 it is 2.2x the median & flagged.",
+    });
+    expect(summary.narrative).toBe("Net position: bifurcated schedule.");
+  });
+
+  it("returns an empty summary for a document without an executive section", () => {
+    expect(extractExecutiveSummary("<html><body>hi</body></html>")).toEqual({ findings: [], narrative: null });
   });
 });

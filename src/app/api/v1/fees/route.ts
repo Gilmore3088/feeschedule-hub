@@ -129,7 +129,7 @@ async function handleGET(request: NextRequest) {
         status: 403,
       });
       const res = NextResponse.json(
-        { error: "CSV export requires a Seat License", upgrade_url: "/subscribe" },
+        { error: "CSV export requires a Fee Insight Pro seat", upgrade_url: "/subscribe" },
         { status: 403 }
       );
       return addRateLimitHeaders(res, rateLimit);

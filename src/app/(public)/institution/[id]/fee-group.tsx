@@ -53,7 +53,7 @@ export function FeeGroup({ groupName, fees, isPrimary, defaultOpen }: FeeGroupPr
     : "relative pl-8 mb-6 flex items-center justify-between cursor-pointer list-none";
 
   const labelClass = isPrimary
-    ? "font-sans text-xs uppercase tracking-[0.2em] text-[#C44B2E]"
+    ? "font-sans text-xs uppercase tracking-[0.2em] text-[#A93D25]"
     : "font-sans text-xs uppercase tracking-[0.2em] text-[#53443c]";
 
   const chevronClass = isPrimary

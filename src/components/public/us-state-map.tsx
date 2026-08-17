@@ -27,11 +27,11 @@ export function UsStateMap({ statesData }: UsStateMapProps) {
     const data = dataMap.get(code);
     if (!data) return "#f1f5f9";
     const intensity = data.institution_count / maxInst;
-    if (intensity > 0.6) return "#3b82f6";
-    if (intensity > 0.4) return "#60a5fa";
-    if (intensity > 0.2) return "#93c5fd";
-    if (intensity > 0.1) return "#bfdbfe";
-    return "#dbeafe";
+    if (intensity > 0.6) return "#A93D25";
+    if (intensity > 0.4) return "#C44B2E";
+    if (intensity > 0.2) return "#DE8A72";
+    if (intensity > 0.1) return "#F0C9BE";
+    return "#FDF0ED";
   }
 
   return (
@@ -90,11 +90,11 @@ export function UsStateMap({ statesData }: UsStateMapProps) {
       {/* Legend */}
       <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-slate-400">
         <div className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#dbeafe]" />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#FDF0ED]" />
           <span>Fewer institutions</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#3b82f6]" />
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#A93D25]" />
           <span>More institutions</span>
         </div>
         <div className="flex items-center gap-1">

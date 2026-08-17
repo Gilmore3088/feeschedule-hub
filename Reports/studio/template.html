@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Competitive Fee Position Report</title>
+<title>{{DOC_TITLE}}</title>
 <style>
   /* Brand system: warm ink on paper, terracotta accent, Newsreader serif — the Hamilton
      palette (src/lib/report-templates/base/styles.ts). Print edition swaps the web sans
@@ -88,6 +88,8 @@
   .cover .instmeta { margin-top:10pt; font-family:var(--mono); font-size:7.6pt; letter-spacing:0.06em;
     color:var(--text2); text-transform:uppercase; }
   .cover .instmeta i { font-style:normal; color:var(--muted); padding:0 5pt; }
+  .cover .cohortnote { margin-top:14pt; font-family:var(--sans); font-size:8pt; line-height:1.5;
+    color:var(--text2); max-width:5in; }
   .cover .ghost { position:absolute; right:0.6in; bottom:1.6in; font-family:var(--serif);
     font-size:160pt; font-weight:600; letter-spacing:-0.06em; line-height:1; color:var(--terra-ghost);
     z-index:0; pointer-events:none; }
@@ -222,7 +224,7 @@
     line-height:1.3; margin-bottom:6pt; }
   .back .cta p { font-family:var(--sans); font-size:8.8pt; line-height:1.6; color:#CFC6B8; margin:0; }
   .back .cta .mail { font-family:var(--mono); font-size:9.5pt; color:var(--cream); font-weight:500;
-    display:block; margin-top:8pt; letter-spacing:0.02em; }
+    display:block; margin-top:8pt; letter-spacing:0.02em; text-decoration:none; }
   .back .colophon { margin-top:26pt; padding-top:8pt; border-top:0.5pt solid #3D3830;
     font-family:var(--mono); font-size:6.6pt; letter-spacing:0.1em; text-transform:uppercase;
     color:#7A7062; display:flex; justify-content:space-between; }
@@ -245,6 +247,7 @@
         <span class="instname">{{INSTITUTION_NAME}}</span>
       </div>
       <div class="instmeta">{{CITY_STATE}}<i>·</i>{{CHARTER_LABEL}}<i>·</i>{{TIER_LABEL}}</div>
+      <p class="cohortnote">{{COHORT_NOTE}}</p>
     </div>
     <div class="ghost">{{COHORT_SIZE}}</div>
     <div class="card">
@@ -398,21 +401,10 @@
 <!-- 8. BACK -->
 <div class="bleed back">
   <div class="brandline"><span><b>Fee Insight</b> &nbsp;·&nbsp; Bank Fee Index Series</span><span>{{PULL_DATE}}</span></div>
-  <h2>This report is yours,<br><em>with our compliments.</em></h2>
-  <p class="sub">A Competitive Fee Position Report retails for $300, delivered in 48 hours. It was
-  produced from source-verified fee data — the same index tracking {{TOTAL_INSTITUTIONS}}
-  institutions nationwide.</p>
+  <h2>{{BACK_HEADLINE}}</h2>
+  <p class="sub">{{BACK_SUB}}</p>
   <div class="cta">
-    <div>
-      <h4>Refresh it every quarter — $300 per refresh.</h4>
-      <p>Or go deeper with Fee Insight Advisory — custom competitor sets, a board-ready deck,
-      pricing-change modeling against your own filings.</p>
-    </div>
-    <div>
-      <p>Reply to the email this arrived with, or write</p>
-      <span class="mail">{{CONTACT_EMAIL}}</span>
-      <p style="margin-top:8pt">feeinsight.com</p>
-    </div>
+    {{BACK_CTA}}
   </div>
   <div class="colophon"><span>Prepared for {{INSTITUTION_NAME}}</span><span>Set in Newsreader &amp; IBM Plex</span></div>
 </div>

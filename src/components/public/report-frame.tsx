@@ -11,37 +11,25 @@ interface ReportFrameProps {
   /** Complete HTML document (the report's own styles included). */
   html: string;
   title: string;
+  /** Where "download the PDF" in the narrow-viewport note points. */
+  pdfHref?: string;
 }
 
 /**
  * Renders a self-contained report document in a same-origin, script-free iframe so the
  * report's global styles (`*`, `body`, `@page`) never leak into the site and Tailwind's
- * preflight never leaks into the report. The frame grows to fit its content and scales
- * down on narrow viewports.
+ * preflight never leaks into the report. The frame grows to fit its content, is centered
+ * on wide viewports, and on viewports narrower than the page scrolls horizontally at
+ * native size (never scaled down to unreadable text).
  */
-export function ReportFrame({ html, title }: ReportFrameProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function ReportFrame({ html, title, pdfHref }: ReportFrameProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(INITIAL_HEIGHT_PX);
-  const [scale, setScale] = useState(1);
 
   const measure = useCallback(() => {
     const doc = frameRef.current?.contentDocument;
     const next = doc?.documentElement?.scrollHeight ?? 0;
     if (next > 0) setHeight(next);
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const fit = () => {
-      const width = container.clientWidth;
-      setScale(width > 0 && width < REPORT_WIDTH_PX ? width / REPORT_WIDTH_PX : 1);
-    };
-    fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(container);
-    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -58,27 +46,37 @@ export function ReportFrame({ html, title }: ReportFrameProps) {
   };
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full overflow-hidden rounded-xl border border-[#E0D7C9] bg-[#FDFBF8]"
-      style={{ height: Math.ceil(height * scale) }}
-    >
-      <iframe
-        ref={frameRef}
-        title={title}
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        onLoad={handleLoad}
-        scrolling="no"
-        style={{
-          width: REPORT_WIDTH_PX,
-          height,
-          border: 0,
-          display: "block",
-          transform: scale === 1 ? undefined : `scale(${scale})`,
-          transformOrigin: "top left",
-        }}
-      />
+    <div className="mx-auto w-full" style={{ maxWidth: REPORT_WIDTH_PX + 2 }}>
+      <p className="mb-2 text-[13px] text-[#6B6255] min-[840px]:hidden">
+        Full report — pinch to zoom, or{" "}
+        {pdfHref ? (
+          <a href={pdfHref} className="font-semibold text-[#5A5347] underline">
+            download the PDF
+          </a>
+        ) : (
+          "download the PDF"
+        )}
+        .
+      </p>
+      <div
+        className="w-full overflow-x-auto overflow-y-hidden rounded-xl border border-[#E0D7C9] bg-[#FDFBF8]"
+        style={{ height: height + 2, WebkitOverflowScrolling: "touch" }}
+      >
+        <iframe
+          ref={frameRef}
+          title={title}
+          srcDoc={html}
+          sandbox="allow-same-origin"
+          onLoad={handleLoad}
+          scrolling="no"
+          style={{
+            width: REPORT_WIDTH_PX,
+            height,
+            border: 0,
+            display: "block",
+          }}
+        />
+      </div>
     </div>
   );
 }

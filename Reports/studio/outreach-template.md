@@ -21,6 +21,8 @@ One finding from it:
 > {{ONE_FINDING — e.g. "Your NSF fee ($32) is 2.7x the median of 35 comparable
 > banks; a quarter of them now charge $5 or less."}}
 
+Prefer a link? Your report is here, no login: {{HOSTED_LINK}}
+
 The full report benchmarks your 15 headline fees against your true peer cohort
 ({{COHORT}}), flags the outliers, and shows how named competitors price the same
 lines — every figure linked to the published schedule it came from.
@@ -35,11 +37,12 @@ feeinsight.com · hello@bankfeeindex.com
 ---
 ## Variant: general inbox (info@, memserv@, IR inbox)
 First line of the body, before "Hi {{FIRST_NAME}}": **Attn: {{FULL_NAME}}, {{TITLE}}**
+(no verified name: open with "Hi," and let the Attn: line carry the title, e.g. **Attn: Manager / CEO, {{INSTITUTION}}**)
 
 ## Variant: web contact form only (3 lines, no attachment survives a form)
 Hi {{FIRST_NAME}} — I'm James Gilmore, founder of Fee Insight (publisher of the Bank Fee
-Index). We prepared a Competitive Fee Position report for {{INSTITUTION}}: {{ONE_FINDING_SHORT}}.
-It's yours, no strings — what's the best email address to send the PDF to? Or read it here:
+Index). We prepared a Competitive Fee Position report for {{INSTITUTION}}: {{ONE_FINDING_SHORT — one
+complete sentence ending in a period; never cut at a decimal or "vs."}}. It's yours, no strings — what's the best email address to send the PDF to? Or read it here:
 {{HOSTED_LINK}}. — James, hello@bankfeeindex.com
 
 ---

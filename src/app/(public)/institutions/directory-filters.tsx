@@ -67,7 +67,7 @@ export function DirectoryFilters({ query, stateCode, charterType }: DirectoryFil
         <option value="bank">Banks only</option>
         <option value="credit_union">Credit unions only</option>
       </select>
-      {isPending && <span className="text-sm text-[#7A7062]">Updating…</span>}
+      {isPending && <span className="text-sm text-[#6B6255]">Updating…</span>}
     </div>
   );
 }
