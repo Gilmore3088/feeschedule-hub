@@ -383,6 +383,12 @@ active_doc_kill() {
 
 migration_history_kill() {
   local cutoff="20260813000200_provider_usage_agent_runs.sql"
+  # Historical migrations were archived on 2026-08-16 (docs/plans/supabase-migration-drift-resolution-2026-08-16.md);
+  # the cutoff file now lives in the archive but the ledger contract it enforces still applies.
+  local cutoff_path="supabase/migrations/$cutoff"
+  if [[ ! -f "$cutoff_path" ]]; then
+    cutoff_path="docs/archive/supabase-migrations-2026-08-16/$cutoff"
+  fi
   local pattern='fee_crawler|python3? -m fee_crawler|\bops_jobs\b|\bops_job_id\b|\bmodal_call_id\b|modalCallId|Modal workers|modal\.run|DARWIN_SIDECAR_URL|MAGELLAN_SIDECAR_URL|EXTRACT_SINGLE_URL'
   local hits=""
 
@@ -406,12 +412,12 @@ migration_history_kill() {
     exit 1
   fi
 
-  if ! grep -q 'DROP TABLE IF EXISTS ops_jobs' "supabase/migrations/$cutoff"; then
+  if ! grep -q 'DROP TABLE IF EXISTS ops_jobs' "$cutoff_path"; then
     echo "migration-history-kill: $cutoff must drop retired ops_jobs" >&2
     exit 1
   fi
 
-  if ! grep -q 'DROP COLUMN IF EXISTS modal_call_id' "supabase/migrations/$cutoff"; then
+  if ! grep -q 'DROP COLUMN IF EXISTS modal_call_id' "$cutoff_path"; then
     echo "migration-history-kill: $cutoff must drop retired modal_call_id columns" >&2
     exit 1
   fi

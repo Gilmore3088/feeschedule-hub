@@ -642,7 +642,7 @@ export async function getUrlFreshnessStats(): Promise<UrlFreshnessStats> {
 }
 
 // Reliability Roadmap #13 — classification history read helper. The migration
-// at supabase/migrations/20260418_classification_history.sql records every
+// at docs/archive/supabase-migrations-2026-08-16/20260418_classification_history.sql records every
 // canonical_fee_key or variant_type transition. This helper pulls the log for
 // a single fee; the /admin/fees/[id]/history page renders it.
 export interface ClassificationChange {

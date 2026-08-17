@@ -27,7 +27,10 @@ import { appendMessage, loadConversationHistory } from "./chat-memory";
 
 const SOURCE = readFileSync(resolve(__dirname, "chat-memory.ts"), "utf-8");
 const CHAT_MEMORY_MIGRATION = readFileSync(
-  resolve(__dirname, "../../../supabase/migrations/20260815083700_hamilton_chat_memory_tables.sql"),
+  resolve(
+    __dirname,
+    "../../../docs/archive/supabase-migrations-2026-08-16/20260815083700_hamilton_chat_memory_tables.sql",
+  ),
   "utf-8",
 );
 
