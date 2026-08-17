@@ -46,7 +46,7 @@
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
 
-  /* ─── Bank Fee Index design system: warm consumer palette ───
+  /* ─── Fee Insight design system: warm consumer palette ───
      Named tokens that produce Tailwind utilities that work everywhere
      without depending on the .consumer-brand wrapper. Use these in any new
      marketing/consumer surface (landing, /pro, /for-institutions, etc.).

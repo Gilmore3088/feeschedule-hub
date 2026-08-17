@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { ConsumerMobileNav } from "./consumer-mobile-nav";
 import { SearchTrigger } from "./search-trigger";
+import { SITE_NAME } from "@/lib/constants";
 
 export async function ConsumerNav() {
   let user = null;
@@ -51,7 +52,7 @@ export async function ConsumerNav() {
                 className="text-[15px] font-medium tracking-tight"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Bank Fee Index
+                {SITE_NAME}
               </span>
             </Link>
             <nav className="hidden md:flex items-center gap-6" aria-label="Main navigation">

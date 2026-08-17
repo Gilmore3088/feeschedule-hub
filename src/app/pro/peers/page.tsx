@@ -16,7 +16,7 @@ import { SavedGroups } from "./saved-groups";
 import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
-  title: "Peer Builder | Bank Fee Index",
+  title: "Peer Builder",
 };
 
 interface PageProps {

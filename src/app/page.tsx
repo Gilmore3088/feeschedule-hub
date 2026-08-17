@@ -8,7 +8,7 @@ import { LandingTrustStats } from "./landing-trust-stats";
 import { CustomerFooter } from "@/components/customer-footer";
 
 export const metadata: Metadata = {
-  title: "Fee Insight -- The Bank Fee Index",
+  title: { absolute: "Fee Insight -- The Bank Fee Index" },
   description:
     "Find bank and credit union fees by district, state, size, and type. Consumers: look up your bank free. Institutions: peer benchmarking, analysis, and board-ready reports.",
   openGraph: {

@@ -15,7 +15,7 @@ import { formatAmount } from "@/lib/format";
 import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
-  title: "Fee Categories | Bank Fee Index",
+  title: "Fee Categories",
 };
 
 const TIER_BADGES: Record<string, { label: string; className: string }> = {

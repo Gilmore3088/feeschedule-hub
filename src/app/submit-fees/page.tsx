@@ -2,7 +2,7 @@ import { CheckCircle2, Clock3, FileText, type LucideIcon } from "lucide-react";
 import { SubmitForm } from "./submit-form";
 
 export const metadata = {
-  title: "Submit Fee Source | Bank Fee Index",
+  title: "Submit Fee Source",
   description: "Submit an official fee schedule source for a bank or credit union profile.",
 };
 

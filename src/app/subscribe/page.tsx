@@ -11,7 +11,7 @@ import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing | Bank Fee Index",
+  title: "Pricing",
   description:
     "Access the most comprehensive bank fee benchmarking platform. Seat licenses, annual plans, and Hamilton report workflows.",
 };

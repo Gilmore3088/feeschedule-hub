@@ -22,7 +22,7 @@ import { timeAgo } from "@/lib/format";
 import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
-  title: "Market Intelligence | Bank Fee Index",
+  title: "Market Intelligence",
 };
 
 const SPOTLIGHT_CATS = ["overdraft", "nsf", "monthly_maintenance", "atm_non_network", "wire_domestic_outgoing", "card_foreign_txn"];

@@ -5,9 +5,10 @@ import { LoginForm } from "./login-form";
 import type { Metadata } from "next";
 import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Sign In | Bank Fee Index",
+  title: "Sign In",
 };
 
 export default async function LoginPage({
@@ -50,7 +51,7 @@ export default async function LoginPage({
               <rect x="16" y="3" width="4" height="18" rx="1" />
             </svg>
             <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-              Bank Fee Index
+              {SITE_NAME}
             </span>
           </Link>
 
@@ -99,7 +100,7 @@ export default async function LoginPage({
                 <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
               <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-                Bank Fee Index
+                {SITE_NAME}
               </span>
             </Link>
           </div>

@@ -13,7 +13,7 @@ import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
-  title: "Data Explorer | Bank Fee Index",
+  title: "Data Explorer",
 };
 
 interface PageProps {

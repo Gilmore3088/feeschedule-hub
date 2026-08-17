@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Hamilton Chat — Bank Fee Index Admin" };
+export const metadata = { title: "Hamilton Chat — Admin" };
 
 import { requireAuth } from "@/lib/auth";
 import { listConversations } from "@/lib/hamilton/chat-memory";

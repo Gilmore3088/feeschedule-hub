@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
-  title: "Contact - Bank Fee Index",
+  title: "Contact",
   description: "Get in touch with Bank Fee Index for enterprise licensing, custom reports, or general inquiries.",
 };
 

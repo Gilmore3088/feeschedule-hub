@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy - Bank Fee Index",
+  title: "Privacy Policy",
   description: "Bank Fee Index privacy policy. How we collect, use, and protect your data.",
 };
 

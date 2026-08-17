@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'New Competitive Brief | Bank Fee Index',
+  title: 'New Competitive Brief',
 };
 
 export default async function NewBriefPage({

@@ -18,7 +18,7 @@ export async function generateMetadata({
     return { title: "Article Not Found" };
   }
   return {
-    title: `${article.title} - Bank Fee Index Research`,
+    title: `${article.title} — Research`,
     description: article.subtitle || article.content.substring(0, 160).replace(/[#*_]/g, ""),
   };
 }

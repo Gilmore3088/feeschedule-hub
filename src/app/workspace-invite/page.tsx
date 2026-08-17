@@ -16,7 +16,7 @@ import {
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Workspace Invitation | Bank Fee Index",
+  title: "Workspace Invitation",
   description: "Accept an institution workspace invitation for Hamilton Pro.",
 };
 

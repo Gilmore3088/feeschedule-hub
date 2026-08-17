@@ -28,7 +28,7 @@ import {
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Account | Bank Fee Index",
+  title: "Account",
 };
 
 const VERIFIED_BENCHMARK_POLICY = "Verified-only benchmark medians";
@@ -161,7 +161,7 @@ export default async function AccountPage({
       <div className="mx-auto max-w-4xl px-6 py-14">
         {params.success && (
           <div className="mb-6 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-            Your subscription is now active! Welcome to Bank Fee Index.
+            Your subscription is now active! Welcome to Fee Insight.
           </div>
         )}
 

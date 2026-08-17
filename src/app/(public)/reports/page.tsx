@@ -13,7 +13,7 @@ import { timeAgo } from "@/lib/format";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Research Reports — Bank Fee Index",
+  title: "Research Reports",
   description:
     "Browse published bank fee research reports from Bank Fee Index. National indexes, state analysis, peer benchmarks, and monthly pulse reports.",
 };

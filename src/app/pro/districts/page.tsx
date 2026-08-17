@@ -13,7 +13,7 @@ import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { ProReferenceWorkflowBanner } from "@/components/pro/reference-workflow-banner";
 
 export const metadata: Metadata = {
-  title: "District Intelligence | Bank Fee Index",
+  title: "District Intelligence",
 };
 
 export default async function ProDistrictsPage() {

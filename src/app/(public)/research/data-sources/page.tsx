@@ -5,7 +5,7 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Data Sources & Coverage - Bank Fee Index Methodology",
+  title: "Data Sources & Coverage — Methodology",
   description:
     "Federal data sources powering the Bank Fee Index: FDIC Call Reports, NCUA 5300, CFPB Complaints, FRED, BLS, NY Fed, OFR, Summary of Deposits, Census ACS, and FFIEC Census Tracts.",
   keywords: [

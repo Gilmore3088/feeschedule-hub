@@ -1,11 +1,12 @@
 import { CustomerNav } from "@/components/customer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
 import type { Metadata } from "next";
+import { SITE_TITLE_TEMPLATE, pageTitle } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: {
-    default: "Bank Fee Index - Compare Your Bank's Fees",
-    template: "%s | Bank Fee Index",
+    default: pageTitle("Compare Your Bank's Fees"),
+    template: SITE_TITLE_TEMPLATE,
   },
 };
 

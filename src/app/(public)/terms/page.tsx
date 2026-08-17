@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service - Bank Fee Index",
+  title: "Terms of Service",
   description: "Bank Fee Index terms of service. Subscription terms, data usage, and acceptable use.",
 };
 

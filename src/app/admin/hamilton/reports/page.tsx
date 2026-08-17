@@ -6,7 +6,7 @@ import { ReportsTable } from "./reports-table";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Hamilton — Reports — Bank Fee Index Admin" };
+export const metadata = { title: "Hamilton Reports — Admin" };
 
 // T-16-12: validate filter params against explicit allowlists
 const VALID_STATUSES = new Set([

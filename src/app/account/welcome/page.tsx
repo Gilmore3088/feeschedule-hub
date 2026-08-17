@@ -13,9 +13,10 @@ import {
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import { WelcomeSteps } from "./welcome-steps";
 import type { Metadata } from "next";
+import { SITE_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Welcome | Bank Fee Index",
+  title: "Welcome",
 };
 
 async function getSpotlightMedians(): Promise<{ category: string; displayName: string; median: number }[]> {
@@ -125,7 +126,7 @@ export default async function WelcomePage({
               <rect x="16" y="3" width="4" height="18" rx="1" />
             </svg>
             <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-              Bank Fee Index
+              {SITE_NAME}
             </span>
           </div>
         </div>

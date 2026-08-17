@@ -185,7 +185,7 @@ export function WelcomeSteps({
             className="text-2xl font-normal tracking-tight text-[#1A1815] mb-2"
             style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
           >
-            Welcome to Bank Fee Index, {userName.split(" ")[0]}!
+            Welcome to Fee Insight, {userName.split(" ")[0]}!
           </h1>
           <p className="text-sm text-[#7A7062] mb-6">
             Tell us about your organization so we can personalize your experience.

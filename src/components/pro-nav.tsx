@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { SearchTrigger } from "./search-trigger";
 import type { PersonalizationContext } from "@/lib/personalization";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+import { SITE_NAME } from "@/lib/constants";
 
 const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
@@ -47,7 +48,7 @@ export function ProNav({ user }: ProNavProps) {
                 className="text-[15px] font-medium tracking-tight"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Bank Fee Index
+                {SITE_NAME}
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#C44B2E]/10 text-[#C44B2E] uppercase tracking-wider">
                 Pro

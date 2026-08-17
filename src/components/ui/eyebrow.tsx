@@ -1,7 +1,7 @@
 import type { ElementType, ReactNode } from "react";
 
 /**
- * Eyebrow — section labels in the editorial style used across Bank Fee Index
+ * Eyebrow — section labels in the editorial style used across Fee Insight
  * marketing surfaces (small uppercase serif, wide tracking, warm muted color).
  *
  * Semantics: defaults to `<span>` (decorative). Pass `as="h2"` (or `h3`/`h4`)

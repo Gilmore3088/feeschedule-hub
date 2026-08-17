@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Create Account | Bank Fee Index",
-  description: "Create your Bank Fee Index account to access fee benchmarking data",
+  title: "Create Account",
+  description: "Create your Fee Insight account to access fee benchmarking data",
 };
 
 export default async function RegisterPage({
@@ -49,7 +50,7 @@ export default async function RegisterPage({
               <rect x="16" y="3" width="4" height="18" rx="1" />
             </svg>
             <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-              Bank Fee Index
+              {SITE_NAME}
             </span>
           </Link>
 
@@ -107,7 +108,7 @@ export default async function RegisterPage({
                 <rect x="16" y="3" width="4" height="18" rx="1" />
               </svg>
               <span className="text-[15px] font-medium tracking-tight" style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}>
-                Bank Fee Index
+                {SITE_NAME}
               </span>
             </Link>
             <Link href={loginHref} className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors">

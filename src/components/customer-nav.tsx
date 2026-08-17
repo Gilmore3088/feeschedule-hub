@@ -4,6 +4,7 @@ import { canAccessPremium } from "@/lib/access";
 import { MobileNav } from "./mobile-nav";
 import { SearchTrigger } from "./search-trigger";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
+import { SITE_NAME } from "@/lib/constants";
 
 const PRO_NAV_ITEMS = HAMILTON_NAV.filter((item) => item.label !== "Admin");
 
@@ -58,7 +59,7 @@ export async function CustomerNav() {
                 className="text-[15px] font-medium tracking-tight"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Bank Fee Index
+                {SITE_NAME}
               </span>
               {isPro && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#C44B2E]/10 text-[#C44B2E] uppercase tracking-wider">

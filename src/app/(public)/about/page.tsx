@@ -5,7 +5,7 @@ import { getPublicStats, getDataFreshness } from "@/lib/data-store";
 import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 
 export const metadata: Metadata = {
-  title: "About - Bank Fee Index",
+  title: "About",
   description:
     "Bank Fee Index is the definitive source for US bank and credit union fee data. Learn about our methodology, data sources, and mission.",
 };

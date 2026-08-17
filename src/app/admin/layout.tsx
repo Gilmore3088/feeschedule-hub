@@ -12,6 +12,7 @@ import {
   CommandPaletteTrigger,
 } from "@/components/command-palette";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
+import { SITE_NAME } from "@/lib/constants";
 
 export default function AdminLayout({
   children,
@@ -86,7 +87,7 @@ async function AdminLayoutInner({
               href="/admin"
               prefetch={false}
               className="flex shrink-0 items-center gap-2 hover:opacity-80 transition-opacity"
-              aria-label="Bank Fee Index — Dashboard"
+              aria-label={`${SITE_NAME} — Dashboard`}
             >
               <BarChart3
                 aria-hidden="true"
@@ -94,7 +95,7 @@ async function AdminLayoutInner({
                 strokeWidth={1.8}
               />
               <span className="text-[13px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100 hidden sm:inline">
-                Bank Fee Index
+                {SITE_NAME}
               </span>
             </Link>
             <AdminNavInline />

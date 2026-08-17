@@ -90,14 +90,14 @@ export async function generateMetadata({
   const report = await fetchReport(slug);
 
   if (!report) {
-    return { title: "Report Not Found — Bank Fee Index" };
+    return { title: "Report Not Found" };
   }
 
   const typeLabel = humanType(report.report_type);
   const description = `${typeLabel} published ${formatDate(report.published_at)} by Bank Fee Index Research.`;
 
   return {
-    title: `${report.title} — Bank Fee Index`,
+    title: `${report.title}`,
     description,
     alternates: {
       canonical: `${SITE_URL}/reports/${slug}`,
