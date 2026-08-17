@@ -1,5 +1,11 @@
 # feeschedule-hub — Bank Fee Index
 
+## Brand
+Fee Insight is the company and site (feeinsight.com). Bank Fee Index is its product
+(the dataset/index); Hamilton is the Pro workspace. Never name the site as the product.
+Brand strings live in `src/lib/constants.ts`; `scripts/ci-guards.sh brand-kill` enforces it.
+Contact stays hello@bankfeeindex.com until feeinsight.com mail exists.
+
 ## Money-Thesis
 A bank/CU marketing or product manager pays ~$300 for a competitive fee report for
 their market. Why us: live verified fee data (published_fee_catalog) + banking domain

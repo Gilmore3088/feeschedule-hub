@@ -4,7 +4,7 @@ Subject: Your NSF fee vs. 35 peer banks — a report we prepared for {{INSTITUTI
 
 Hi {{FIRST_NAME}},
 
-I run the Bank Fee Index — we track published fee schedules across 1,100+ banks and
+I run Fee Insight — our Bank Fee Index tracks published fee schedules across 1,100+ banks and
 credit unions with a verified data pipeline.
 
 We prepared a competitive fee position report for {{INSTITUTION}} — attached, no
@@ -22,9 +22,9 @@ refreshed quarterly or taken deeper (custom competitor sets, board deck), tell m
 what would make it worth paying for.
 
 {{YOUR_NAME}}
-Bank Fee Index · {{CONTACT_EMAIL}}
+Fee Insight · feeinsight.com · {{CONTACT_EMAIL}}
 
 ---
-Rules: send from the Business browser profile / Bank Fee Index identity only.
+Rules: send from the Business browser profile / hello@bankfeeindex.com (Fee Insight) identity only.
 Personalize ONE_FINDING from the report's exec summary. Log every send + reply in
 outreach-log.md the same day.

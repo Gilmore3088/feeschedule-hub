@@ -25,6 +25,7 @@
 #                 Fail if published fee catalog consumers use crawler-era aliases.
 #   legacy-data-contract-kill
 #                 Fail if active app code uses crawler-era institution keys or physical data tables.
+#   brand-kill    Fail if src copy names the site as the product or references bankfeeindex.com (Fee Insight is the site; Bank Fee Index is the product).
 #   prompt-kill   Fail if active .claude prompts point agents at retired tooling.
 #   active-doc-kill
 #                 Fail if current docs/plans contain stale runtime guidance.
@@ -580,6 +581,34 @@ legacy_data_contract_kill() {
   exit 0
 }
 
+brand_kill() {
+  # Fee Insight is the site/company; Bank Fee Index is the product. Block copy that
+  # names the site as the product, and stale bankfeeindex.com web references.
+  # Allowed: hello@bankfeeindex.com (contact address) and the redirect in src/proxy.ts.
+  local pattern='(\| Bank Fee Index["'"'"'`]|- Bank Fee Index["'"'"'`]|— Bank Fee Index["'"'"'`]|siteName: "Bank Fee Index"|Hamilton — Bank Fee Index|Welcome to Bank Fee Index|(https?://)?(www\.)?bankfeeindex\.com)'
+  local hits=""
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    hits=$(git grep --untracked -nE "$pattern" -- \
+      'src' ':(exclude)src/proxy.ts' ':(exclude)src/proxy.test.ts' ':(exclude)src/**/*.test.ts' ':(exclude)src/**/*.test.tsx' \
+      | grep -v '^Binary file' | grep -v 'hello@bankfeeindex\.com' || true)
+  else
+    hits=$(grep -rnE "$pattern" \
+      --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
+      --exclude='proxy.ts' --exclude='proxy.test.ts' --exclude='*.test.ts' --exclude='*.test.tsx' \
+      --exclude-dir=node_modules src 2>/dev/null | grep -v 'hello@bankfeeindex\.com' || true)
+  fi
+
+  if [[ -n "$hits" ]]; then
+    echo "brand-kill: site named as the product or stale bankfeeindex.com reference (Fee Insight is the site; Bank Fee Index is the product):" >&2
+    echo "$hits" >&2
+    exit 1
+  fi
+
+  echo "brand-kill: OK (no site-as-product brand regressions)"
+  exit 0
+}
+
 case "$SUBCOMMAND" in
   sqlite-kill) sqlite_kill ;;
   modal-kill) modal_kill ;;
@@ -599,13 +628,14 @@ case "$SUBCOMMAND" in
   fee-tier-contract-kill) fee_tier_contract_kill ;;
   catalog-contract-kill) catalog_contract_kill ;;
   legacy-data-contract-kill) legacy_data_contract_kill ;;
+  brand-kill) brand_kill ;;
   "")
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill|brand-kill>" >&2
     exit 2
     ;;
   *)
     echo "Unknown subcommand: $SUBCOMMAND" >&2
-    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill>" >&2
+    echo "Usage: $0 <sqlite-kill|modal-kill|legacy-kill|fee-read-model-kill|script-kill|config-kill|edge-function-kill|artifact-kill|provider-kill|prompt-kill|active-doc-kill|migration-history-kill|legacy-name-kill|source-read-model-kill|agent-source-contract-kill|fee-tier-contract-kill|catalog-contract-kill|legacy-data-contract-kill|brand-kill>" >&2
     exit 2
     ;;
 esac
