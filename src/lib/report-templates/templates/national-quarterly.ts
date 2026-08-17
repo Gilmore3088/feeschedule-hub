@@ -479,7 +479,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
       },
     ]),
     hamiltonNarrativeBlock(narratives.industry_blind_spot.narrative),
-    soWhatBox("No institution can benchmark fee revenue nationally today. This is the competitive blind spot Bank Fee Index exists to close."),
+    soWhatBox("No institution can benchmark fee revenue nationally today. This is the competitive blind spot the Bank Fee Index exists to close."),
   ].join("\n");
 
   // ── Ch5: The Future of Fee Strategy ───────────────────────────────────────

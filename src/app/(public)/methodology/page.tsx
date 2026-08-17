@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { RESEARCH_IMPRINT, SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const METHODOLOGY_URL = `${SITE_URL}/methodology`;
 
@@ -69,7 +69,7 @@ export default function MethodologyPage() {
             A transparent account of how we collect, classify, and verify fee data across 4,000+ financial institutions — and what that means for the accuracy of our benchmarks.
           </p>
           <p style={{ fontSize: "12px", color: "#A09788", marginTop: "16px" }}>
-            Bank Fee Index Research &mdash; Updated {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            {RESEARCH_IMPRINT} &mdash; Updated {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
           </p>
         </div>
 

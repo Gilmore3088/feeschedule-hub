@@ -267,7 +267,7 @@ export default function ApiDocsPage() {
       <SectionHeading id="authentication">Authentication</SectionHeading>
       <div className="rounded-xl border border-[#E8DFD1]/80 bg-white px-6 py-5">
         <p className="text-[13px] text-[#7A7062]">
-          JSON endpoints can be called without credentials and are rate-limited on the free tier. If Bank Fee Index manually issues an API key for your workspace, pass it in the{" "}
+          JSON endpoints can be called without credentials and are rate-limited on the free tier. If Fee Insight manually issues an API key for your workspace, pass it in the{" "}
           <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">Authorization</code>{" "}
           header as a Bearer token, or as an{" "}
           <code className="rounded bg-[#E8DFD1]/40 px-1 text-[12px]">api_key</code>{" "}
