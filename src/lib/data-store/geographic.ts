@@ -1,4 +1,9 @@
 import { sql } from "./connection";
+import {
+  aggregateCityFeeAverages,
+  type CityFeeAverage,
+  type CityInstitutionFeeRow,
+} from "./city-fee-aggregation";
 import { VALID_US_CODES } from "../us-states";
 
 export interface GeoStats {
@@ -76,6 +81,27 @@ export async function getInstitutionIdsWithFees(): Promise<number[]> {
   return rows.map((r) => Number(r.id));
 }
 
+export interface InstitutionFeeFreshness {
+  id: number;
+  /** Most recent approved fee observation for the institution (ISO string). */
+  last_fee_at: string | null;
+}
+
+/** Institutions with verified fees plus their latest observation date (sitemap lastmod). */
+export async function getInstitutionIdsWithFeeDates(): Promise<InstitutionFeeFreshness[]> {
+  const rows = await sql`
+    SELECT institution_id as id, MAX(created_at) as last_fee_at
+    FROM published_fee_catalog
+    WHERE review_status = 'approved'
+    GROUP BY institution_id
+    ORDER BY institution_id
+  ` as { id: number | string; last_fee_at: string | Date | null }[];
+  return rows.map((r) => ({
+    id: Number(r.id),
+    last_fee_at: r.last_fee_at instanceof Date ? r.last_fee_at.toISOString() : r.last_fee_at,
+  }));
+}
+
 // --- City-level queries ---
 
 export interface CityInstitution {
@@ -90,11 +116,7 @@ export interface CityInstitution {
   atm_non_network: number | null;
 }
 
-export interface CityFeeAverage {
-  fee_category: string;
-  median: number;
-  institution_count: number;
-}
+export type { CityFeeAverage } from "./city-fee-aggregation";
 
 export interface CitySummary {
   city: string;
@@ -158,10 +180,10 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
   const rows = await sql`
     SELECT ct.id, ct.institution_name, ct.charter_type, ct.asset_size,
            COALESCE(fc.fee_count, 0) as fee_count,
-           (SELECT ef.amount FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status = 'approved' LIMIT 1) as overdraft,
-           (SELECT ef.amount FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'monthly_maintenance' AND ef.review_status = 'approved' LIMIT 1) as monthly_maintenance,
-           (SELECT ef.amount FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'nsf' AND ef.review_status = 'approved' LIMIT 1) as nsf,
-           (SELECT ef.amount FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'atm_non_network' AND ef.review_status = 'approved' LIMIT 1) as atm_non_network
+           (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status = 'approved') as overdraft,
+           (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'monthly_maintenance' AND ef.review_status = 'approved') as monthly_maintenance,
+           (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'nsf' AND ef.review_status = 'approved') as nsf,
+           (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'atm_non_network' AND ef.review_status = 'approved') as atm_non_network
     FROM institution_sources ct
     LEFT JOIN (
       SELECT institution_id, COUNT(*) as fee_count
@@ -179,25 +201,16 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
 export async function getCityFeeAverages(city: string, stateCode: string): Promise<CityFeeAverage[]> {
   const upperState = stateCode.toUpperCase();
   const rows = await sql`
-    SELECT ef.fee_category,
-           ROUND(AVG(ef.amount)::numeric, 2) as median,
-           COUNT(DISTINCT ef.institution_id) as institution_count
+    SELECT ef.institution_id, ef.fee_category, ef.amount
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
     WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
       AND ef.review_status = 'approved'
-      AND ef.amount IS NOT NULL AND ef.amount > 0
+      AND ef.amount IS NOT NULL
       AND ef.fee_category IS NOT NULL
-    GROUP BY ef.fee_category
-    HAVING COUNT(DISTINCT ef.institution_id) >= 2
-    ORDER BY COUNT(DISTINCT ef.institution_id) DESC
-  ` as CityFeeAverage[];
+  ` as CityInstitutionFeeRow[];
 
-  return rows.map((r) => ({
-    ...r,
-    median: Number(r.median),
-    institution_count: Number(r.institution_count),
-  }));
+  return aggregateCityFeeAverages(rows);
 }
 
 export async function getCitiesInState(stateCode: string): Promise<CitySummary[]> {

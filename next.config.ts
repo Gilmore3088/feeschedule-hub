@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
 
+  // Hosted/sample Competitive Fee Position reports are read from disk at request time
+  // (src/lib/hosted-reports.ts); make sure the studio files ship with the server bundle.
+  outputFileTracingIncludes: {
+    "/r/**": ["./Reports/studio/out/*.html", "./Reports/studio/hosted-reports.json"],
+    "/reports/sample-competitive-fee-position": ["./Reports/studio/sample/*.html"],
+  },
+
   async headers() {
     return [
       {

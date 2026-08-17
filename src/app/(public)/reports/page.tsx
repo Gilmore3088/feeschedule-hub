@@ -1,7 +1,8 @@
 /**
  * /reports — Public report catalog
  * ISR-cached (1-hour revalidation). Server-rendered, no client components.
- * Lists all published reports with server-side filtering by type and date.
+ * Lists the sample Competitive Fee Position Report first, then published research
+ * reports with server-side filtering by type and date (filters hidden while empty).
  */
 
 import type { Metadata } from "next";
@@ -9,22 +10,17 @@ import Link from "next/link";
 import { getSql } from "@/lib/data-store/connection";
 import type { PublishedReport, ReportType } from "@/lib/report-engine/types";
 import { timeAgo } from "@/lib/format";
+import { RESEARCH_IMPRINT } from "@/lib/constants";
+import { REPORT_TYPE_LABELS, ReportFilters } from "./report-filters";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Research Reports",
-  description:
-    "Browse published bank fee research reports from Fee Insight Research. National indexes, state analysis, peer benchmarks, and monthly pulse reports.",
+  description: `Published bank fee research from ${RESEARCH_IMPRINT} — a sample Competitive Fee Position Report, national indexes, state analysis, peer benchmarks, and monthly pulse reports.`,
 };
 
-// Human-readable labels for report types
-const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  national_index: "National Index",
-  state_index: "State Index",
-  peer_brief: "Peer Brief",
-  monthly_pulse: "Monthly Pulse",
-};
+const SAMPLE_REPORT_HREF = "/reports/sample-competitive-fee-position";
 
 const VALID_REPORT_TYPES: Set<string> = new Set<ReportType>([
   "national_index",
@@ -33,38 +29,21 @@ const VALID_REPORT_TYPES: Set<string> = new Set<ReportType>([
   "monthly_pulse",
 ]);
 
-// Date range options for the filter
-const DATE_RANGE_OPTIONS = [
-  { value: "", label: "All time" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-  { value: "180d", label: "Last 6 months" },
-  { value: "365d", label: "Last 12 months" },
-];
+const QUERY_DEADLINE_MS = 2_500;
 
-function withDeadline<T>(
-  promise: Promise<T>,
-  fallback: T,
-  timeoutMs: number,
-): Promise<T> {
+function withDeadline<T>(promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
   let timeout: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<T>((resolve) => {
     timeout = setTimeout(() => resolve(fallback), timeoutMs);
   });
 
-  return Promise.race([
-    promise.catch(() => fallback),
-    timeoutPromise,
-  ]).finally(() => clearTimeout(timeout));
+  return Promise.race([promise.catch(() => fallback), timeoutPromise]).finally(() =>
+    clearTimeout(timeout),
+  );
 }
 
 function dateRangeToIso(range: string): string | null {
-  const days: Record<string, number> = {
-    "30d": 30,
-    "90d": 90,
-    "180d": 180,
-    "365d": 365,
-  };
+  const days: Record<string, number> = { "30d": 30, "90d": 90, "180d": 180, "365d": 365 };
   const n = days[range];
   if (!n) return null;
   const d = new Date();
@@ -76,19 +55,7 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export default async function ReportsPage({ searchParams }: PageProps) {
-  const params = await searchParams;
-  const rawType = Array.isArray(params.type) ? params.type[0] : params.type;
-  const rawRange = Array.isArray(params.range) ? params.range[0] : params.range;
-
-  // Sanitize inputs (T-16-03)
-  const typeFilter =
-    rawType && VALID_REPORT_TYPES.has(rawType) ? rawType : null;
-  const fromIso = rawRange ? dateRangeToIso(rawRange) : null;
-
-  let reports: PublishedReport[] = [];
-  let reportCatalogUnavailable = false;
-
+async function loadReports(typeFilter: string | null, fromIso: string | null) {
   try {
     const sql = getSql();
     const reportQuery = sql<PublishedReport[]>`
@@ -99,242 +66,137 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         ${fromIso ? sql` AND published_at >= ${fromIso}` : sql``}
       ORDER BY published_at DESC
       LIMIT 100
-    `.then((rows) => ({
-      reports: [...rows] as PublishedReport[],
-      unavailable: false,
-    }));
-    const result = await withDeadline(reportQuery, {
-      reports: [],
-      unavailable: true,
-    }, 2_500);
-    reports = result.reports;
-    reportCatalogUnavailable = result.unavailable;
+    `.then((rows) => ({ reports: [...rows] as PublishedReport[], unavailable: false }));
+    return await withDeadline(reportQuery, { reports: [], unavailable: true }, QUERY_DEADLINE_MS);
   } catch {
-    // Render empty state gracefully if DB unavailable at build time
-    reports = [];
-    reportCatalogUnavailable = true;
+    // Render the sample-only state gracefully if the DB is unavailable at build time
+    return { reports: [] as PublishedReport[], unavailable: true };
   }
+}
+
+function SampleReportCard() {
+  return (
+    <li className="flex flex-col gap-2 border-b border-[#E0D7C9] py-6">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="rounded bg-[#FBEDE8] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#A93D25]">
+          Sample
+        </span>
+        <span className="text-[12px] text-[#7A7062]">Competitive Fee Position Report</span>
+      </div>
+      <Link
+        href={SAMPLE_REPORT_HREF}
+        className="report-title-link text-[20px] font-semibold leading-snug tracking-[-0.01em] text-[#1A1815] no-underline"
+        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+      >
+        Sample: Competitive Fee Position Report — see what a $300 report contains
+      </Link>
+      <p className="max-w-[560px] text-[14px] leading-relaxed text-[#5A5347]">
+        An anonymized report for a ~$400M community bank: fee position against a verified peer
+        set, the outliers that matter, the revenue lens, and a named peer comparison. Yours is
+        built for your institution and delivered in 48 hours.
+      </p>
+      <Link
+        href={SAMPLE_REPORT_HREF}
+        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#C44B2E] no-underline"
+      >
+        Read the sample &rarr;
+      </Link>
+    </li>
+  );
+}
+
+function PublishedReportItem({ report }: { report: PublishedReport }) {
+  const typeLabel = REPORT_TYPE_LABELS[report.report_type as ReportType] ?? report.report_type;
+  return (
+    <li className="flex flex-col gap-2 border-b border-[#E0D7C9] py-6">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <span className="rounded bg-[#F5F0E8] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#5A5347]">
+          {typeLabel}
+        </span>
+        <span className="text-[12px] text-[#7A7062]">{timeAgo(report.published_at)}</span>
+      </div>
+      <Link
+        href={`/reports/${report.slug}`}
+        className="report-title-link text-[20px] font-semibold leading-snug tracking-[-0.01em] text-[#1A1815] no-underline"
+        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+      >
+        {report.title}
+      </Link>
+      <Link
+        href={`/reports/${report.slug}`}
+        className="inline-flex items-center gap-1 text-[13px] font-medium text-[#C44B2E] no-underline"
+      >
+        Read report &rarr;
+      </Link>
+    </li>
+  );
+}
+
+export default async function ReportsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const rawType = Array.isArray(params.type) ? params.type[0] : params.type;
+  const rawRange = Array.isArray(params.range) ? params.range[0] : params.range;
+
+  // Sanitize inputs (T-16-03)
+  const typeFilter = rawType && VALID_REPORT_TYPES.has(rawType) ? rawType : null;
+  const fromIso = rawRange ? dateRangeToIso(rawRange) : null;
+  const filtersActive = Boolean(typeFilter || rawRange);
+
+  const { reports, unavailable } = await loadReports(typeFilter, fromIso);
+  const hasReports = reports.length > 0;
+  // Only show filter controls once there is a catalog to filter (or a filter is already applied).
+  const showFilters = hasReports || filtersActive;
 
   return (
-    <main>
-      <div style={{ maxWidth: "800px", margin: "0 auto", padding: "64px 24px 96px" }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: "40px" }}>
-          <p style={{
-            fontSize: "11px",
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            color: "#C44B2E",
-            fontWeight: 700,
-            marginBottom: "12px",
-          }}>
-            Research
-          </p>
-          <h1 style={{
-            fontSize: "36px",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            color: "#1A1815",
-            marginBottom: "12px",
-            fontFamily: "var(--font-newsreader), Georgia, serif",
-            lineHeight: 1.2,
-          }}>
-            Research Reports
-          </h1>
-          <p style={{ fontSize: "16px", color: "#5A5347", lineHeight: 1.6, maxWidth: "560px" }}>
-            Published analysis from Fee Insight Research — national indexes, state benchmarks, peer comparisons, and monthly fee intelligence.
-          </p>
-        </div>
-
-        {/* Filter bar — server-rendered form, no JS required */}
-        <form
-          method="GET"
-          style={{
-            display: "flex",
-            gap: "12px",
-            marginBottom: "40px",
-            flexWrap: "wrap",
-          }}
+    <div className="mx-auto max-w-[800px] px-6 pb-24 pt-16">
+      <div className="mb-10">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[#C44B2E]">
+          Research
+        </p>
+        <h1
+          className="mb-3 text-[36px] font-semibold leading-tight tracking-[-0.02em] text-[#1A1815]"
+          style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
         >
-          <label htmlFor="report-type-filter" className="sr-only">
-            Filter by report type
-          </label>
-          <select
-            id="report-type-filter"
-            name="type"
-            defaultValue={typeFilter ?? ""}
-            style={{
-              border: "1px solid #E8DFD1",
-              borderRadius: "6px",
-              padding: "8px 12px",
-              fontSize: "13px",
-              color: "#1A1815",
-              background: "#FEFCF9",
-              cursor: "pointer",
-            }}
-          >
-            <option value="">All report types</option>
-            {Object.entries(REPORT_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-
-          <label htmlFor="report-date-filter" className="sr-only">
-            Filter by date range
-          </label>
-          <select
-            id="report-date-filter"
-            name="range"
-            defaultValue={rawRange ?? ""}
-            style={{
-              border: "1px solid #E8DFD1",
-              borderRadius: "6px",
-              padding: "8px 12px",
-              fontSize: "13px",
-              color: "#1A1815",
-              background: "#FEFCF9",
-              cursor: "pointer",
-            }}
-          >
-            {DATE_RANGE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="submit"
-            style={{
-              background: "#1A1815",
-              color: "#FEFCF9",
-              border: "none",
-              borderRadius: "6px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Filter
-          </button>
-
-          {(typeFilter || rawRange) && (
-            <Link
-              href="/reports"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "8px 16px",
-                fontSize: "13px",
-                color: "#5A5347",
-                textDecoration: "none",
-                border: "1px solid #E8DFD1",
-                borderRadius: "6px",
-                background: "transparent",
-              }}
-            >
-              Clear filters
-            </Link>
-          )}
-        </form>
-
-        {/* Report list */}
-        {reports.length === 0 ? (
-          <div style={{ padding: "48px 0", textAlign: "center" }}>
-            <p style={{ color: "#A09788", fontSize: "15px" }}>
-              {reportCatalogUnavailable
-                ? "Report catalog is temporarily unavailable. Try again shortly."
-                : "No reports published yet. Check back soon."}
-            </p>
-          </div>
-        ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {reports.map((report) => {
-              const typeLabel =
-                REPORT_TYPE_LABELS[report.report_type as ReportType] ??
-                report.report_type;
-              return (
-                <li
-                  key={report.id}
-                  style={{
-                    borderBottom: "1px solid #E8DFD1",
-                    padding: "24px 0",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                    <span style={{
-                      background: "#F5F0E8",
-                      color: "#5A5347",
-                      fontSize: "11px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      fontWeight: 600,
-                    }}>
-                      {typeLabel}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "#A09788" }}>
-                      {timeAgo(report.published_at)}
-                    </span>
-                  </div>
-
-                  <a
-                    href={`/reports/${report.slug}`}
-                    style={{
-                      fontSize: "20px",
-                      fontWeight: 600,
-                      color: "#1A1815",
-                      textDecoration: "none",
-                      fontFamily: "var(--font-newsreader), Georgia, serif",
-                      lineHeight: 1.3,
-                      letterSpacing: "-0.01em",
-                    }}
-                    className="report-title-link"
-                  >
-                    {report.title}
-                  </a>
-
-                  <a
-                    href={`/reports/${report.slug}`}
-                    style={{
-                      fontSize: "13px",
-                      color: "#C44B2E",
-                      textDecoration: "none",
-                      fontWeight: 500,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    Read report &rarr;
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {/* Footer note */}
-        {reports.length > 0 && (
-          <p style={{ marginTop: "40px", fontSize: "12px", color: "#A09788" }}>
-            Showing {reports.length} report{reports.length !== 1 ? "s" : ""}.
-          </p>
-        )}
+          Research Reports
+        </h1>
+        <p className="max-w-[560px] text-[16px] leading-relaxed text-[#5A5347]">
+          Published analysis from {RESEARCH_IMPRINT} — national indexes, state benchmarks, peer
+          comparisons, and monthly fee intelligence.
+        </p>
       </div>
+
+      {showFilters && (
+        <ReportFilters typeFilter={typeFilter} rawRange={rawRange} filtersActive={filtersActive} />
+      )}
+
+      <ul className="m-0 list-none p-0">
+        {!filtersActive && <SampleReportCard />}
+        {reports.map((report) => (
+          <PublishedReportItem key={report.id} report={report} />
+        ))}
+      </ul>
+
+      {!hasReports && (
+        <p className="mt-8 text-[14px] leading-relaxed text-[#7A7062]">
+          {unavailable
+            ? "The report catalog is temporarily unavailable. Try again shortly."
+            : filtersActive
+              ? "No published reports match these filters."
+              : `The ${RESEARCH_IMPRINT} programme publishes national and state fee indexes, peer briefs, and a monthly pulse as the verified index grows — new reports appear here first.`}
+        </p>
+      )}
+
+      {hasReports && (
+        <p className="mt-10 text-[12px] text-[#7A7062]">
+          Showing {reports.length} report{reports.length !== 1 ? "s" : ""}.
+        </p>
+      )}
 
       <style>{`
         .report-title-link:hover {
           color: #C44B2E;
         }
       `}</style>
-    </main>
+    </div>
   );
 }

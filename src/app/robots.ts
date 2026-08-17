@@ -7,7 +7,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/api/"],
+        // /r/ hosts per-institution report links; they are private by token, not for indexing.
+        disallow: ["/admin/", "/api/", "/r/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

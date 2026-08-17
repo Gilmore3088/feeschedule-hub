@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import {
   getCityInstitutions,
   getCityFeeAverages,
@@ -17,6 +18,12 @@ interface PageProps {
   params: Promise<{ state: string; city: string }>;
 }
 
+/** Cities with fewer verified institutions than this are thin pages: rendered, not indexed. */
+const MIN_INDEXABLE_INSTITUTIONS = 3;
+
+// Shared between generateMetadata and the page so the query runs once per request.
+const loadCityInstitutions = cache(getCityInstitutions);
+
 function titleCase(s: string): string {
   return decodeURIComponent(s)
     .split(/[-\s]+/)
@@ -30,7 +37,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const cityName = titleCase(city);
   if (!stateName) return { title: "Not Found" };
 
+  const institutions = await loadCityInstitutions(cityName, state.toUpperCase());
+  const indexable = institutions.length >= MIN_INDEXABLE_INSTITUTIONS;
+
   return {
+    robots: { index: indexable, follow: true },
     title: `Bank Fees in ${cityName}, ${state.toUpperCase()} - Compare Local Fees`,
     description: `Compare bank and credit union fees in ${cityName}, ${stateName}. See overdraft fees, monthly maintenance charges, NSF fees, and more from local institutions.`,
     keywords: [
@@ -51,7 +62,7 @@ export default async function CityFeePage({ params }: PageProps) {
 
   if (!stateName) notFound();
 
-  const institutions = await getCityInstitutions(cityName, stateCode);
+  const institutions = await loadCityInstitutions(cityName, stateCode);
   if (institutions.length === 0) notFound();
 
   const cityAverages = await getCityFeeAverages(cityName, stateCode);
