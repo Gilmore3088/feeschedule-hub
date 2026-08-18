@@ -13,6 +13,7 @@ import { CustomerFooter } from "@/components/customer-footer";
 import { SearchModal } from "@/components/public/search-modal";
 import { getNationalIndex, getPeerIndex } from "@/lib/data-store";
 import { formatAmount } from "@/lib/format";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { getHamiltonInstitutionContext } from "@/lib/hamilton/institution-context";
 import { getHamiltonWorkspaceContext } from "@/lib/hamilton/workspace-context";
 import {
@@ -209,7 +210,7 @@ export default async function AccountPage({
                 <p className="text-[13px] text-[#6B6255] mt-1">
                   {pendingWorkspaceInvitations.length > 0
                     ? "Activate Pro to accept delegated Hamilton workspace access for your invited institution."
-                    : "All 49 fee categories, peer benchmarks, Hamilton analysis, data exports, and report workflows."}
+                    : `All ${TAXONOMY_COUNT} fee categories, peer benchmarks, Hamilton analysis, data exports, and report workflows.`}
                 </p>
                 {pendingWorkspaceInvitations.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">

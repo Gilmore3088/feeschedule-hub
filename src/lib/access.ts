@@ -1,4 +1,5 @@
 import type { User } from "@/lib/auth";
+import { TAXONOMY_COUNT, getSpotlightCategories } from "@/lib/fee-taxonomy";
 
 /** Full premium access for app data, exports, and Hamilton workflows. */
 export function canAccessPremium(user: User | null): boolean {
@@ -7,7 +8,7 @@ export function canAccessPremium(user: User | null): boolean {
   return user.subscription_status === "active";
 }
 
-/** Can see all 49 fee categories (free sees 6 spotlight only). */
+/** Can see all canonical fee categories (free sees a spotlight subset only). */
 export function canAccessAllCategories(user: User | null): boolean {
   return canAccessPremium(user);
 }
@@ -35,7 +36,7 @@ export function canAccessFullDistrict(user: User | null): boolean {
 
 /** Number of fee categories visible. */
 export function getVisibleCategoryCount(user: User | null): number {
-  return canAccessPremium(user) ? 49 : 6;
+  return canAccessPremium(user) ? TAXONOMY_COUNT : getSpotlightCategories().length;
 }
 
 /** Daily Hamilton analysis query limit. */
