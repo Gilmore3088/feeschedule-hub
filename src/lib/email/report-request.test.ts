@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  sendConfirmationOnlyNotification,
   sendContactRequestNotifications,
   sendReportRequestNotifications,
 } from "./report-request";
@@ -185,29 +186,6 @@ describe("sendContactRequestNotifications", () => {
     expect(reply.text).toContain("We reply within one business day.");
   });
 
-  it("sends only the requester confirmation when notifyTeam is false", async () => {
-    vi.stubEnv("RESEND_API_KEY", "re_test");
-    vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
-    const fetchMock = vi.fn().mockResolvedValue(okResponse("em_1"));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = await sendContactRequestNotifications({
-      name: "Newsletter signup",
-      email: "a@b.co",
-      company: null,
-      role: null,
-      message: null,
-      inquiryType: null,
-      notifyTeam: false,
-    });
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [reply] = sentBodies(fetchMock);
-    expect(reply.to).toBe("a@b.co");
-    expect(result.confirmation).toEqual({ status: "sent", providerId: "em_1" });
-    expect(result.notification.status).toBe("not_configured");
-  });
-
   it("escapes HTML in user-supplied fields", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test");
     vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
@@ -226,5 +204,75 @@ describe("sendContactRequestNotifications", () => {
     const [internal] = sentBodies(fetchMock);
     expect(internal.html).not.toContain("<script>");
     expect(internal.html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("sendConfirmationOnlyNotification", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends a newsletter confirmation and skips the team notification", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
+    const fetchMock = vi.fn().mockResolvedValue(okResponse("em_1"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendConfirmationOnlyNotification({
+      source: "newsletter",
+      email: "a@b.co",
+      institution: null,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [reply] = sentBodies(fetchMock);
+    expect(reply.to).toBe("a@b.co");
+    expect(reply.subject).toBe("You're on the Fee Insight list");
+    expect(reply.text).toContain(
+      "You're on the list — the next issue goes out with the next Bank Fee Index update.",
+    );
+    expect(reply.text).toContain("Reply to this email any time to unsubscribe.");
+    expect(result.confirmation).toEqual({ status: "sent", providerId: "em_1" });
+    expect(result.notification.status).toBe("not_configured");
+  });
+
+  it("sends a notify confirmation naming the institution and skips the team notification", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
+    const fetchMock = vi.fn().mockResolvedValue(okResponse("em_1"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendConfirmationOnlyNotification({
+      source: "notify",
+      email: "a@b.co",
+      institution: "Example Credit Union",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [reply] = sentBodies(fetchMock);
+    expect(reply.to).toBe("a@b.co");
+    expect(reply.subject).toBe("We'll tell you when this fee schedule is verified");
+    expect(reply.text).toContain(
+      "Thanks — we'll email you when Example Credit Union's fee schedule has been verified and published on Fee Insight.",
+    );
+    expect(result.confirmation).toEqual({ status: "sent", providerId: "em_1" });
+    expect(result.notification.status).toBe("not_configured");
+  });
+
+  it("falls back to a generic institution reference for notify when none is known", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
+    const fetchMock = vi.fn().mockResolvedValue(okResponse("em_1"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await sendConfirmationOnlyNotification({
+      source: "notify",
+      email: "a@b.co",
+      institution: null,
+    });
+
+    const [reply] = sentBodies(fetchMock);
+    expect(reply.text).toContain("Thanks — we'll email you when this institution's fee schedule");
   });
 });

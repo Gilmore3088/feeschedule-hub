@@ -84,18 +84,41 @@ function renderLeadEmailText(content: LeadEmailContent) {
 }
 
 /**
+ * Fires the team-notification send (or resolves it as skipped), returning a
+ * promise that never rejects — mirrors `sendResendEmail`'s never-throws contract.
+ */
+function sendTeamNotification(
+  content: LeadEmailContent | undefined,
+  from: string,
+  requesterEmail: string,
+): Promise<EmailDeliveryResult> {
+  if (!content) return Promise.resolve(TEAM_NOTIFICATION_SKIPPED);
+  return sendResendEmail(
+    {
+      from,
+      to: CONTACT_EMAIL,
+      replyTo: requesterEmail,
+      subject: content.subject,
+      html: renderLeadEmailHtml(content),
+      text: renderLeadEmailText(content),
+    },
+    "the lead notification",
+  );
+}
+
+/**
  * Sends the internal notification and the requester auto-reply. Both share the
  * same not_configured guard so a missing From address is reported once per message.
- * Pass `notifyTeam: false` to send only the requester confirmation (e.g. newsletter
- * and notify-me leads, which should not page the CONTACT_EMAIL inbox).
+ * Omit `notification` (or pass `notifyTeam: false`) to send only the requester
+ * confirmation — used by confirmation-only lead sources that should not page the
+ * CONTACT_EMAIL inbox.
  */
 export async function sendLeadNotificationPair(input: {
   requesterEmail: string;
-  notification: LeadEmailContent;
+  notification?: LeadEmailContent;
   confirmation: LeadEmailContent;
   notifyTeam?: boolean;
 }): Promise<LeadNotificationOutcome> {
-  const notifyTeam = input.notifyTeam ?? true;
   const from = getLeadNotificationFromAddress();
   if (!getResendApiKey()) {
     const result: EmailDeliveryResult = {
@@ -109,22 +132,10 @@ export async function sendLeadNotificationPair(input: {
     return { notification: result, confirmation: result };
   }
 
-  const notificationPromise = notifyTeam
-    ? sendResendEmail(
-        {
-          from,
-          to: CONTACT_EMAIL,
-          replyTo: input.requesterEmail,
-          subject: input.notification.subject,
-          html: renderLeadEmailHtml(input.notification),
-          text: renderLeadEmailText(input.notification),
-        },
-        "the lead notification",
-      )
-    : Promise.resolve(TEAM_NOTIFICATION_SKIPPED);
+  const teamContent = input.notifyTeam === false ? undefined : input.notification;
 
   const [notification, confirmation] = await Promise.all([
-    notificationPromise,
+    sendTeamNotification(teamContent, from, input.requesterEmail),
     sendResendEmail(
       {
         from,

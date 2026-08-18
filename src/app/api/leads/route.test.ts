@@ -13,10 +13,12 @@ vi.mock("@/lib/api-hardening/audit", () => ({
 vi.mock("@/lib/email/report-request", () => ({
   sendReportRequestNotifications: vi.fn(),
   sendContactRequestNotifications: vi.fn(),
+  sendConfirmationOnlyNotification: vi.fn(),
 }));
 
 import { sql } from "@/lib/data-store/connection";
 import {
+  sendConfirmationOnlyNotification,
   sendContactRequestNotifications,
   sendReportRequestNotifications,
 } from "@/lib/email/report-request";
@@ -25,6 +27,7 @@ import { POST } from "./route";
 const sqlMock = sql as unknown as ReturnType<typeof vi.fn>;
 const reportNotifyMock = sendReportRequestNotifications as unknown as ReturnType<typeof vi.fn>;
 const contactNotifyMock = sendContactRequestNotifications as unknown as ReturnType<typeof vi.fn>;
+const confirmationOnlyMock = sendConfirmationOnlyNotification as unknown as ReturnType<typeof vi.fn>;
 const SENT = { status: "sent", providerId: "em_1" };
 
 function post(body: Record<string, unknown>) {
@@ -48,8 +51,10 @@ describe("POST /api/leads", () => {
     sqlMock.mockReset();
     reportNotifyMock.mockReset();
     contactNotifyMock.mockReset();
+    confirmationOnlyMock.mockReset();
     reportNotifyMock.mockResolvedValue({ notification: SENT, confirmation: SENT });
     contactNotifyMock.mockResolvedValue({ notification: SENT, confirmation: SENT });
+    confirmationOnlyMock.mockResolvedValue({ notification: SENT, confirmation: SENT });
   });
 
   it("inserts a new lead with its source", async () => {
@@ -104,9 +109,12 @@ describe("POST /api/leads", () => {
       notifications: { notification: "sent", confirmation: "sent" },
     });
     expect(reportNotifyMock).not.toHaveBeenCalled();
-    expect(contactNotifyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ notifyTeam: false }),
-    );
+    expect(contactNotifyMock).not.toHaveBeenCalled();
+    expect(confirmationOnlyMock).toHaveBeenCalledWith({
+      source: "newsletter",
+      email: "a@b.co",
+      institution: null,
+    });
   });
 
   it("sends a confirmation-only notification for notify-verified signups", async () => {
@@ -123,9 +131,12 @@ describe("POST /api/leads", () => {
       notifications: { notification: "sent", confirmation: "sent" },
     });
     expect(reportNotifyMock).not.toHaveBeenCalled();
-    expect(contactNotifyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ notifyTeam: false }),
-    );
+    expect(contactNotifyMock).not.toHaveBeenCalled();
+    expect(confirmationOnlyMock).toHaveBeenCalledWith({
+      source: "notify",
+      email: "a@b.co",
+      institution: "Example CU",
+    });
   });
 
   it("stores institution_id and src on use_case and notifies for report requests", async () => {
@@ -225,9 +236,9 @@ describe("POST /api/leads", () => {
       role: "CFO",
       message: "Can we license the dataset?",
       inquiryType: "enterprise",
-      notifyTeam: true,
     });
     expect(reportNotifyMock).not.toHaveBeenCalled();
+    expect(confirmationOnlyMock).not.toHaveBeenCalled();
   });
 
   it("rejects missing name or invalid email", async () => {

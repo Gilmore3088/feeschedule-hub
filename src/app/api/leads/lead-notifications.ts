@@ -1,6 +1,8 @@
 import {
+  sendConfirmationOnlyNotification,
   sendContactRequestNotifications,
   sendReportRequestNotifications,
+  type ConfirmationOnlyLeadSource,
   type LeadNotificationOutcome,
 } from "@/lib/email/report-request";
 import type { EmailDeliveryStatus } from "@/lib/email/resend";
@@ -8,13 +10,12 @@ import type { EmailDeliveryStatus } from "@/lib/email/resend";
 export const REPORT_SOURCE = "report";
 const CONTACT_SOURCE_PATTERN = /^contact(?:_([a-z0-9-]+))?$/;
 const ENTERPRISE_SOURCE = "enterprise";
-const NEWSLETTER_SOURCE = "newsletter";
-const NOTIFY_SOURCE = "notify";
-/** Sources that only get a requester confirmation; the team inbox is not paged. */
-const CONFIRMATION_ONLY_SOURCES: readonly string[] = [NEWSLETTER_SOURCE, NOTIFY_SOURCE];
+const NEWSLETTER_SOURCE: ConfirmationOnlyLeadSource = "newsletter";
+const NOTIFY_SOURCE: ConfirmationOnlyLeadSource = "notify";
 
-function isConfirmationOnlySource(source: string): boolean {
-  return CONFIRMATION_ONLY_SOURCES.includes(source);
+/** Newsletter signups and notify-me requests: requester confirmation only. */
+function isConfirmationOnlySource(source: string): source is ConfirmationOnlyLeadSource {
+  return source === NEWSLETTER_SOURCE || source === NOTIFY_SOURCE;
 }
 
 const MAX_INSTITUTION_ID = 2_147_483_647;
@@ -101,6 +102,14 @@ export async function notifyForLead(lead: StoredLead): Promise<LeadNotificationS
       });
       return toStatus(outcome);
     }
+    if (isConfirmationOnlySource(lead.source)) {
+      const outcome = await sendConfirmationOnlyNotification({
+        source: lead.source,
+        email: lead.email,
+        institution: lead.company,
+      });
+      return toStatus(outcome);
+    }
     const outcome = await sendContactRequestNotifications({
       name: lead.name,
       email: lead.email,
@@ -109,7 +118,6 @@ export async function notifyForLead(lead: StoredLead): Promise<LeadNotificationS
       message: lead.useCase,
       inquiryType:
         lead.source === ENTERPRISE_SOURCE ? ENTERPRISE_SOURCE : contactInquiryType(lead.source),
-      notifyTeam: !isConfirmationOnlySource(lead.source),
     });
     return toStatus(outcome);
   } catch (error) {

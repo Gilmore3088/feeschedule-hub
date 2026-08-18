@@ -228,7 +228,7 @@ function RequestReportFormInner({
         No payment is taken at this step. {emailConfigured
           ? "You get a confirmation email right away; we confirm your peer set by email before any work starts."
           : `We confirm your peer set by email from ${contactEmail} before any work starts.`}
-        {" "}The $300 is invoiced after you confirm the peer set; pay by card link or purchase order.
+        {" "}The {REPORT_OFFER.priceLabel} is invoiced after you confirm the peer set; pay by card link or purchase order.
       </p>
     </form>
   );
