@@ -18,6 +18,7 @@ import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessAllCategories } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
+import { ConsumerNextSteps } from "@/components/public/consumer-next-steps";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
@@ -348,9 +349,10 @@ export default async function StateReportPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Upgrade gate for free users */}
+      {/* Consumer next steps, then the upgrade gate, for free users */}
       {!showAllCategories && extended.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-4">
+          <ConsumerNextSteps stateCode={stateCode} />
           <UpgradeGate count={extended.length} message={`${extended.length} more fee categories for ${stateName}`} />
         </div>
       )}

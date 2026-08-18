@@ -103,7 +103,10 @@ export function ProToolsSection() {
               <Link href="/subscribe" className={PRIMARY_BUTTON}>
                 See pricing
               </Link>
-              <Link href="/subscribe?plan=monthly" className={SECONDARY_BUTTON}>
+              <Link
+                href="/register?plan=monthly&from=%2Ffor-institutions"
+                className={SECONDARY_BUTTON}
+              >
                 Start monthly
               </Link>
             </div>

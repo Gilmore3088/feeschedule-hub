@@ -367,6 +367,7 @@ export default async function NationalFeeIndexPage() {
           <UpgradeGate
             count={gatedCount}
             message="Unlock the complete National Fee Index"
+            showReportBridge
           />
         </div>
       )}

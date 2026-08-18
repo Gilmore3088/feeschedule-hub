@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPublicStatsSummary } from "@/lib/public-stats";
-import { SITE_NAME } from "@/lib/constants";
+import { REPORT_OFFER, SITE_NAME } from "@/lib/constants";
+import { ConsumerNextSteps } from "@/components/public/consumer-next-steps";
 
 interface UpgradeGateProps {
   message?: string;
@@ -11,19 +12,48 @@ interface UpgradeGateProps {
    * category count so it can never overstate the index.
    */
   count?: number;
+  /**
+   * Who is hitting this gate. "professional" (default) is the existing
+   * Pro/Hamilton pricing card. "consumer" renders `ConsumerNextSteps`
+   * instead — consumer-facing pages (fee categories, guides) should not
+   * push every reader at the $499.99/mo Pro price.
+   */
+  audience?: "professional" | "consumer";
+  /** Forwarded to `ConsumerNextSteps` when `audience="consumer"`. */
+  stateCode?: string;
+  /** Forwarded to `ConsumerNextSteps` when `audience="consumer"`. */
+  category?: string;
+  /**
+   * Adds a one-line bridge to the institutional report offer below the
+   * "See pricing" button. For professional-audience gates that a mix of
+   * consumers and institutions land on (e.g. the national fee index), so
+   * institutional visitors aren't only offered the Pro subscription.
+   */
+  showReportBridge?: boolean;
 }
+
+const REPORT_BRIDGE_HREF = "/for-institutions#report";
 
 const PRO_LABEL = `${SITE_NAME} Pro`;
 
 /**
  * Shown when a free user encounters a premium-only feature.
  * `compact` renders inline (for table rows). Default renders a card.
+ * `audience="consumer"` swaps the pricing card for `ConsumerNextSteps`.
  */
 export async function UpgradeGate({
   message,
   compact = false,
   count,
+  audience = "professional",
+  stateCode,
+  category,
+  showReportBridge = false,
 }: UpgradeGateProps) {
+  if (audience === "consumer") {
+    return <ConsumerNextSteps stateCode={stateCode} category={category} />;
+  }
+
   const summary = await getPublicStatsSummary();
   const moreCount = count && count > 0 ? Math.min(count, summary.categories) : 0;
   if (compact) {
@@ -74,6 +104,14 @@ export async function UpgradeGate({
           <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
         </svg>
       </Link>
+      {showReportBridge && (
+        <p className="mt-4 text-[11px] leading-relaxed text-[#6B6255]">
+          Work at a bank or credit union?{" "}
+          <Link href={REPORT_BRIDGE_HREF} className="font-semibold text-[#A93D25] hover:underline">
+            Get a report for your institution — {REPORT_OFFER.priceLabel}
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

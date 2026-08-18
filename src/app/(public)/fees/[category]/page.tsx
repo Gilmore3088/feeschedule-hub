@@ -269,7 +269,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
       {/* Premium gate */}
       {!isPro && (
         <div className="mt-8">
-          <UpgradeGate message={`Detailed ${name} breakdown by charter, tier, and state`} />
+          <UpgradeGate
+            message={`Detailed ${name} breakdown by charter, tier, and state`}
+            audience="consumer"
+            category={category}
+          />
         </div>
       )}
 
