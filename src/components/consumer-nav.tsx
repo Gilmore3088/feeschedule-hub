@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
 import { ConsumerMobileNav } from "./consumer-mobile-nav";
-import { SearchTrigger } from "./search-trigger";
+import { SearchTrigger, MobileSearchTrigger } from "./search-trigger";
 import { PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 
 export const PUBLIC_NAV_ITEMS = [
@@ -106,6 +106,7 @@ export async function ConsumerNav() {
                 </>
               )}
             </div>
+            <MobileSearchTrigger />
             <ConsumerMobileNav isLoggedIn={!!user} isPro={isPro} />
           </div>
         </div>

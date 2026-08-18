@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getDisplayName, DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 import { GUIDES } from "@/lib/guides";
+import { OPEN_SEARCH_EVENT } from "@/components/search-trigger";
 
 interface InstitutionResult {
   id: number;
@@ -61,6 +62,15 @@ export function SearchModal() {
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Mobile search icon listener (consumer-nav's `MobileSearchTrigger`)
+  useEffect(() => {
+    function handleOpenSearch() {
+      setOpen(true);
+    }
+    document.addEventListener(OPEN_SEARCH_EVENT, handleOpenSearch);
+    return () => document.removeEventListener(OPEN_SEARCH_EVENT, handleOpenSearch);
   }, []);
 
   // Focus input when opened

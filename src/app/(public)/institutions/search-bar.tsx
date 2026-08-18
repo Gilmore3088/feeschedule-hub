@@ -21,6 +21,10 @@ interface Result {
 
 type Variant = "light" | "dark";
 
+const LISTBOX_ID = "inst-search-listbox";
+const OPTION_ID_PREFIX = "inst-opt-";
+const NO_ACTIVE_OPTION = -1;
+
 interface InstitutionSearchBarProps {
   autoFocus?: boolean;
   ariaLabel?: string;
@@ -30,6 +34,13 @@ interface InstitutionSearchBarProps {
    */
   variant?: Variant;
   placeholder?: string;
+  /** Initial value, e.g. hydrating the bar from a page's `?q=` param. */
+  initialQuery?: string;
+  /**
+   * Called on Enter when no suggestion is highlighted. Defaults to
+   * navigating to the directory search results page.
+   */
+  onSubmitQuery?: (q: string) => void;
 }
 
 export function InstitutionSearchBar({
@@ -37,15 +48,26 @@ export function InstitutionSearchBar({
   ariaLabel = "Search institutions",
   variant = "light",
   placeholder = "Search your bank or credit union...",
+  initialQuery = "",
+  onSubmitQuery,
 }: InstitutionSearchBarProps) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Result[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(NO_ACTIVE_OPTION);
   const router = useRouter();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isDark = variant === "dark";
+
+  function submitQuery(value: string) {
+    if (onSubmitQuery) {
+      onSubmitQuery(value);
+      return;
+    }
+    router.push(`/institutions?q=${encodeURIComponent(value)}`);
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -59,6 +81,7 @@ export function InstitutionSearchBar({
 
   function handleChange(value: string) {
     setQuery(value);
+    setActive(NO_ACTIVE_OPTION);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (value.trim().length < 2) {
@@ -73,6 +96,7 @@ export function InstitutionSearchBar({
         const resp = await fetch(`/api/institutions?q=${encodeURIComponent(value.trim())}`);
         const data = await resp.json();
         setResults(data);
+        setActive(NO_ACTIVE_OPTION);
         setShowResults(true);
       } catch {
         setResults([]);
@@ -84,11 +108,36 @@ export function InstitutionSearchBar({
 
   function handleSelect(id: number) {
     setShowResults(false);
+    setActive(NO_ACTIVE_OPTION);
     router.push(`/institution/${id}`);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      if (!showResults || results.length === 0) return;
+      e.preventDefault();
+      setActive((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      if (!showResults || results.length === 0) return;
+      e.preventDefault();
+      setActive((i) => Math.max(i - 1, NO_ACTIVE_OPTION));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const selected = active >= 0 ? results[active] : undefined;
+      if (selected) {
+        handleSelect(selected.id);
+      } else if (query.trim().length > 0) {
+        setShowResults(false);
+        submitQuery(query.trim());
+      }
+    } else if (e.key === "Escape") {
+      setShowResults(false);
+      setActive(NO_ACTIVE_OPTION);
+    }
+  }
+
   return (
-    <div ref={wrapperRef} className="relative w-full max-w-xl">
+    <div ref={wrapperRef} className="relative z-30 w-full max-w-xl">
       <div className="relative">
         <Search
           aria-hidden="true"
@@ -97,10 +146,16 @@ export function InstitutionSearchBar({
         />
         <input
           type="text"
+          role="combobox"
           aria-label={ariaLabel}
+          aria-expanded={showResults}
+          aria-controls={LISTBOX_ID}
+          aria-autocomplete="list"
+          aria-activedescendant={active >= 0 ? `${OPTION_ID_PREFIX}${active}` : undefined}
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results.length > 0 && setShowResults(true)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoFocus={autoFocus}
           className={
@@ -119,12 +174,23 @@ export function InstitutionSearchBar({
       </div>
 
       {showResults && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-[#E8DFD1] bg-[#FFFDF9] shadow-lg">
-          {results.map((r) => (
-            <button
+        <ul
+          id={LISTBOX_ID}
+          role="listbox"
+          aria-label={ariaLabel}
+          className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-[#E8DFD1] bg-[#FFFDF9] shadow-lg"
+        >
+          {results.map((r, i) => (
+            <li
               key={r.id}
+              id={`${OPTION_ID_PREFIX}${i}`}
+              role="option"
+              aria-selected={i === active}
+              onMouseEnter={() => setActive(i)}
               onClick={() => handleSelect(r.id)}
-              className="fi-row-interaction w-full border-b border-[#E8DFD1] px-4 py-3 text-left last:border-0"
+              className={`fi-row-interaction w-full cursor-pointer border-b border-[#E8DFD1] px-4 py-3 text-left last:border-0 ${
+                i === active ? "bg-[#C44B2E]/8" : ""
+              }`}
             >
               <div className="text-sm font-medium text-[#1A1815]">
                 {r.institution_name}
@@ -152,9 +218,9 @@ export function InstitutionSearchBar({
                   </span>
                 )}
               </div>
-            </button>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       {showResults && results.length === 0 && query.trim().length >= 2 && !loading && (

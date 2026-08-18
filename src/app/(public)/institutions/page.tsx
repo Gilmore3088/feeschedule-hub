@@ -129,6 +129,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                   autoFocus
                   ariaLabel="Search institution name, city, or state"
                   placeholder="Search institution name, city, or state..."
+                  initialQuery={query}
                 />
               </div>
             </div>
@@ -166,9 +167,13 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         {shouldShowResults && results.total > 0 && (
           <section className="fi-reveal fi-reveal-delay-2 pt-5">
             <div className="mb-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
-                {selectedStateName ? `${selectedStateName} directory` : "Search results"}
-              </p>
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
+                {hasQuery
+                  ? `Results for “${query}”`
+                  : selectedStateName
+                    ? `${selectedStateName} directory`
+                    : "Search results"}
+              </h2>
               <p className="mt-1 text-sm text-[#6B6255]">
                 {results.total.toLocaleString("en-US")} institution{results.total !== 1 ? "s" : ""} found
                 {query && (

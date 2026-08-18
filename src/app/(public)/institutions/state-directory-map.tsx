@@ -93,7 +93,7 @@ export function StateDirectoryMap({
     .slice(0, 10);
 
   return (
-    <section className="fi-reveal fi-reveal-delay-1 border-b border-[#D8CBB8] py-6">
+    <section className="fi-reveal fi-reveal-delay-1 relative z-0 border-b border-[#D8CBB8] py-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
         <div className="min-w-0">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
