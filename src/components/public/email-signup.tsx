@@ -5,10 +5,23 @@ import { trackEvent } from "@/lib/analytics";
 
 const NEWSLETTER_SOURCE = "newsletter";
 const NEWSLETTER_LEAD_NAME = "Newsletter signup";
+const DEFAULT_ID_PREFIX = "footer-newsletter";
+const DEFAULT_PLACEMENT = "footer";
 
-export function EmailSignup() {
+interface EmailSignupProps {
+  /** Prefix for the input id / label htmlFor, so multiple instances on one page don't collide. */
+  idPrefix?: string;
+  /** Analytics placement tag, so signups from different surfaces aren't misattributed to "footer". */
+  placement?: string;
+}
+
+export function EmailSignup({
+  idPrefix = DEFAULT_ID_PREFIX,
+  placement = DEFAULT_PLACEMENT,
+}: EmailSignupProps = {}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const inputId = `${idPrefix}-email`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +39,7 @@ export function EmailSignup() {
         }),
       });
       if (resp.ok) {
-        trackEvent("newsletter_signup", { placement: "footer" });
+        trackEvent("newsletter_signup", { placement });
         setStatus("success");
         setEmail("");
       } else {
@@ -47,7 +60,7 @@ export function EmailSignup() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      <label htmlFor="footer-newsletter-email" className="text-[12px] font-semibold text-[#5A5347]">
+      <label htmlFor={inputId} className="text-[12px] font-semibold text-[#5A5347]">
         Monthly fee index update
       </label>
       <p className="text-[12px] leading-relaxed text-[#6B6255]">
@@ -55,7 +68,7 @@ export function EmailSignup() {
       </p>
       <div className="flex gap-2">
         <input
-          id="footer-newsletter-email"
+          id={inputId}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

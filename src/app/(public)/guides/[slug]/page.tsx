@@ -10,20 +10,18 @@ import {
   getDataFreshness,
 } from "@/lib/data-store";
 import { getDisplayName, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatDate } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/public/distribution-chart";
-import { SITE_NAME, SITE_URL, REPORT_OFFER } from "@/lib/constants";
+import { SITE_NAME, SITE_URL, RESEARCH_IMPRINT } from "@/lib/constants";
 import { dedupePerInstitution, trimOutliers, MIN_N_PUBLISH } from "@/lib/benchmarks/sample-policy";
 import type { FeeInstance } from "@/lib/data-store";
 import { getCanonicalBenchmark } from "@/lib/benchmarks/canonical";
 import { renderGuideProse } from "@/lib/guides-render";
-import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
-import { EmailSignup } from "@/components/public/email-signup";
+import { GuideSidebarCtas } from "./guide-sidebar-ctas";
 
 /** Fixed authoring date for the guide content itself; live data updates are tracked separately via dateModified. */
 const GUIDES_PUBLISHED_AT = "2026-01-15";
-const REPORT_LANE_HREF = "/for-institutions#report";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -51,23 +49,26 @@ export default async function GuidePage({ params }: PageProps) {
   if (!guide) notFound();
 
   const allSummaries = await getFeeCategorySummaries();
-  // Order matches guide.feeCategories (primaryCategory first), not whatever
-  // order the underlying summary rows happen to come back in — otherwise the
-  // hero card, action button, and "cheapest/most expensive" labels can lead
-  // with a different fee than the chart below them.
-  const feeCategoryOrder = new Map(guide.feeCategories.map((c, i) => [c, i]));
-  const relevantFees = allSummaries
-    .filter((s) => feeCategoryOrder.has(s.fee_category))
-    .sort((a, b) => feeCategoryOrder.get(a.fee_category)! - feeCategoryOrder.get(b.fee_category)!);
+  const summaryByCategory = new Map(allSummaries.map((s) => [s.fee_category, s]));
+
+  const primaryCategory = guide.primaryCategory;
+  const primarySummary = summaryByCategory.get(primaryCategory);
+
+  // Explicitly primaryCategory first, then the rest of guide.feeCategories in
+  // their declared order — not whatever order the underlying summary rows
+  // happen to come back in — so the hero card, action button, and
+  // "cheapest/most expensive" labels can never drift from the chart below
+  // them just because array order changed upstream.
+  const otherSummaries = guide.feeCategories
+    .filter((c) => c !== primaryCategory)
+    .map((c) => summaryByCategory.get(c))
+    .filter((s): s is (typeof allSummaries)[number] => s !== undefined);
+  const relevantFees = primarySummary ? [primarySummary, ...otherSummaries] : otherSummaries;
 
   const freshness = await getDataFreshness();
   const publicStats = await getPublicStatsSummary();
 
-  const primaryCategory = guide.primaryCategory;
   const primaryDetail = await getFeeCategoryDetail(primaryCategory);
-  const primarySummary = relevantFees.find(
-    (f) => f.fee_category === primaryCategory
-  );
   const primaryBenchmark = await getCanonicalBenchmark(primaryCategory);
 
   // Histogram: every priced row (tiered pricing still shows up), with a
@@ -135,7 +136,10 @@ export default async function GuidePage({ params }: PageProps) {
         </h1>
 
         <p className="mt-3 text-[12px] font-medium text-[#6B6255]">
-          By {SITE_NAME} research &middot; {publicStats.freshnessLabel}
+          {RESEARCH_IMPRINT} &middot;{" "}
+          {freshness.last_crawl_at
+            ? `Updated ${formatDate(freshness.last_crawl_at)}`
+            : publicStats.freshnessLabel}
         </p>
 
         <p className="mt-4 text-[15px] leading-relaxed text-[#6B6255]">
@@ -208,12 +212,12 @@ export default async function GuidePage({ params }: PageProps) {
             <path d="M5 12h14M12 5l7 7-7 7" />
           </svg>
         </Link>
-        {relevantFees[0] && (
+        {primarySummary && (
           <Link
-            href={`/fees/${relevantFees[0].fee_category}`}
+            href={`/fees/${primaryCategory}`}
             className="inline-flex items-center gap-1.5 rounded-full bg-[#C44B2E] px-4 py-2 text-[12px] font-medium text-white shadow-sm shadow-[#C44B2E]/15 transition-all hover:shadow-md hover:shadow-[#C44B2E]/25 no-underline"
           >
-            {getDisplayName(relevantFees[0].fee_category)} analysis
+            {getDisplayName(primaryCategory)} analysis
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
@@ -559,38 +563,7 @@ export default async function GuidePage({ params }: PageProps) {
             </nav>
           </div>
 
-          {/* Find your bank */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A93D25]/60">
-              Find Your Bank
-            </p>
-            <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
-              See every published fee for your own institution next to the national benchmark.
-            </p>
-            <div className="mt-3">
-              <InstitutionSearchBar
-                variant="light"
-                ariaLabel="Search institutions"
-                placeholder="Search your bank or credit union..."
-              />
-            </div>
-          </div>
-
-          {/* Newsletter */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-5">
-            <EmailSignup />
-          </div>
-
-          {/* Report bridge — one line, not a B2B CTA card on a consumer page */}
-          <p className="px-1 text-[11px] leading-relaxed text-[#6B6255]">
-            Work at a bank or credit union?{" "}
-            <Link
-              href={REPORT_LANE_HREF}
-              className="font-semibold text-[#A93D25] hover:underline"
-            >
-              Get the {REPORT_OFFER.priceLabel} {REPORT_OFFER.name}
-            </Link>
-          </p>
+          <GuideSidebarCtas />
         </aside>
       </div>
 

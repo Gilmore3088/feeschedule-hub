@@ -11,4 +11,13 @@ describe("GUIDES", () => {
       expect(g.sources.length).toBeGreaterThan(0);
     }
   });
+
+  it("should_have_primary_category_among_its_fee_categories", () => {
+    // The page no longer depends on primaryCategory being feeCategories[0] —
+    // it looks primaryCategory up explicitly — so this only requires
+    // membership, not position.
+    for (const g of GUIDES) {
+      expect(g.feeCategories.includes(g.primaryCategory), g.slug).toBe(true);
+    }
+  });
 });

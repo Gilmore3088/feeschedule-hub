@@ -1,4 +1,4 @@
-import { formatMoney } from "./format";
+import { formatMoney, formatNumber } from "./format";
 import type { CanonicalBenchmark } from "./benchmarks/canonical";
 
 const TOKEN_PATTERN = /\{\{(median|p25|p75|n)\}\}/g;
@@ -11,7 +11,7 @@ function resolveToken(token: string, bench: CanonicalBenchmark | null): string {
 
   if (token === "n") {
     return Number.isFinite(bench.institution_count)
-      ? String(bench.institution_count)
+      ? formatNumber(bench.institution_count)
       : NO_DATA_PLACEHOLDER;
   }
 
