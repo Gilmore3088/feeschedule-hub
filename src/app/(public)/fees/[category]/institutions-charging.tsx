@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { dedupePerInstitution, MIN_N_PUBLISH } from "@/lib/benchmarks/sample-policy";
-import { formatFeeAmount } from "@/lib/format";
+import { formatFeeAmount, formatNumber } from "@/lib/format";
 
 /**
  * One priced fee row for an institution in a fee category, as read from
@@ -102,7 +102,7 @@ export function InstitutionsCharging({ rows, category, name }: InstitutionsCharg
         href={`/institutions?fee=${category}`}
         className="mt-3 inline-block text-[13px] font-medium text-[#A93D25] hover:underline"
       >
-        See all {deduped.length.toLocaleString()} institutions in the directory &rarr;
+        See all {formatNumber(deduped.length)} institutions in the directory &rarr;
       </Link>
     </section>
   );

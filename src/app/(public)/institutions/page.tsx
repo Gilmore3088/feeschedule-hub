@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
-import Link from "next/link";
 import {
   getInstitutionStateDirectorySummaries,
   searchInstitutions,
@@ -10,10 +9,8 @@ import { getFeeCategoryDetail } from "@/lib/data-store";
 import { dedupePerInstitution } from "@/lib/benchmarks/sample-policy";
 import { getPublicStatsSummary } from "@/lib/public-stats";
 import { DISPLAY_NAMES, getDisplayName } from "@/lib/fee-taxonomy";
-import { formatFeeAmount } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { PRODUCT_NAME } from "@/lib/constants";
-import { getCharterLabel } from "../institution/[id]/enum-labels";
 import { InstitutionSearchBar } from "./search-bar";
 import { StateDirectoryMap } from "./state-directory-map";
 import { DirectoryFilters } from "./directory-filters";
@@ -22,6 +19,7 @@ import {
   InstitutionMobileCards,
   InstitutionResultsTable,
 } from "./institution-results";
+import { FeeResultsCards, FeeResultsTable, type FeeDirectoryRow } from "./fee-results";
 import {
   DIRECTORY_PAGE_SIZE,
   DIRECTORY_SORT_WINDOW,
@@ -48,14 +46,6 @@ interface PageProps {
 interface DirectoryResults {
   rows: InstitutionSearchResult[];
   total: number;
-}
-
-interface FeeDirectoryRow {
-  institution_id: number;
-  institution_name: string;
-  amount: number;
-  state_code: string | null;
-  charter_type: string;
 }
 
 interface FeeDirectoryResults {
@@ -279,79 +269,6 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
         )}
       </div>
     </main>
-  );
-}
-
-const FEE_TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]";
-
-/** Mobile cards for the /institutions?fee={category} listing. */
-function FeeResultsCards({ rows }: { rows: FeeDirectoryRow[] }) {
-  return (
-    <div className="grid gap-2 sm:hidden">
-      {rows.map((row) => (
-        <Link
-          key={row.institution_id}
-          href={`/institution/${row.institution_id}`}
-          className="fi-row-interaction block border border-[#E0D7C9] bg-[#FDFBF8] px-3 py-3"
-        >
-          <div className="flex min-w-0 items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold leading-snug text-[#1A1815]">
-                {row.institution_name}
-              </p>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#6B6255]">
-                <span>{getCharterLabel(row.charter_type)}</span>
-                {row.state_code && <span>{row.state_code}</span>}
-              </div>
-            </div>
-            <span className="shrink-0 tabular-nums text-sm font-medium text-[#1A1815]">
-              {formatFeeAmount(row.amount) ?? "-"}
-            </span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-/** Desktop table for the /institutions?fee={category} listing. */
-function FeeResultsTable({ rows, feeName }: { rows: FeeDirectoryRow[]; feeName: string }) {
-  return (
-    <div className="hidden overflow-hidden border border-[#E0D7C9] bg-[#FDFBF8] sm:block">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#E0D7C9] bg-[#FAF7F2]">
-              <th className={FEE_TH_CLASS}>Institution</th>
-              <th className={FEE_TH_CLASS}>State</th>
-              <th className={`hidden md:table-cell ${FEE_TH_CLASS}`}>Type</th>
-              <th className={`text-right ${FEE_TH_CLASS}`}>{feeName}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.institution_id} className="fi-row-interaction border-b border-[#E0D7C9] last:border-0">
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/institution/${row.institution_id}`}
-                    className="font-medium text-[#1A1815] transition-colors hover:text-[#C44B2E]"
-                  >
-                    {row.institution_name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-[#6B6255]">{row.state_code ?? "-"}</td>
-                <td className="hidden px-4 py-3 text-[#6B6255] md:table-cell">
-                  {getCharterLabel(row.charter_type)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums font-medium text-[#1A1815]">
-                  {formatFeeAmount(row.amount) ?? "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
   );
 }
 

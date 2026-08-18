@@ -13,7 +13,7 @@ import {
 } from "@/lib/fee-taxonomy";
 import { MIN_ROW_N } from "@/lib/benchmarks/sample-policy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
-import { formatAmount } from "@/lib/format";
+import { formatAmount, formatNumber } from "@/lib/format";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessAllCategories } from "@/lib/access";
@@ -178,7 +178,7 @@ export default async function StateReportPage({ params }: PageProps) {
         href={`/institutions?state=${stateCode}`}
         className="mt-3 inline-block text-[13px] font-medium text-[#C44B2E] hover:underline"
       >
-        View all {stats.institution_count.toLocaleString()} {stateName} institutions &rarr;
+        View all {formatNumber(stats.institution_count)} {stateName} institutions &rarr;
       </Link>
 
       {/* Charter breakdown */}

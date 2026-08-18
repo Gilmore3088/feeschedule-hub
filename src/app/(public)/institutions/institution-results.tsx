@@ -50,7 +50,7 @@ function FeeCount({ row }: { row: InstitutionSearchResult }) {
   return <span className="text-[#6B6255]">—</span>;
 }
 
-const TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]";
+export const TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]";
 
 export function InstitutionResultsTable({ rows }: { rows: InstitutionSearchResult[] }) {
   return (
