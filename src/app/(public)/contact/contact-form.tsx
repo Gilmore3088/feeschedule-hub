@@ -2,13 +2,31 @@
 
 import { useState, use } from "react";
 
-const INQUIRY_TYPES = [
+export const INQUIRY_TYPES = [
   { value: "report", label: "Competitive Fee Position Report ($300)" },
   { value: "enterprise", label: "Fee Insight Pro (seats, invoicing)" },
   { value: "advisory", label: "Fee Insight Advisory (custom work)" },
   { value: "partnership", label: "Data licensing / API" },
+  { value: "correction", label: "Correct our listing / data question" },
   { value: "general", label: "Something else" },
 ];
+
+/** Maps the `?type=` query param (used by CTAs across the site) to an inquiry_type value. */
+const TYPE_PARAM_TO_INQUIRY: Record<string, string> = {
+  report: "report",
+  pro: "enterprise",
+  enterprise: "enterprise",
+  advisory: "advisory",
+  api: "partnership",
+  partnership: "partnership",
+  correction: "correction",
+  general: "general",
+};
+
+export function inquiryTypeFromParam(type: string | string[] | undefined): string {
+  if (typeof type !== "string") return "";
+  return TYPE_PARAM_TO_INQUIRY[type] ?? "";
+}
 
 interface ContactFormProps {
   searchParamsPromise: Promise<Record<string, string | string[] | undefined>>;
@@ -16,7 +34,7 @@ interface ContactFormProps {
 
 export function ContactForm({ searchParamsPromise }: ContactFormProps) {
   const searchParams = use(searchParamsPromise);
-  const defaultSource = typeof searchParams.source === "string" ? searchParams.source : "";
+  const defaultSource = inquiryTypeFromParam(searchParams.type);
 
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [confirmationSent, setConfirmationSent] = useState(false);

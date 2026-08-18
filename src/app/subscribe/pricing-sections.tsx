@@ -13,8 +13,8 @@ const CHECK = "✓";
 
 const REPORT_ANCHOR_HREF = "/for-institutions#report";
 const SAMPLE_REPORT_HREF = "/reports/sample-competitive-fee-position";
-const WALKTHROUGH_HREF = `mailto:${CONTACT_EMAIL}?subject=Walkthrough`;
-const ADVISORY_HREF = `mailto:${CONTACT_EMAIL}?subject=Fee%20Insight%20Advisory`;
+const WALKTHROUGH_HREF = "/contact?type=pro";
+const ADVISORY_HREF = "/contact?type=advisory";
 
 const SERIF = { fontFamily: "var(--font-newsreader), Georgia, serif" };
 

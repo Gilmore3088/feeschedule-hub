@@ -71,12 +71,9 @@ export default async function AboutPage() {
           verifiable place — every figure here links to the document it came from.
         </p>
         <p>
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="text-[#A93D25] hover:underline"
-          >
+          <Link href="/contact" className="text-[#A93D25] hover:underline">
             Write to James
-          </a>
+          </Link>
         </p>
 
         <h2

@@ -6,7 +6,7 @@ import { getPublicStatsSummary } from "@/lib/public-stats";
 import { MONTHLY_PRICE_LABEL } from "@/app/subscribe/pricing";
 
 const PRO_LABEL = `${SITE_NAME} Pro`;
-const API_ACCESS_HREF = `mailto:${CONTACT_EMAIL}?subject=API%20access`;
+const API_ACCESS_HREF = "/contact?type=api";
 const API_ACCESS_CTA = "Contact us about API access";
 
 export const metadata: Metadata = {
@@ -618,6 +618,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
             "JSON responses",
           ]}
           cta="Get started -- no card required"
+          ctaHref="/contact?type=api"
         />
         <TierCard
           name={PRO_LABEL}
