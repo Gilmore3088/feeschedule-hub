@@ -362,7 +362,15 @@ export async function assembleAndRender(
           total_categories_tracked: payload.total_categories_tracked,
           movers_up: payload.movers_up.slice(0, 5),
           movers_down: payload.movers_down.slice(0, 5),
+          movers_note: payload.movers_note,
         };
+
+        // When there is no prior-period snapshot (movers_note set), tell the
+        // model explicitly so it reports current benchmark levels instead of
+        // fabricating a "stable market" claim it has no basis to make.
+        const pulseContext = payload.movers_note
+          ? `Write a 1-2 paragraph executive summary. 250 words maximum. ${payload.movers_note} Describe current benchmark levels; do not claim the market was stable or unchanged.`
+          : 'Write a 1-2 paragraph executive summary. 250 words maximum.';
 
         let pulse_overview: SectionOutput;
         try {
@@ -370,12 +378,14 @@ export async function assembleAndRender(
             type: 'overview',
             title: `Fee Market Movement — ${payload.period_label}`,
             data: pulseData,
-            context: 'Write a 1-2 paragraph executive summary. 250 words maximum.',
+            context: pulseContext,
           });
           validateAndWarn('pulse_overview', pulse_overview, pulseData);
         } catch {
           pulse_overview = fallbackNarrative(
-            'Market movement data is presented in the tables below.',
+            payload.movers_note
+              ? 'Current benchmark levels are presented in the tables below. Period-over-period comparison is not yet available.'
+              : 'Market movement data is presented in the tables below.',
           );
         }
 

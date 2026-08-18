@@ -122,15 +122,21 @@ export function renderMonthlyPulseReport(input: MonthlyPulseReportInput): string
       ].join("\n")
     : "";
 
-  // Section 6: No-movement notice — when both lists are empty
+  // Section 6: No-movement notice — when both lists are empty. If there was
+  // no prior-period snapshot to compare against (movers_note set), say so
+  // explicitly rather than implying a comparison was made and nothing moved.
   const stableMarketNotice =
     !hasMoversUp && !hasMoversDown
-      ? `<p class="report-narrative">No fee categories exceeded the 5% movement threshold this period. The market is stable.</p>`
+      ? data.movers_note
+        ? `<p class="report-narrative">${data.movers_note}</p>`
+        : `<p class="report-narrative">No fee categories exceeded the 5% movement threshold this period. The market is stable.</p>`
       : "";
 
   // Section 7: Methodology footnote
   const methodologyText = [
-    "Movement computed by comparing current median to prior cached index snapshot.",
+    data.movers_note
+      ? data.movers_note
+      : "Movement computed by comparing current median to a prior-period benchmark snapshot.",
     "Categories shown only when change exceeds \u00b15% threshold.",
     "Medians from all non-rejected fee observations in the Bank Fee Index pipeline.",
     `${SITE_NAME} — ${SITE_DOMAIN} — Generated ${data.report_date}`,
