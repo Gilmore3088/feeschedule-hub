@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getDataCoverageSummary } from "@/lib/data-store/financial";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
@@ -140,6 +141,15 @@ export default async function DataSourcesPage() {
         ]}
       />
 
+      {/* Breadcrumb — sticky on mobile */}
+      <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">Data Sources</span>
+      </nav>
+
       <div className="flex items-center gap-2 mb-4">
         <span className="h-px w-8 bg-[#C44B2E]/40" />
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
@@ -266,6 +276,24 @@ export default async function DataSourcesPage() {
             <span>FDIC Summary of Deposits, Census ACS demographics, FFIEC census tracts</span>
           </div>
         </div>
+      </section>
+
+      {/* Onward paths */}
+      <section className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/methodology"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#E8DFD1] bg-white/70 px-4 py-2 text-sm font-medium text-[#1A1815] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors"
+        >
+          Read our full methodology
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
+        <Link
+          href="/api-docs"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#E8DFD1] bg-white/70 px-4 py-2 text-sm font-medium text-[#1A1815] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors"
+        >
+          Access this data via the API
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
       </section>
 
       <script

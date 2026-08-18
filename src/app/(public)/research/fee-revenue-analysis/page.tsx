@@ -7,13 +7,34 @@ import {
   getCharterFeeRevenueSummary,
 } from "@/lib/data-store";
 import { FDIC_TIER_LABELS } from "@/lib/fed-districts";
-import { formatAmount, formatAssets } from "@/lib/format";
+import { formatAmount, formatAssets, formatMoney } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
+import { StudyTeaser } from "../study-teaser";
+
+/** Public abstract shown to anonymous visitors and search engines, in front of the paywall. */
+const STUDY_ABSTRACT =
+  "How do published fee schedules correlate with the service charge income " +
+  "banks and credit unions actually report to regulators? This study cross-" +
+  "references fee amounts extracted from published disclosures with FDIC " +
+  "Call Report and NCUA 5300 financial data to test whether pricing on " +
+  "paper lines up with revenue in practice. We group institutions into FDIC " +
+  "asset-size tiers — from under $100 million to over $250 billion — " +
+  "and compare each tier's average fee amount against its average service " +
+  "charge income and fee-to-asset ratio, expressed in basis points. The " +
+  "analysis also separates banks from credit unions to check whether " +
+  "charter type explains any of the difference, since credit unions' not-" +
+  "for-profit structure is often cited as a reason for lower fees. Only " +
+  "institutions with three or more extracted fees and matching call-report " +
+  "data in the same reporting period are included, so a single outlier fee " +
+  "cannot skew a tier's average. The full dataset below ranks every " +
+  "qualifying institution by its fee-to-asset ratio, alongside tier-level " +
+  "and charter-level summaries, so you can see whether the correlation " +
+  "holds at the institution level or only in aggregate.";
 
 export const metadata: Metadata = {
   title: "Fee-to-Revenue Analysis - How Bank Fees Drive Income",
@@ -29,16 +50,81 @@ export const metadata: Metadata = {
 };
 
 export default async function FeeRevenueAnalysisPage() {
-  const user = await getCurrentUser();
-  if (!canAccessPremium(user)) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 px-4">
-        <UpgradeGate message="Fee-to-Revenue Analysis" />
-      </div>
-    );
-  }
-  const correlations = await getFeeRevenueData();
+  // Public teaser data is computed unconditionally, before the premium
+  // check, so anonymous visitors and search engines see real content.
   const tierSummary = await getTierFeeRevenueSummary();
+  const teaserHighlights = tierSummary.slice(0, 3).map((row) => ({
+    label: FDIC_TIER_LABELS[row.asset_size_tier] ?? row.asset_size_tier,
+    value: `${formatMoney(row.avg_fee_amount)} avg fee`,
+  }));
+
+  const user = await getCurrentUser();
+  const isPremium = canAccessPremium(user);
+
+  const breadcrumbItems = [
+    { name: "Home", href: "/" },
+    { name: "Research", href: "/research" },
+    { name: "Fee-Revenue Analysis", href: "/research/fee-revenue-analysis" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-14">
+      <BreadcrumbJsonLd items={breadcrumbItems} />
+
+      {/* Breadcrumb — sticky on mobile */}
+      <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">Fee-Revenue Analysis</span>
+      </nav>
+
+      <div className="flex items-center gap-2 mb-4">
+        <span className="h-px w-8 bg-[#C44B2E]/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
+          Original Research
+        </span>
+      </div>
+
+      <StudyTeaser
+        title="Fee-to-Revenue Analysis"
+        abstract={STUDY_ABSTRACT}
+        highlights={teaserHighlights}
+      />
+
+      {!isPremium && (
+        <div className="mt-8 max-w-3xl">
+          <UpgradeGate message="Fee-to-Revenue Analysis" />
+        </div>
+      )}
+
+      {isPremium && (
+        <FullStudy tierSummary={tierSummary} />
+      )}
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ScholarlyArticle",
+            headline: "Fee-to-Revenue Analysis: How Bank Fees Drive Income",
+            description: "Original research correlating bank fee schedules with service charge income from call reports.",
+            url: `${SITE_URL}/research/fee-revenue-analysis`,
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+    </div>
+  );
+}
+
+async function FullStudy({
+  tierSummary,
+}: {
+  tierSummary: Awaited<ReturnType<typeof getTierFeeRevenueSummary>>;
+}) {
+  const correlations = await getFeeRevenueData();
   const charterSummary = await getCharterFeeRevenueSummary();
 
   const totalInstitutions = correlations.length;
@@ -50,33 +136,7 @@ export default async function FeeRevenueAnalysisPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-14">
-      <BreadcrumbJsonLd
-        items={[
-          { name: "Home", href: "/" },
-          { name: "Research", href: "/research" },
-          { name: "Fee-Revenue Analysis", href: "/research/fee-revenue-analysis" },
-        ]}
-      />
-
-      <div className="flex items-center gap-2 mb-4">
-        <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
-          Original Research
-        </span>
-      </div>
-      <h1
-        className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] font-bold text-[#1A1815]"
-        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-      >
-        Fee-to-Revenue Analysis
-      </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-[#6B6255]">
-        How do published fee schedules correlate with actual service charge
-        income reported in call reports? This analysis cross-references
-        extracted fees with FDIC and NCUA financial data to reveal the
-        relationship between fee pricing and revenue.
-      </p>
+    <>
       <div className="mt-1">
         <DataFreshness />
       </div>
@@ -334,19 +394,6 @@ export default async function FeeRevenueAnalysisPage() {
           with 3+ extracted fees and matching financial data are included.
         </p>
       </section>
-
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ScholarlyArticle",
-            headline: "Fee-to-Revenue Analysis: How Bank Fees Drive Income",
-            description: "Original research correlating bank fee schedules with service charge income from call reports.",
-            url: `${SITE_URL}/research/fee-revenue-analysis`,
-          }).replace(/</g, "\\u003c"),
-        }}
-      />
-    </div>
+    </>
   );
 }

@@ -281,6 +281,15 @@ export default async function ResearchHubPage() {
           <OriginalResearchSection />
 
           <DataSourcesSection stateLabel={stateLabel} />
+
+          <div className="mt-3 text-right">
+            <Link
+              href="/research/data-sources"
+              className="text-[12px] font-medium text-[#A93D25] hover:underline"
+            >
+              View full data source breakdown &amp; coverage &rarr;
+            </Link>
+          </div>
         </div>
 
         <ResearchSidebar spotlightFees={spotlightFees} categoriesLabel={summary.categoriesLabel} />

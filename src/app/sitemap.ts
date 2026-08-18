@@ -131,6 +131,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const researchPages: Entry[] = [
     entry("/research/national-fee-index", dataUpdated, "weekly", 0.9),
     entry("/research/fee-revenue-analysis", dataUpdated, "weekly", 0.8),
+    entry("/research/market-concentration", dataUpdated, "weekly", 0.8),
+    entry("/research/data-sources", now, "monthly", 0.6),
   ];
 
   const guidePages: Entry[] = [

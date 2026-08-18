@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   getMarketConcentration,
 } from "@/lib/data-store/financial";
@@ -9,6 +10,28 @@ import { SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
+import { formatNumber } from "@/lib/format";
+import { StudyTeaser } from "../study-teaser";
+
+/** Public abstract shown to anonymous visitors and search engines, in front of the paywall. */
+const STUDY_ABSTRACT =
+  "Do banks charge higher fees in markets where they face less " +
+  "competition? This study measures deposit market concentration using " +
+  "the Herfindahl-Hirschman Index (HHI), computed from FDIC Summary of " +
+  "Deposits branch-level data for every Metropolitan Statistical Area " +
+  "(MSA) in the country. HHI is the sum of squared market shares of every " +
+  "deposit-taking institution in a market; the Department of Justice " +
+  "treats scores above 2,500 as highly concentrated, 1,500 to 2,500 as " +
+  "moderately concentrated, and below 1,500 as competitive. We rank " +
+  "markets by concentration to surface where a small number of " +
+  "institutions control most local deposits, then separately by total " +
+  "deposit volume to surface the largest banking markets regardless of " +
+  "competitiveness. Only MSAs with a minimum number of active deposit-" +
+  "taking institutions are included, so a market with a single large " +
+  "branch cannot register as concentrated on too little data. The tables " +
+  "below let you compare a market's HHI, top-3 deposit share, and " +
+  "institution count side by side, and cross-reference concentration " +
+  "against the fee data elsewhere on this site for the same metro area.";
 
 export const metadata: Metadata = {
   title: "Market Concentration & Bank Fees - HHI Analysis by Metro Area",
@@ -36,15 +59,74 @@ function hhiLabel(hhi: number): { text: string; color: string } {
 }
 
 export default async function MarketConcentrationPage() {
-  const user = await getCurrentUser();
-  if (!canAccessPremium(user)) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 px-4">
-        <UpgradeGate message="Market Concentration Analysis" />
-      </div>
-    );
-  }
+  // Public teaser data is computed unconditionally, before the premium
+  // check, so anonymous visitors and search engines see real content.
+  const topMarkets = await getMarketConcentration({ limit: 5, minInstitutions: 10 });
+  const teaserHighlights = topMarkets.map((row) => ({
+    label: row.msa_name || `MSA ${row.msa_code}`,
+    value: `${formatNumber(row.hhi)} HHI`,
+  }));
 
+  const user = await getCurrentUser();
+  const isPremium = canAccessPremium(user);
+
+  const breadcrumbItems = [
+    { name: "Home", href: "/" },
+    { name: "Research", href: "/research" },
+    { name: "Market Concentration", href: "/research/market-concentration" },
+  ];
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-14">
+      <BreadcrumbJsonLd items={breadcrumbItems} />
+
+      {/* Breadcrumb — sticky on mobile */}
+      <nav className="flex items-center gap-2 text-[12px] text-[#6B6255] mb-4 sticky top-14 z-30 -mx-6 px-6 py-2 bg-[#FAF7F2]/95 backdrop-blur-sm sm:static sm:mx-0 sm:px-0 sm:py-0 sm:bg-transparent sm:backdrop-blur-none">
+        <Link href="/" className="hover:text-[#1A1815] transition-colors">Home</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
+        <span className="text-[#D4C9BA]">/</span>
+        <span className="text-[#5A5347]">Market Concentration</span>
+      </nav>
+
+      <div className="flex items-center gap-2 mb-4">
+        <span className="h-px w-8 bg-[#C44B2E]/40" />
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
+          Original Research
+        </span>
+      </div>
+
+      <StudyTeaser
+        title="Market Concentration & Bank Fees"
+        abstract={STUDY_ABSTRACT}
+        highlights={teaserHighlights}
+      />
+
+      {!isPremium && (
+        <div className="mt-8 max-w-3xl">
+          <UpgradeGate message="Market Concentration Analysis" />
+        </div>
+      )}
+
+      {isPremium && <FullStudy />}
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ScholarlyArticle",
+            headline: "Market Concentration & Bank Fees: HHI Analysis",
+            description: "Analysis of deposit market concentration across U.S. metro areas using FDIC Summary of Deposits data.",
+            url: `${SITE_URL}/research/market-concentration`,
+          }).replace(/</g, "\\u003c"),
+        }}
+      />
+    </div>
+  );
+}
+
+async function FullStudy() {
   const mostConcentrated = await getMarketConcentration({
     sort: "hhi_desc",
     limit: 30,
@@ -70,33 +152,7 @@ export default async function MarketConcentrationPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-14">
-      <BreadcrumbJsonLd
-        items={[
-          { name: "Home", href: "/" },
-          { name: "Research", href: "/research" },
-          { name: "Market Concentration", href: "/research/market-concentration" },
-        ]}
-      />
-
-      <div className="flex items-center gap-2 mb-4">
-        <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
-          Original Research
-        </span>
-      </div>
-      <h1
-        className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] font-bold text-[#1A1815]"
-        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-      >
-        Market Concentration & Bank Fees
-      </h1>
-      <p className="mt-2 max-w-2xl text-[14px] text-[#6B6255]">
-        Do banks charge higher fees in markets with less competition? This
-        analysis measures deposit market concentration (HHI) across U.S. metro
-        areas using FDIC Summary of Deposits data, identifying the most and
-        least competitive banking markets.
-      </p>
+    <>
       <div className="mt-1">
         <DataFreshness />
       </div>
@@ -372,19 +428,6 @@ export default async function MarketConcentrationPage() {
           included.
         </p>
       </section>
-
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ScholarlyArticle",
-            headline: "Market Concentration & Bank Fees: HHI Analysis",
-            description: "Analysis of deposit market concentration across U.S. metro areas using FDIC Summary of Deposits data.",
-            url: `${SITE_URL}/research/market-concentration`,
-          }).replace(/</g, "\\u003c"),
-        }}
-      />
-    </div>
+    </>
   );
 }
