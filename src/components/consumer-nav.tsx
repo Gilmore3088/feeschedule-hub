@@ -42,7 +42,7 @@ export async function ConsumerNav() {
     : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-[#E8DFD1] bg-[#FAF7F2]/95">
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center gap-8">

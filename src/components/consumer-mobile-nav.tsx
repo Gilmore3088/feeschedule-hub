@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HAMILTON_NAV } from "@/lib/hamilton/navigation";
@@ -44,6 +45,111 @@ export function ConsumerMobileNav({ isLoggedIn, isPro = false }: ConsumerMobileN
     };
   }, [open]);
 
+  // Close on Escape while the drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const overlay = open ? (
+    <>
+      <div
+        className="fixed inset-0 z-40 bg-[#1A1815]/20 backdrop-blur-sm animate-in fade-in duration-200"
+        onClick={() => setOpen(false)}
+        aria-hidden="true"
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        className="fixed top-0 right-0 z-50 h-full w-[min(18rem,calc(100vw-1rem))] bg-[#FAF7F2] border-l border-[#E8DFD1] shadow-xl animate-in slide-in-from-right duration-200"
+      >
+        <div className="flex h-14 items-center justify-between border-b border-[#E8DFD1] pl-6 pr-3">
+          <span
+            className="text-[14px] font-medium text-[#1A1815]"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            Menu
+          </span>
+          <button onClick={() => setOpen(false)} className={ICON_BUTTON} aria-label="Close menu">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <nav className="px-4 py-4" aria-label="Mobile navigation">
+          <ul className="space-y-1">
+            {displayItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setOpen(false)}
+                    className={
+                      isActive
+                        ? "block rounded-lg bg-[#C44B2E]/8 px-3 py-2.5 text-[14px] font-medium text-[#A93D25] transition-colors"
+                        : DRAWER_LINK
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-4 border-t border-[#E8DFD1] pt-4">
+            {isLoggedIn ? (
+              <Link href="/account" onClick={() => setOpen(false)} className={DRAWER_LINK}>
+                Account
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" onClick={() => setOpen(false)} className={DRAWER_LINK}>
+                  Sign in
+                </Link>
+                <Link
+                  href={REQUEST_REPORT.href}
+                  onClick={() => setOpen(false)}
+                  className="mt-2 block rounded-md bg-[#C44B2E] px-3 py-2.5 text-center text-[14px] font-semibold text-white transition-colors hover:bg-[#A93D25]"
+                >
+                  {REQUEST_REPORT.label}
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 border-t border-[#E8DFD1] px-6 py-4">
+          <div className="flex items-center gap-2 text-[#6B6255]">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              className="h-4 w-4 text-[#C44B2E]/50"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <rect x="4" y="13" width="4" height="8" rx="1" />
+              <rect x="10" y="8" width="4" height="13" rx="1" />
+              <rect x="16" y="3" width="4" height="18" rx="1" />
+            </svg>
+            <span className="text-[11px]">{SITE_NAME}</span>
+          </div>
+        </div>
+      </div>
+    </>
+  ) : null;
+
   return (
     <div className="lg:hidden">
       <button
@@ -61,93 +167,13 @@ export function ConsumerMobileNav({ isLoggedIn, isPro = false }: ConsumerMobileN
         </svg>
       </button>
 
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-[#1A1815]/20 backdrop-blur-sm animate-in fade-in duration-200"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-
-          <div className="fixed top-0 right-0 z-50 h-full w-[min(18rem,calc(100vw-1rem))] bg-[#FAF7F2] border-l border-[#E8DFD1] shadow-xl animate-in slide-in-from-right duration-200">
-            <div className="flex h-14 items-center justify-between border-b border-[#E8DFD1] pl-6 pr-3">
-              <span
-                className="text-[14px] font-medium text-[#1A1815]"
-                style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-              >
-                Menu
-              </span>
-              <button onClick={() => setOpen(false)} className={ICON_BUTTON} aria-label="Close menu">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <nav className="px-4 py-4" aria-label="Mobile navigation">
-              <ul className="space-y-1">
-                {displayItems.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={
-                          isActive
-                            ? "block rounded-lg bg-[#C44B2E]/8 px-3 py-2.5 text-[14px] font-medium text-[#A93D25] transition-colors"
-                            : DRAWER_LINK
-                        }
-                      >
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <div className="mt-4 border-t border-[#E8DFD1] pt-4">
-                {isLoggedIn ? (
-                  <Link href="/account" onClick={() => setOpen(false)} className={DRAWER_LINK}>
-                    Account
-                  </Link>
-                ) : (
-                  <>
-                    <Link href="/login" onClick={() => setOpen(false)} className={DRAWER_LINK}>
-                      Sign in
-                    </Link>
-                    <Link
-                      href={REQUEST_REPORT.href}
-                      onClick={() => setOpen(false)}
-                      className="mt-2 block rounded-md bg-[#C44B2E] px-3 py-2.5 text-center text-[14px] font-semibold text-white transition-colors hover:bg-[#A93D25]"
-                    >
-                      {REQUEST_REPORT.label}
-                    </Link>
-                  </>
-                )}
-              </div>
-            </nav>
-
-            <div className="absolute bottom-0 left-0 right-0 border-t border-[#E8DFD1] px-6 py-4">
-              <div className="flex items-center gap-2 text-[#6B6255]">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  className="h-4 w-4 text-[#C44B2E]/50"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  aria-hidden="true"
-                >
-                  <rect x="4" y="13" width="4" height="8" rx="1" />
-                  <rect x="10" y="8" width="4" height="13" rx="1" />
-                  <rect x="16" y="3" width="4" height="18" rx="1" />
-                </svg>
-                <span className="text-[11px]">{SITE_NAME}</span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      {/*
+        No hydration guard is needed here: `open` (and therefore `overlay`)
+        is always false on both the server render and the initial client
+        render, so `document.body` is never touched until a client-only
+        click handler flips `open` to true.
+      */}
+      {overlay ? createPortal(overlay, document.body) : null}
     </div>
   );
 }
