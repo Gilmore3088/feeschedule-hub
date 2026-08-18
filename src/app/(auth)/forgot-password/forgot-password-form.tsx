@@ -15,12 +15,17 @@ export function ForgotPasswordForm() {
     setStatus("loading");
 
     const formData = new FormData(e.currentTarget);
-    const result = await forgotPasswordAction(formData);
 
-    if (result.success) {
-      setStatus("done");
-    } else {
-      setError(result.error || "Something went wrong. Please try again.");
+    try {
+      const result = await forgotPasswordAction(formData);
+      if (result.success) {
+        setStatus("done");
+      } else {
+        setError(result.error || "Something went wrong. Please try again.");
+        setStatus("idle");
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
       setStatus("idle");
     }
   }

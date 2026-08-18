@@ -22,13 +22,18 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setPending(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await resetPasswordAction(formData);
 
-    if (result.success) {
-      setDone(true);
-      setTimeout(() => router.push("/login"), REDIRECT_DELAY_MS);
-    } else {
-      setError(result.error || "Something went wrong. Please try again.");
+    try {
+      const result = await resetPasswordAction(formData);
+      if (result.success) {
+        setDone(true);
+        setTimeout(() => router.push("/login"), REDIRECT_DELAY_MS);
+      } else {
+        setError(result.error || "Something went wrong. Please try again.");
+        setPending(false);
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
       setPending(false);
     }
   }

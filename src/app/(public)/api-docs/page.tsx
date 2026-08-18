@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getPublicStatsSummary } from "@/lib/public-stats";
 import { MONTHLY_PRICE_LABEL } from "@/app/subscribe/pricing";
 
@@ -647,7 +647,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \\
             "Custom SLA",
           ]}
           cta="Talk to us"
-          ctaHref={`mailto:${CONTACT_EMAIL}?subject=Fee%20Insight%20Advisory`}
+          ctaHref="/contact?type=advisory"
         />
       </div>
 
