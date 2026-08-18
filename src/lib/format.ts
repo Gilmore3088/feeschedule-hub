@@ -1,3 +1,37 @@
+const NUMBER_FORMAT = new Intl.NumberFormat("en-US");
+const MONEY_FORMAT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const ABSOLUTE_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+/** Plain en-US number, e.g. formatNumber(1234.5) === "1,234.5". */
+export function formatNumber(n: number): string {
+  return NUMBER_FORMAT.format(n);
+}
+
+/** en-US currency, two decimals, e.g. formatMoney(5) === "$5.00". */
+export function formatMoney(n: number): string {
+  return MONEY_FORMAT.format(n);
+}
+
+/**
+ * Absolute en-US date, e.g. formatDate("2026-08-12") === "Aug 12, 2026".
+ * Formats in UTC so date-only ISO strings (which parse as UTC midnight)
+ * render the intended calendar day regardless of server/client timezone.
+ */
+export function formatDate(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return ABSOLUTE_DATE_FORMAT.format(date);
+}
+
 export function formatAmount(amount: number | string | null | undefined): string {
   if (amount === null || amount === undefined) return "-";
   const value = typeof amount === "number" ? amount : Number(amount);

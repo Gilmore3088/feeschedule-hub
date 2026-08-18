@@ -4,6 +4,9 @@ import {
   formatAssets,
   formatCompactDollars,
   formatStoredPercent,
+  formatNumber,
+  formatMoney,
+  formatDate,
 } from "./format";
 
 describe("formatAmount", () => {
@@ -44,5 +47,29 @@ describe("formatStoredPercent", () => {
   it("formats stored percentage values without multiplying by 100", () => {
     expect(formatStoredPercent(13.456, 1)).toBe("13.5%");
     expect(formatStoredPercent(0.048, 2)).toBe("0.05%");
+  });
+});
+
+describe("formatNumber", () => {
+  it("formats with en-US thousands separators", () => {
+    expect(formatNumber(1234.5)).toBe("1,234.5");
+    expect(formatNumber(1000000)).toBe("1,000,000");
+  });
+});
+
+describe("formatMoney", () => {
+  it("formats with en-US currency style, two decimals", () => {
+    expect(formatMoney(5)).toBe("$5.00");
+    expect(formatMoney(1234.5)).toBe("$1,234.50");
+  });
+});
+
+describe("formatDate", () => {
+  it("formats a date-only ISO string as an absolute en-US date", () => {
+    expect(formatDate("2026-08-12")).toBe("Aug 12, 2026");
+  });
+
+  it("formats a Date instance the same way", () => {
+    expect(formatDate(new Date("2026-01-05T12:00:00Z"))).toBe("Jan 5, 2026");
   });
 });
