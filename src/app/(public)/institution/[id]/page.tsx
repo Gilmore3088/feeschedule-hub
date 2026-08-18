@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getFinancialsByInstitution, getNationalIndexCached } from "@/lib/data-store";
 import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
 import { getCurrentUser } from "@/lib/auth";
+import { canAccessPremium } from "@/lib/access";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -176,10 +177,11 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
     .filter(Boolean)
     .join(" · ") || null;
 
+  const isPremium = canAccessPremium(user);
   const links = buildPublicInstitutionProfileLinks({
     institutionId: instId,
     institutionName: inst.institution_name,
-    isAuthenticated: Boolean(user),
+    isPremium,
   });
   const needsSource = status === "unavailable" || status === "under_review";
 
@@ -309,9 +311,9 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             <ProfileSidebar
               facts={facts}
               links={links}
-              isAuthenticated={Boolean(user)}
+              isPremium={isPremium}
               showAddSource={needsSource}
-              showProCard={!thinProfile}
+              thinProfile={thinProfile}
             />
           </div>
         </div>

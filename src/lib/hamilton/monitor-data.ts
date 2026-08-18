@@ -10,7 +10,7 @@ import {
   getHamiltonInstitutionContext,
   type HamiltonSelectedInstitutionContext,
 } from "@/lib/hamilton/institution-context";
-import type { SignalEntry, AlertEntry } from "@/lib/hamilton/home-data";
+import { isSampleInstitutionId, type SignalEntry, type AlertEntry } from "@/lib/hamilton/home-data";
 import {
   fetchQueuedHamiltonRefreshJobs,
   type HamiltonRefreshJobEntry,
@@ -164,17 +164,21 @@ async function fetchSignalFeed(
           ORDER BY created_at DESC
           LIMIT ${limit}
         `;
-    return rows.map((r) => ({
-      id: String(r.id),
-      institutionId: r.institution_id == null ? null : String(r.institution_id),
-      signalType: String(r.signal_type),
-      severity: String(r.severity),
-      title: String(r.title),
-      body: String(r.body),
-      createdAt: String(r.created_at),
-      evidencePolicy: r.evidence_policy == null ? null : String(r.evidence_policy) as SignalEntry["evidencePolicy"],
-      providerCallQueued: r.provider_call_queued === true,
-    }));
+    return rows.map((r) => {
+      const institutionId = r.institution_id == null ? null : String(r.institution_id);
+      return {
+        id: String(r.id),
+        institutionId,
+        signalType: String(r.signal_type),
+        severity: String(r.severity),
+        title: String(r.title),
+        body: String(r.body),
+        createdAt: String(r.created_at),
+        evidencePolicy: r.evidence_policy == null ? null : String(r.evidence_policy) as SignalEntry["evidencePolicy"],
+        providerCallQueued: r.provider_call_queued === true,
+        sample: isSampleInstitutionId(institutionId),
+      };
+    });
   } catch {
     return [];
   }
@@ -243,10 +247,11 @@ async function fetchTopAlert(
         `;
     if (rows.length === 0) return null;
     const r = rows[0];
+    const institutionId = r.institution_id == null ? null : String(r.institution_id);
     return {
       id: String(r.id),
       signalId: String(r.signal_id),
-      institutionId: r.institution_id == null ? null : String(r.institution_id),
+      institutionId,
       signalType: String(r.signal_type),
       severity: String(r.severity),
       title: String(r.title),
@@ -255,6 +260,7 @@ async function fetchTopAlert(
       createdAt: String(r.created_at),
       evidencePolicy: r.evidence_policy == null ? null : String(r.evidence_policy) as AlertEntry["evidencePolicy"],
       providerCallQueued: r.provider_call_queued === true,
+      sample: isSampleInstitutionId(institutionId),
     };
   } catch {
     return null;

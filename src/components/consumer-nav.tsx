@@ -80,15 +80,25 @@ export async function ConsumerNav() {
             <SearchTrigger />
             <div className="hidden lg:block">
               {user ? (
-                <Link
-                  href="/account"
-                  className="flex items-center gap-2 text-[13px] font-medium text-[#6B6255] transition-colors hover:text-[#1A1815]"
-                >
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1815] text-[10px] font-bold text-white">
-                    {userInitial}
-                  </span>
-                  <span className="hidden lg:inline">Account</span>
-                </Link>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/account"
+                    className="flex items-center gap-2 text-[13px] font-medium text-[#6B6255] transition-colors hover:text-[#1A1815]"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1815] text-[10px] font-bold text-white">
+                      {userInitial}
+                    </span>
+                    <span className="hidden lg:inline">Account</span>
+                  </Link>
+                  <form action="/api/auth/logout" method="POST">
+                    <button
+                      type="submit"
+                      className="text-[13px] font-medium text-[#6B6255] transition-colors hover:text-[#1A1815]"
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </div>
               ) : (
                 <>
                   <Link

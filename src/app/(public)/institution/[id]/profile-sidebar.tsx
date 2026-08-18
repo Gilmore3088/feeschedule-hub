@@ -23,16 +23,16 @@ const PRO_LINK_SECONDARY =
 export function ProfileSidebar({
   facts,
   links,
-  isAuthenticated,
+  isPremium,
   showAddSource,
-  showProCard,
+  thinProfile,
 }: {
   facts: KeyFact[];
   links: PublicInstitutionProfileLinks;
-  isAuthenticated: boolean;
+  isPremium: boolean;
   showAddSource: boolean;
-  /** False on thin profiles (too few verified fees to benchmark). */
-  showProCard: boolean;
+  /** True on thin profiles (too few verified fees to benchmark) — swaps the pitch copy. */
+  thinProfile: boolean;
 }) {
   return (
     <aside className="min-w-0 space-y-6 lg:sticky lg:top-6">
@@ -45,46 +45,45 @@ export function ProfileSidebar({
         </div>
       </section>
 
-      {showProCard && (
-        <section className="border border-[#1A1815] bg-[#1A1815] p-5 text-white">
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#D4A574]">
-            Fee Insight Pro
-          </p>
-          <h2 className="mt-2 text-lg font-semibold">Benchmark this institution in Hamilton</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#E8DFD1]">
-            Hamilton is the Fee Insight Pro workspace: benchmark, scenario, report and monitor this
-            institution&apos;s fee position against a verified peer set.
-          </p>
-          <div className="mt-4 grid gap-2">
-            <Link
-              href={links.briefHref}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#C44B2E] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#A93D25]"
-            >
-              <BarChart2 className="h-4 w-4" />
-              Generate competitive brief
+      <section className="border border-[#1A1815] bg-[#1A1815] p-5 text-white">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#D4A574]">
+          Fee Insight Pro
+        </p>
+        <h2 className="mt-2 text-lg font-semibold">Benchmark this institution in Hamilton</h2>
+        <p className="mt-2 text-sm leading-relaxed text-[#E8DFD1]">
+          {thinProfile
+            ? "Hamilton completes verification as part of your analysis."
+            : "Hamilton is the Fee Insight Pro workspace: benchmark, scenario, report and monitor this institution’s fee position against a verified peer set."}
+        </p>
+        <div className="mt-4 grid gap-2">
+          <Link
+            href={links.briefHref}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-[#C44B2E] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#A93D25]"
+          >
+            <BarChart2 className="h-4 w-4" />
+            Generate competitive brief
+          </Link>
+          <Link href={links.analyzeHref} className={PRO_LINK_SECONDARY}>
+            <MessageSquareText className="h-4 w-4" />
+            Ask about this institution
+          </Link>
+          <Link href={links.scenarioHref} className={PRO_LINK_SECONDARY}>
+            <FileText className="h-4 w-4" />
+            Run scenario
+          </Link>
+          {showAddSource && (
+            <Link href={links.correctSourceHref} className={PRO_LINK_SECONDARY}>
+              <ClipboardCheck className="h-4 w-4" />
+              Add a fee source
             </Link>
-            <Link href={links.analyzeHref} className={PRO_LINK_SECONDARY}>
-              <MessageSquareText className="h-4 w-4" />
-              Ask about this institution
-            </Link>
-            <Link href={links.scenarioHref} className={PRO_LINK_SECONDARY}>
-              <FileText className="h-4 w-4" />
-              Run scenario
-            </Link>
-            {showAddSource && (
-              <Link href={links.correctSourceHref} className={PRO_LINK_SECONDARY}>
-                <ClipboardCheck className="h-4 w-4" />
-                Add a fee source
-              </Link>
-            )}
-          </div>
-          {!isAuthenticated && (
-            <p className="mt-3 text-xs leading-relaxed text-[#E8DFD1]">
-              Pro actions open pricing first; you return to this profile after signing up.
-            </p>
           )}
-        </section>
-      )}
+        </div>
+        {!isPremium && (
+          <p className="mt-3 text-xs leading-relaxed text-[#E8DFD1]">
+            Pro actions open pricing first; you return to this profile after signing up.
+          </p>
+        )}
+      </section>
 
       <section className="border border-[#E0D7C9] bg-white p-5">
         <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]">Methodology</p>

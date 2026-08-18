@@ -11,9 +11,10 @@ import {
   getUserInstitutionMemberships,
 } from "@/lib/hamilton/institution-membership";
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
-import { WelcomeSteps } from "./welcome-steps";
+import { WelcomeSteps, type WelcomePaidSummary } from "./welcome-steps";
 import type { Metadata } from "next";
 import { SITE_NAME } from "@/lib/constants";
+import { formatMoney, formatDate } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -74,6 +75,61 @@ async function activateIfPaid(
   return false;
 }
 
+async function getOnboardingCompletedAt(userId: number): Promise<string | null> {
+  try {
+    const rows = (await sql`
+      SELECT onboarding_completed_at FROM users WHERE id = ${userId} LIMIT 1
+    `) as { onboarding_completed_at: string | null }[];
+    return rows[0]?.onboarding_completed_at ?? null;
+  } catch (e) {
+    console.error("[welcome] Failed to read onboarding_completed_at:", e);
+    return null;
+  }
+}
+
+/** Idempotent: only sets the timestamp the first time a user's wizard renders. */
+async function markOnboardingCompleted(userId: number): Promise<void> {
+  try {
+    await sql`
+      UPDATE users SET onboarding_completed_at = now()
+      WHERE id = ${userId} AND onboarding_completed_at IS NULL
+    `;
+  } catch (e) {
+    console.error("[welcome] Failed to mark onboarding completed:", e);
+  }
+}
+
+async function getPaidSubscriptionSummary(
+  stripeCustomerId: string | null,
+  receiptEmail: string,
+): Promise<WelcomePaidSummary | null> {
+  if (!stripeCustomerId) return null;
+  try {
+    const { getStripe } = await import("@/lib/stripe");
+    const stripe = getStripe();
+    const subs = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "active",
+      limit: 1,
+      expand: ["data.items.data.price"],
+    });
+    const subscription = subs.data[0];
+    const item = subscription?.items.data[0];
+    const price = item?.price;
+    if (!subscription || !item || !price) return null;
+
+    const interval = price.recurring?.interval;
+    const planLabel = interval === "year" ? "Seat License — Annual" : "Seat License — Monthly";
+    const amountLabel = `${formatMoney((price.unit_amount ?? 0) / 100)}${interval === "year" ? "/yr" : "/mo"}`;
+    const nextBillDate = formatDate(new Date(item.current_period_end * 1000));
+
+    return { planLabel, amountLabel, nextBillDate, receiptEmail };
+  } catch (e) {
+    console.error("[welcome] Failed to fetch subscription summary:", e);
+    return null;
+  }
+}
+
 function shouldResumeAfterCheckout(destination: string | null): destination is string {
   return !!destination && (
     destination.startsWith("/pro") ||
@@ -106,6 +162,19 @@ export default async function WelcomePage({
   if (params.success === "true" && isPro && shouldResumeAfterCheckout(returnTo)) {
     redirect(returnTo);
   }
+
+  // A fresh checkout redirect always gets the wizard (with the paid summary below);
+  // a repeat visit with no checkout in progress skips straight to the account page.
+  const justPaid = params.success === "true" && isPro;
+  const onboardingCompletedAt = await getOnboardingCompletedAt(user.id);
+  if (onboardingCompletedAt && !justPaid) {
+    redirect("/account");
+  }
+
+  const paid = justPaid
+    ? await getPaidSubscriptionSummary(user.stripe_customer_id, user.email ?? user.username)
+    : null;
+
   const [pendingWorkspaceInvitations, workspaceMemberships] = await Promise.all([
     !isPro
       ? getPendingWorkspaceInvitationsForEmail(user.email ?? user.username, 5).catch(() => [])
@@ -114,6 +183,8 @@ export default async function WelcomePage({
       ? getUserInstitutionMemberships(user.id).catch(() => [])
       : Promise.resolve([]),
   ]);
+
+  await markOnboardingCompleted(user.id);
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -142,6 +213,7 @@ export default async function WelcomePage({
           isPro={isPro}
           pendingWorkspaceInvitations={pendingWorkspaceInvitations}
           workspaceMemberships={workspaceMemberships}
+          paid={paid}
         />
       </div>
     </div>

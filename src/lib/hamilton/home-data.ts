@@ -28,6 +28,8 @@ export interface SignalEntry {
   createdAt: string;
   evidencePolicy?: HamiltonEvidencePolicy | null;
   providerCallQueued?: boolean;
+  /** True when institutionId isn't a real institution ID (seeded demo data). */
+  sample?: boolean;
 }
 
 export interface AlertEntry {
@@ -42,6 +44,18 @@ export interface AlertEntry {
   createdAt: string;
   evidencePolicy?: HamiltonEvidencePolicy | null;
   providerCallQueued?: boolean;
+  /** True when institutionId isn't a real institution ID (seeded demo data). */
+  sample?: boolean;
+}
+
+/**
+ * Real institution IDs are positive integers. Seeded demo signals carry slug
+ * IDs like "first-national-bank" that never resolve to a watched institution —
+ * those render with a SAMPLE chip so viewers don't mistake them for coverage.
+ */
+export function isSampleInstitutionId(institutionId: string | null | undefined): boolean {
+  const value = institutionId?.trim();
+  return !value || !/^[1-9]\d*$/.test(value);
 }
 
 export interface HomeBriefingSignals {
@@ -305,17 +319,21 @@ async function fetchRecentSignals(
           ORDER BY created_at DESC
           LIMIT ${limit}
         `;
-    return rows.map((r) => ({
-      id: String(r.id),
-      institutionId: r.institution_id == null ? null : String(r.institution_id),
-      signalType: String(r.signal_type),
-      severity: String(r.severity),
-      title: String(r.title),
-      body: String(r.body),
-      createdAt: String(r.created_at),
-      evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
-      providerCallQueued: r.provider_call_queued === true,
-    }));
+    return rows.map((r) => {
+      const institutionId = r.institution_id == null ? null : String(r.institution_id);
+      return {
+        id: String(r.id),
+        institutionId,
+        signalType: String(r.signal_type),
+        severity: String(r.severity),
+        title: String(r.title),
+        body: String(r.body),
+        createdAt: String(r.created_at),
+        evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
+        providerCallQueued: r.provider_call_queued === true,
+        sample: isSampleInstitutionId(institutionId),
+      };
+    });
   } catch {
     return [];
   }
@@ -389,19 +407,23 @@ async function fetchPriorityAlerts(
             pa.created_at DESC
           LIMIT ${limit}
         `;
-    return rows.map((r) => ({
-      id: String(r.id),
-      signalId: String(r.signal_id),
-      institutionId: r.institution_id == null ? null : String(r.institution_id),
-      signalType: String(r.signal_type),
-      severity: String(r.severity),
-      title: String(r.title),
-      body: String(r.body),
-      status: String(r.status),
-      createdAt: String(r.created_at),
-      evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
-      providerCallQueued: r.provider_call_queued === true,
-    }));
+    return rows.map((r) => {
+      const institutionId = r.institution_id == null ? null : String(r.institution_id);
+      return {
+        id: String(r.id),
+        signalId: String(r.signal_id),
+        institutionId,
+        signalType: String(r.signal_type),
+        severity: String(r.severity),
+        title: String(r.title),
+        body: String(r.body),
+        status: String(r.status),
+        createdAt: String(r.created_at),
+        evidencePolicy: r.evidence_policy == null ? null : (String(r.evidence_policy) as HamiltonEvidencePolicy),
+        providerCallQueued: r.provider_call_queued === true,
+        sample: isSampleInstitutionId(institutionId),
+      };
+    });
   } catch {
     return [];
   }

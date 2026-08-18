@@ -8,6 +8,13 @@ import type {
   InstitutionWorkspaceMembership,
 } from "@/lib/hamilton/institution-membership";
 
+export interface WelcomePaidSummary {
+  planLabel: string;
+  amountLabel: string;
+  nextBillDate: string;
+  receiptEmail: string;
+}
+
 interface WelcomeStepsProps {
   userName: string;
   user: {
@@ -23,6 +30,8 @@ interface WelcomeStepsProps {
   isPro: boolean;
   pendingWorkspaceInvitations: InstitutionWorkspaceInvitation[];
   workspaceMemberships: InstitutionWorkspaceMembership[];
+  /** Present on the first visit right after a successful Stripe checkout. */
+  paid?: WelcomePaidSummary | null;
 }
 
 const INSTITUTION_TYPES = [
@@ -99,8 +108,9 @@ export function WelcomeSteps({
   isPro,
   pendingWorkspaceInvitations,
   workspaceMemberships,
+  paid,
 }: WelcomeStepsProps) {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(paid ? 0 : 1);
   const [saving, setSaving] = useState(false);
   const [showBankFields, setShowBankFields] = useState(
     user.institution_type === "bank" || user.institution_type === "credit_union"
@@ -166,19 +176,56 @@ export function WelcomeSteps({
         </div>
       )}
 
-      {/* Progress */}
-      <div className="flex items-center gap-2 mb-8">
-        {[1, 2, 3, 4].map((s) => (
-          <div
-            key={s}
-            className={`h-1.5 flex-1 rounded-full transition-colors ${
-              s <= step ? "bg-[#C44B2E]" : "bg-[#E8DFD1]"
-            }`}
-          />
-        ))}
-      </div>
+      {/* Step 0: Payment confirmed */}
+      {step === 0 && paid && (
+        <div className="mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-4">
+            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-emerald-600" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          </div>
+          <h1
+            className="text-2xl font-normal tracking-tight text-[#1A1815] mb-2"
+            style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+          >
+            You&apos;re subscribed
+          </h1>
+          <p className="text-sm text-[#6B6255] mb-6">
+            Your Fee Insight Pro seat is active. Here&apos;s your subscription summary.
+          </p>
 
-      {/* Step 1: Profile */}
+          <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] p-6 mb-6 space-y-2">
+            <p className="text-sm font-semibold text-[#1A1815]">{paid.planLabel}</p>
+            <p className="text-sm text-[#1A1815]">
+              {paid.amountLabel} &middot; next bill {paid.nextBillDate}
+            </p>
+            <p className="text-xs text-[#6B6255]">Receipt sent to {paid.receiptEmail}</p>
+          </div>
+
+          <button
+            onClick={() => setStep(1)}
+            className="w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A83D25] transition-colors"
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {step > 0 && (
+        <>
+          {/* Progress */}
+          <div className="flex items-center gap-2 mb-8">
+            {[1, 2, 3, 4].map((s) => (
+              <div
+                key={s}
+                className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  s <= step ? "bg-[#C44B2E]" : "bg-[#E8DFD1]"
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Step 1: Profile */}
       {step === 1 && (
         <div>
           <h1
@@ -366,6 +413,8 @@ export function WelcomeSteps({
             </Link>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

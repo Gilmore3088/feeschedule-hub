@@ -26,8 +26,8 @@ export function buildInstitutionProfileLinks({
 }
 
 export interface PublicInstitutionProfileLinkParams extends InstitutionProfileLinkParams {
-  /** Logged-in viewers keep the direct Pro routes; anonymous viewers are sent to /subscribe. */
-  isAuthenticated: boolean;
+  /** Premium (canAccessPremium) viewers keep the direct Pro routes; everyone else is sent to /subscribe. */
+  isPremium: boolean;
 }
 
 export interface PublicInstitutionProfileLinks {
@@ -49,12 +49,12 @@ export interface PublicInstitutionProfileLinks {
 export function buildPublicInstitutionProfileLinks({
   institutionId,
   institutionName,
-  isAuthenticated,
+  isPremium,
 }: PublicInstitutionProfileLinkParams): PublicInstitutionProfileLinks {
   const instId = String(institutionId);
   const profilePath = `/institution/${instId}`;
   const subscribeHref = `/subscribe?from=${encodeURIComponent(profilePath)}`;
-  const gate = (proHref: string) => (isAuthenticated ? proHref : subscribeHref);
+  const gate = (proHref: string) => (isPremium ? proHref : subscribeHref);
   const reportContext = new URLSearchParams({ institution: instId, name: institutionName, src: "profile" });
   return {
     correctSourceHref: `/submit-fees?institution=${instId}`,

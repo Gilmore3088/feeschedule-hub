@@ -19,6 +19,7 @@ export function MonitorFeedPreview({
   selectedInstitutionId = null,
 }: MonitorFeedPreviewProps) {
   const hasSignals = signals.length > 0;
+  const hasSampleSignals = signals.some((s) => s.sample);
   const monitorHref = hrefWithInstitutionContext("/pro/monitor", selectedInstitutionId);
 
   return (
@@ -43,6 +44,20 @@ export function MonitorFeedPreview({
       >
         Hamilton Monitor Feed
       </h3>
+
+      {hasSampleSignals && (
+        <p
+          className="font-label"
+          style={{
+            fontSize: "0.6875rem",
+            color: "var(--hamilton-on-surface-variant)",
+            marginTop: "-1.5rem",
+            marginBottom: "1.5rem",
+          }}
+        >
+          Sample signals until you watch an institution
+        </p>
+      )}
 
       {/* Timeline */}
       <div
@@ -120,9 +135,30 @@ export function MonitorFeedPreview({
                       fontWeight: 700,
                       color: "var(--hamilton-on-surface)",
                       margin: "0 0 0.25rem 0",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
                     }}
                   >
                     {signal.title}
+                    {signal.sample && (
+                      <span
+                        className="font-label"
+                        style={{
+                          border: "1px solid var(--hamilton-outline-variant, rgba(216,194,184,0.45))",
+                          borderRadius: "999px",
+                          color: "var(--hamilton-on-surface-variant)",
+                          fontSize: "0.5625rem",
+                          fontWeight: 700,
+                          letterSpacing: "0.08em",
+                          padding: "0.0625rem 0.375rem",
+                          textTransform: "uppercase",
+                          flexShrink: 0,
+                        }}
+                      >
+                        Sample
+                      </span>
+                    )}
                   </p>
                   <p
                     style={{

@@ -42,7 +42,7 @@ describe("buildPublicInstitutionProfileLinks", () => {
     const links = buildPublicInstitutionProfileLinks({
       institutionId: 1391,
       institutionName: "First Bank & Trust",
-      isAuthenticated: false,
+      isPremium: false,
     });
     expect(links.reportOfferHref).toBe(
       "/for-institutions?institution=1391&name=First+Bank+%26+Trust&src=profile#report",
@@ -51,12 +51,25 @@ describe("buildPublicInstitutionProfileLinks", () => {
     expect(links.briefHref).toBe("/subscribe?from=%2Finstitution%2F1391");
   });
 
-  it("keeps direct Pro routes for signed-in viewers", () => {
+  it("should_send_a_free_logged_in_user_to_subscribe_with_a_from_return_path", () => {
     const links = buildPublicInstitutionProfileLinks({
       institutionId: 1391,
       institutionName: "First Bank",
-      isAuthenticated: true,
+      isPremium: false,
+    });
+    expect(links.briefHref).toBe("/subscribe?from=%2Finstitution%2F1391");
+    expect(links.analyzeHref).toBe("/subscribe?from=%2Finstitution%2F1391");
+    expect(links.scenarioHref).toBe("/subscribe?from=%2Finstitution%2F1391");
+  });
+
+  it("should_keep_direct_pro_routes_for_premium_viewers", () => {
+    const links = buildPublicInstitutionProfileLinks({
+      institutionId: 1391,
+      institutionName: "First Bank",
+      isPremium: true,
     });
     expect(links.briefHref).toBe("/pro/reports?instId=1391&intent=competitive-brief");
+    expect(links.analyzeHref).toBe("/pro/analyze?instId=1391&intent=institution");
+    expect(links.scenarioHref).toBe("/pro/simulate?instId=1391");
   });
 });

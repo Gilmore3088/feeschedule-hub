@@ -169,6 +169,29 @@ function actionForSignal(signal: SignalEntry): { href: string; label: string } {
   return { href: `/pro/analyze?${params.toString()}`, label: "Analyze" };
 }
 
+/** Marks signals whose institutionId isn't a real, watchable institution (seeded demo data). */
+function SampleChip() {
+  return (
+    <span
+      className="font-label"
+      style={{
+        border: "1px solid var(--hamilton-outline-variant, rgba(216,194,184,0.45))",
+        borderRadius: "999px",
+        background: "var(--hamilton-surface-container-low, #f5f3ee)",
+        color: "var(--hamilton-text-tertiary)",
+        fontFamily: "var(--hamilton-font-sans)",
+        fontSize: "0.5625rem",
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        padding: "0.125rem 0.375rem",
+        textTransform: "uppercase",
+      }}
+    >
+      Sample
+    </span>
+  );
+}
+
 function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: boolean }) {
   const borderColor = SEVERITY_BORDER[signal.severity.toLowerCase()] ?? SEVERITY_BORDER.low;
   const isHighSeverity = signal.severity.toLowerCase() === "high";
@@ -243,6 +266,7 @@ function SignalCard({ signal, isPriority }: { signal: SignalEntry; isPriority?: 
                 {evidencePolicyLabel}
               </span>
             )}
+            {signal.sample && <SampleChip />}
           </div>
 
           {/* Institution name — large serif */}
@@ -433,21 +457,23 @@ function ComplaintRiskCard({ signal }: { signal: SignalEntry }) {
         }}
       >
         <div>
-          <span
-            className="font-label"
-            style={{
-              display: "block",
-              fontFamily: "var(--hamilton-font-sans)",
-              fontSize: "0.625rem",
-              fontWeight: 700,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "var(--hamilton-text-tertiary)",
-              marginBottom: "0.375rem",
-            }}
-          >
-            {formatSignalType(signal.signalType)}
-          </span>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem", marginBottom: "0.375rem" }}>
+            <span
+              className="font-label"
+              style={{
+                display: "block",
+                fontFamily: "var(--hamilton-font-sans)",
+                fontSize: "0.625rem",
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--hamilton-text-tertiary)",
+              }}
+            >
+              {formatSignalType(signal.signalType)}
+            </span>
+            {signal.sample && <SampleChip />}
+          </div>
           <h3
             className="font-headline"
             style={{
@@ -681,6 +707,7 @@ export function SignalFeed({
       createdAt: topAlert.createdAt,
       evidencePolicy: topAlert.evidencePolicy ?? null,
       providerCallQueued: topAlert.providerCallQueued ?? false,
+      sample: topAlert.sample ?? false,
     });
   }
 
@@ -688,8 +715,23 @@ export function SignalFeed({
     return <EmptyState selectedInstitutionId={selectedInstitutionId} />;
   }
 
+  const hasSampleSignals = allSignals.some((s) => s.sample);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+      {hasSampleSignals && (
+        <p
+          className="font-label"
+          style={{
+            fontFamily: "var(--hamilton-font-sans)",
+            fontSize: "0.75rem",
+            color: "var(--hamilton-text-tertiary)",
+            margin: 0,
+          }}
+        >
+          Sample signals until you watch an institution
+        </p>
+      )}
       {allSignals.map((signal, index) => {
         const signalTypeLower = signal.signalType.toLowerCase();
         const isComplaintRisk =
