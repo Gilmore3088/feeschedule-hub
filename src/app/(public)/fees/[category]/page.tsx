@@ -7,6 +7,7 @@ import {
   getDataFreshness,
 } from "@/lib/data-store";
 import { computeStats } from "@/lib/data-store";
+import { getCanonicalBenchmark } from "@/lib/benchmarks/canonical";
 import {
   getDisplayName,
   getFeeFamily,
@@ -112,14 +113,21 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   const tier = getFeeTier(category);
   const detail = await getFeeCategoryDetail(category);
   const freshness = await getDataFreshness();
+  const bench = await getCanonicalBenchmark(category);
 
-  // N and M share one basis: verified fees with a stated amount, and the
-  // distinct institutions those fees came from.
+  // The distribution chart still reads every priced fee row (so tiered
+  // pricing shows up in the histogram); the headline N/median/percentiles
+  // come from the canonical benchmark so this page agrees with /fees, the
+  // national fee index, and the state/district "national" column.
   const pricedFees = detail.fees.filter((f) => f.amount !== null && f.amount > 0);
   const amounts = pricedFees.map((f) => f.amount!);
-  const verifiedFeeCount = amounts.length;
-  const institutionCount = new Set(pricedFees.map((f) => f.institution_id)).size;
-  const stats = computeStats(amounts);
+  const fallbackStats = computeStats(amounts);
+  const verifiedFeeCount = bench?.observation_count ?? amounts.length;
+  const institutionCount =
+    bench?.institution_count ?? new Set(pricedFees.map((f) => f.institution_id)).size;
+  const stats = bench
+    ? { median: bench.median, p25: bench.p25, p75: bench.p75, min: bench.min, max: bench.max }
+    : fallbackStats;
 
   const familyMembers = family
     ? (FEE_FAMILIES[family] ?? []).filter((c) => c !== category)

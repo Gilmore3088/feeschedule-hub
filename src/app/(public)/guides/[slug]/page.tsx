@@ -1,16 +1,15 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatAbsoluteDate } from "@/lib/public-stats";
+import { formatAbsoluteDate, getPublicStatsSummary } from "@/lib/public-stats";
 import { notFound } from "next/navigation";
 import { GUIDES, getGuide } from "@/lib/guides";
 import {
   getFeeCategorySummaries,
   getFeeCategoryDetail,
   getDataFreshness,
-  getStats,
 } from "@/lib/data-store";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { getDisplayName, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/public/distribution-chart";
@@ -47,7 +46,7 @@ export default async function GuidePage({ params }: PageProps) {
   );
 
   const freshness = await getDataFreshness();
-  const stats = await getStats();
+  const publicStats = await getPublicStatsSummary();
 
   const primaryCategory = guide.feeCategories[0];
   const primaryDetail = await getFeeCategoryDetail(primaryCategory);
@@ -112,7 +111,7 @@ export default async function GuidePage({ params }: PageProps) {
           <span>
             Data from{" "}
             <span className="font-medium text-[#5A5347] tabular-nums">
-              {stats.total_institutions.toLocaleString()}
+              {publicStats.institutionsLabel}
             </span>{" "}
             institutions
           </span>
@@ -201,8 +200,8 @@ export default async function GuidePage({ params }: PageProps) {
                 {getDisplayName(primaryCategory)} Fee Distribution
               </h2>
               <p className="mt-1.5 text-[13px] text-[#6B6255]">
-                How {primaryAmounts.length.toLocaleString()} institutions price
-                this fee. National median:{" "}
+                Based on {primaryAmounts.length.toLocaleString()} observations
+                of this fee. National median:{" "}
                 <span className="font-medium text-[#1A1815]">
                   {formatAmount(primarySummary.median_amount)}
                 </span>
@@ -294,7 +293,7 @@ export default async function GuidePage({ params }: PageProps) {
                     National Fee Index
                   </span>
                   <span className="block text-[11px] text-[#6B6255]">
-                    All 49 fee categories benchmarked
+                    All {TAXONOMY_COUNT} fee categories benchmarked
                   </span>
                 </div>
               </Link>

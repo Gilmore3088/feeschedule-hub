@@ -1,8 +1,9 @@
 import { sql } from "./connection";
 import { getFeeFamily, FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { computeStats } from "./fees";
+import { getCanonicalBenchmarks } from "@/lib/benchmarks/canonical";
 
-/** All 49 canonical fee categories — only these appear in indexes and reports */
+/** All canonical fee categories (see TAXONOMY_COUNT in fee-taxonomy.ts) — only these appear in indexes and reports */
 const CANONICAL_CATEGORIES = Object.values(FEE_FAMILIES).flat();
 
 export interface IndexEntry {
@@ -231,9 +232,11 @@ function buildIndexEntries(
   const grouped = new Map<
     string,
     {
-      amounts: number[];
-      banks: Set<number>;
-      cus: Set<number>;
+      // Per-institution minimum priced amount — same dedupe rule as the
+      // canonical benchmark table, so a tiered fee (several rows for one
+      // institution) doesn't multiply that institution in the median.
+      minAmountByInstitution: Map<number, number>;
+      charterTypeByInstitution: Map<number, string>;
       approved: number;
       total: number;
       latest: string;
@@ -243,9 +246,8 @@ function buildIndexEntries(
   for (const row of rows) {
     if (!grouped.has(row.fee_category)) {
       grouped.set(row.fee_category, {
-        amounts: [],
-        banks: new Set(),
-        cus: new Set(),
+        minAmountByInstitution: new Map(),
+        charterTypeByInstitution: new Map(),
         approved: 0,
         total: 0,
         latest: "",
@@ -253,15 +255,14 @@ function buildIndexEntries(
     }
     const entry = grouped.get(row.fee_category)!;
     entry.total++;
+    const targetId = Number(row.institution_id);
     const amt = row.amount !== null ? Number(row.amount) : null;
     if (amt !== null && amt > 0) {
-      entry.amounts.push(amt);
-    }
-    const targetId = Number(row.institution_id);
-    if (row.charter_type === "bank") {
-      entry.banks.add(targetId);
-    } else {
-      entry.cus.add(targetId);
+      const existing = entry.minAmountByInstitution.get(targetId);
+      if (existing === undefined || amt < existing) {
+        entry.minAmountByInstitution.set(targetId, amt);
+      }
+      entry.charterTypeByInstitution.set(targetId, row.charter_type);
     }
     if (row.review_status === "approved") {
       entry.approved++;
@@ -276,8 +277,15 @@ function buildIndexEntries(
 
   const results: IndexEntry[] = [];
   for (const [category, data] of grouped.entries()) {
-    const stats = computeStats(data.amounts);
-    const institutionCount = new Set([...data.banks, ...data.cus]).size;
+    const amounts = [...data.minAmountByInstitution.values()];
+    const stats = computeStats(amounts);
+    let bankCount = 0;
+    let cuCount = 0;
+    for (const charterType of data.charterTypeByInstitution.values()) {
+      if (charterType === "bank") bankCount++;
+      else cuCount++;
+    }
+    const institutionCount = data.minAmountByInstitution.size;
 
     let maturity_tier: IndexEntry["maturity_tier"] = "insufficient";
     if (data.approved >= 10) {
@@ -297,8 +305,8 @@ function buildIndexEntries(
       institution_count: institutionCount,
       observation_count: data.total,
       approved_count: data.approved,
-      bank_count: data.banks.size,
-      cu_count: data.cus.size,
+      bank_count: bankCount,
+      cu_count: cuCount,
       maturity_tier,
       last_updated: data.latest || null,
     });
@@ -309,8 +317,15 @@ function buildIndexEntries(
 }
 
 /**
- * Read precomputed index from fee_index_cache (materialized by publish-index).
- * Falls back to live computation if cache is empty.
+ * Live national index, with its headline numbers (median/percentiles/
+ * institution_count/observation_count) overlaid from the canonical
+ * benchmark table so this always agrees with /fees, /fees/[category], and
+ * the state/district "national" column. Cached in-process for
+ * NATIONAL_INDEX_CACHE_TTL_MS with in-flight promise dedupe.
+ *
+ * This used to read a materialized fee_index_cache table that nothing in
+ * src/ writes, which is why it could silently disagree with the live pages
+ * above — removed in favor of always computing live.
  */
 const NATIONAL_INDEX_CACHE_TTL_MS = 60_000;
 let nationalIndexCache: {
@@ -328,7 +343,7 @@ export async function getNationalIndexCached(): Promise<IndexEntry[]> {
     return nationalIndexCachePromise;
   }
 
-  nationalIndexCachePromise = readNationalIndexCached()
+  nationalIndexCachePromise = buildCanonicalNationalIndex()
     .then((value) => {
       nationalIndexCache = {
         value,
@@ -342,47 +357,25 @@ export async function getNationalIndexCached(): Promise<IndexEntry[]> {
   return nationalIndexCachePromise;
 }
 
-async function readNationalIndexCached(): Promise<IndexEntry[]> {
-  try {
-    const rows = await sql`
-      SELECT * FROM fee_index_cache ORDER BY institution_count DESC` as {
-      fee_category: string;
-      fee_family: string | null;
-      median_amount: number | null;
-      p25_amount: number | null;
-      p75_amount: number | null;
-      min_amount: number | null;
-      max_amount: number | null;
-      institution_count: number;
-      observation_count: number;
-      approved_count: number;
-      bank_count: number;
-      cu_count: number;
-      maturity_tier: string;
-      computed_at: string;
-    }[];
+async function buildCanonicalNationalIndex(): Promise<IndexEntry[]> {
+  const [liveIndex, benchmarks] = await Promise.all([
+    getNationalIndex(),
+    getCanonicalBenchmarks(),
+  ]);
 
-    if (rows.length === 0) {
-      return getNationalIndex();
-    }
-
-    return rows.map((row) => ({
-      fee_category: row.fee_category,
-      fee_family: row.fee_family,
-      median_amount: row.median_amount,
-      p25_amount: row.p25_amount,
-      p75_amount: row.p75_amount,
-      min_amount: row.min_amount,
-      max_amount: row.max_amount,
-      institution_count: row.institution_count,
-      observation_count: row.observation_count,
-      approved_count: row.approved_count,
-      bank_count: row.bank_count,
-      cu_count: row.cu_count,
-      maturity_tier: row.maturity_tier as IndexEntry["maturity_tier"],
-      last_updated: row.computed_at,
-    }));
-  } catch {
-    return getNationalIndex();
-  }
+  return liveIndex.map((entry) => {
+    const bench = benchmarks[entry.fee_category];
+    if (!bench) return entry;
+    return {
+      ...entry,
+      median_amount: bench.median,
+      p25_amount: bench.p25,
+      p75_amount: bench.p75,
+      min_amount: bench.min,
+      max_amount: bench.max,
+      institution_count: bench.institution_count,
+      observation_count: bench.observation_count,
+      last_updated: bench.as_of ?? entry.last_updated,
+    };
+  });
 }

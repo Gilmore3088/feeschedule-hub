@@ -1,5 +1,6 @@
 import { sql } from "./connection";
 import type { FeeReview } from "./types";
+import { getCanonicalBenchmarks } from "@/lib/benchmarks/canonical";
 
 export interface FeeCategorySummary {
   fee_category: string;
@@ -116,21 +117,31 @@ export async function getFeeCategorySummaries(): Promise<FeeCategorySummary[]> {
     }
   }
 
+  // The one canonical benchmark table drives every headline median/n so
+  // /fees agrees with /fees/[category], the national fee index, and the
+  // state/district "national" column. bank_count/cu_count/avg_amount stay
+  // derived here since the canonical table doesn't carry charter-type
+  // breakdowns; median/percentile/institution_count/observation_count come
+  // from the canonical definition (priced = amount > 0, deduped per
+  // institution's minimum priced amount).
+  const benchmarks = await getCanonicalBenchmarks();
+
   const results: FeeCategorySummary[] = [];
   for (const [category, data] of grouped.entries()) {
     const stats = computeStats(data.amounts);
+    const bench = benchmarks[category];
     results.push({
       fee_category: category,
-      institution_count: new Set([...data.banks, ...data.cus]).size,
-      total_observations: data.total,
+      institution_count: bench?.institution_count ?? new Set([...data.banks, ...data.cus]).size,
+      total_observations: bench?.observation_count ?? data.total,
       bank_count: data.banks.size,
       cu_count: data.cus.size,
-      min_amount: stats.min,
-      max_amount: stats.max,
+      min_amount: bench?.min ?? stats.min,
+      max_amount: bench?.max ?? stats.max,
       avg_amount: stats.avg,
-      median_amount: stats.median,
-      p25_amount: stats.p25,
-      p75_amount: stats.p75,
+      median_amount: bench?.median ?? stats.median,
+      p25_amount: bench?.p25 ?? stats.p25,
+      p75_amount: bench?.p75 ?? stats.p75,
     });
   }
 
