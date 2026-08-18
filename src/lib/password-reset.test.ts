@@ -45,6 +45,7 @@ import {
   createResetToken,
   hashResetToken,
   issueReset,
+  PASSWORD_RESET_LOCK_NAMESPACE,
   RESET_REISSUE_COOLDOWN_MS,
 } from "./password-reset";
 
@@ -106,21 +107,38 @@ describe("issueReset", () => {
     expect(mocks.sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 
+  it("should_take_the_advisory_lock_before_the_cooldown_select_inside_the_transaction", async () => {
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [], [], []);
+
+    await issueReset("jane@example.com");
+
+    expect(mocks.txTag.calls.length).toBeGreaterThanOrEqual(2);
+
+    const lockCall = mocks.txTag.calls[0];
+    expect(lockCall.text).toContain("pg_advisory_xact_lock");
+    expect(lockCall.values).toEqual([PASSWORD_RESET_LOCK_NAMESPACE, 42]);
+
+    const cooldownSelectCall = mocks.txTag.calls[1];
+    expect(cooldownSelectCall.text).toContain("password_reset_tokens");
+    expect(cooldownSelectCall.text.toLowerCase()).toContain("order by created_at desc");
+  });
+
   it("should_mark_outstanding_unused_tokens_used_before_inserting_a_new_one_and_send", async () => {
-    mocks.sqlTag.queue.push([USER_ROW], [], [], []);
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [], [], []);
 
     await issueReset("Jane@Example.com");
 
-    expect(mocks.sqlTag.calls).toHaveLength(4);
-    expect(mocks.sqlTag.calls[1].text).toContain("password_reset_tokens");
-    expect(mocks.sqlTag.calls[1].text.toLowerCase()).toContain("order by created_at desc");
+    expect(mocks.sqlTag.calls).toHaveLength(1);
+    expect(mocks.txTag.calls).toHaveLength(4);
 
-    const markUsedCall = mocks.sqlTag.calls[2];
+    const markUsedCall = mocks.txTag.calls[2];
     expect(markUsedCall.text).toContain("UPDATE password_reset_tokens");
     expect(markUsedCall.text).toContain("used_at IS NULL");
     expect(markUsedCall.values).toContain(42);
 
-    const insertCall = mocks.sqlTag.calls[3];
+    const insertCall = mocks.txTag.calls[3];
     expect(insertCall.text).toContain("INSERT INTO password_reset_tokens");
 
     expect(mocks.sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
@@ -131,33 +149,37 @@ describe("issueReset", () => {
 
   it("should_skip_issuance_and_email_when_a_token_was_issued_within_the_cooldown_window", async () => {
     const recentlyIssuedAt = new Date(Date.now() - 60_000).toISOString(); // 1 minute ago
-    mocks.sqlTag.queue.push([USER_ROW], [{ created_at: recentlyIssuedAt }]);
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [{ created_at: recentlyIssuedAt }]);
 
     await issueReset("jane@example.com");
 
-    expect(mocks.sqlTag.calls).toHaveLength(2);
+    expect(mocks.txTag.calls).toHaveLength(2);
     expect(mocks.sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 
   it("should_issue_again_once_the_cooldown_window_has_elapsed", async () => {
     const staleIssuedAt = new Date(Date.now() - RESET_REISSUE_COOLDOWN_MS - 1_000).toISOString();
-    mocks.sqlTag.queue.push([USER_ROW], [{ created_at: staleIssuedAt }], [], []);
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [{ created_at: staleIssuedAt }], [], []);
 
     await issueReset("jane@example.com");
 
-    expect(mocks.sqlTag.calls).toHaveLength(4);
+    expect(mocks.txTag.calls).toHaveLength(4);
     expect(mocks.sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
   });
 
   it("should_resolve_without_waiting_for_the_email_send_to_complete", async () => {
-    mocks.sqlTag.queue.push([USER_ROW], [], [], []);
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [], [], []);
     mocks.sendPasswordResetEmailMock.mockReturnValue(new Promise(() => {})); // never resolves
 
     await expect(issueReset("jane@example.com")).resolves.toBeUndefined();
   });
 
   it("should_not_throw_when_the_fire_and_forget_email_send_rejects", async () => {
-    mocks.sqlTag.queue.push([USER_ROW], [], [], []);
+    mocks.sqlTag.queue.push([USER_ROW]);
+    mocks.txTag.queue.push([], [], [], []);
     mocks.sendPasswordResetEmailMock.mockRejectedValue(new Error("network down"));
 
     await expect(issueReset("jane@example.com")).resolves.toBeUndefined();

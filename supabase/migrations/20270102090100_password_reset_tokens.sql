@@ -15,10 +15,11 @@ CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_id_idx
   ON public.password_reset_tokens (user_id);
 
--- Speeds up the outstanding-token lookups in issueReset/consumeReset, which
--- only ever care about tokens that are still eligible for use.
-CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_unused_idx
-  ON public.password_reset_tokens (expires_at)
+-- Serves issueReset's per-user cooldown lookup (latest unused token for a
+-- user, newest first) and its "invalidate outstanding unused tokens" update
+-- (equality on user_id within the same partial predicate).
+CREATE INDEX IF NOT EXISTS password_reset_tokens_user_unused_idx
+  ON public.password_reset_tokens (user_id, created_at DESC)
   WHERE used_at IS NULL;
 
 COMMENT ON TABLE public.password_reset_tokens IS

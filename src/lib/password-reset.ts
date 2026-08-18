@@ -15,6 +15,11 @@
  * On successful consumption, all of the user's sessions are invalidated in
  * the same transaction as the password change, so a leaked/expired
  * credential can't ride an existing session past the reset.
+ *
+ * Issuance itself (cooldown check + invalidate-outstanding + insert) runs in
+ * one transaction guarded by a per-user Postgres advisory lock, so two
+ * concurrent requests for the same email can't both race past the cooldown
+ * check — the second waits for the first to commit, then sees its row.
  */
 import { createHash } from "node:crypto";
 import { sql, withTransaction } from "@/lib/data-store/connection";
@@ -23,6 +28,14 @@ import { sendPasswordResetEmail } from "@/lib/email/password-reset";
 
 const RESET_TOKEN_TTL_MINUTES = 60;
 export const RESET_REISSUE_COOLDOWN_MS = 5 * 60 * 1000;
+
+/**
+ * Arbitrary fixed namespace for `pg_advisory_xact_lock(namespace, user_id)`
+ * calls made while issuing a password reset. Any int4 works as long as it's
+ * stable and not reused by another advisory-lock caller in this codebase —
+ * there currently isn't one. Spells "PRST" (password reset) in hex.
+ */
+export const PASSWORD_RESET_LOCK_NAMESPACE = 0x50525354;
 
 export type ConsumeResetResult = "ok" | "invalid" | "expired";
 
@@ -72,31 +85,44 @@ export async function issueReset(email: string): Promise<void> {
   const user = (rows[0] as ActiveUserRow | undefined) ?? undefined;
   if (!user || !user.email) return;
 
-  const recentRows = await sql`
-    SELECT created_at FROM password_reset_tokens
-    WHERE user_id = ${user.id}
-    ORDER BY created_at DESC
-    LIMIT 1
-  `;
-  const lastIssuedAt = (recentRows[0] as { created_at: string | Date } | undefined)?.created_at;
-  if (isWithinCooldown(lastIssuedAt)) return;
+  const issuedToken = await withTransaction(async (tx) => {
+    // Serialize concurrent issuers for this user first: the second call
+    // blocks here until the first commits, so its cooldown check below sees
+    // the first call's freshly-inserted row instead of racing past it.
+    await tx`SELECT pg_advisory_xact_lock(${PASSWORD_RESET_LOCK_NAMESPACE}, ${user.id})`;
 
-  await sql`
-    UPDATE password_reset_tokens SET used_at = NOW()
-    WHERE user_id = ${user.id} AND used_at IS NULL
-  `;
+    const recentRows = await tx`
+      SELECT created_at FROM password_reset_tokens
+      WHERE user_id = ${user.id} AND used_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    const lastIssuedAt = (recentRows[0] as { created_at: string | Date } | undefined)?.created_at;
+    if (isWithinCooldown(lastIssuedAt)) return null;
 
-  const { token, tokenHash, expiresAt } = createResetToken();
+    await tx`
+      UPDATE password_reset_tokens SET used_at = NOW()
+      WHERE user_id = ${user.id} AND used_at IS NULL
+    `;
 
-  await sql`
-    INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
-    VALUES (${user.id}, ${tokenHash}, ${expiresAt})
-  `;
+    const { token, tokenHash, expiresAt } = createResetToken();
 
-  // Fire-and-forget: awaiting the provider call here would let the
-  // hit/no-hit branches diverge in response time by the email API's
-  // latency instead of just the fixed DB work above.
-  void sendPasswordResetEmail({ to: user.email, token }).catch(() => undefined);
+    await tx`
+      INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+      VALUES (${user.id}, ${tokenHash}, ${expiresAt})
+    `;
+
+    return token;
+  });
+
+  if (!issuedToken) return;
+
+  // Fire-and-forget, and deliberately outside the transaction: the email
+  // provider round trip must not hold the advisory lock or the DB
+  // transaction open, and awaiting it here would let the hit/no-hit
+  // branches diverge in response time by the provider's latency instead of
+  // just the fixed DB work above.
+  void sendPasswordResetEmail({ to: user.email, token: issuedToken }).catch(() => undefined);
 }
 
 export async function consumeReset(
