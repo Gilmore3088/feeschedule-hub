@@ -95,7 +95,7 @@ export default async function FeeRevenueAnalysisPage() {
 
       {!isPremium && (
         <div className="mt-8 max-w-3xl">
-          <UpgradeGate message="Fee-to-Revenue Analysis" />
+          <UpgradeGate message="Fee-to-Revenue Analysis" compact />
         </div>
       )}
 

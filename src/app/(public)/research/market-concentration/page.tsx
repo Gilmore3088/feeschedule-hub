@@ -104,7 +104,7 @@ export default async function MarketConcentrationPage() {
 
       {!isPremium && (
         <div className="mt-8 max-w-3xl">
-          <UpgradeGate message="Market Concentration Analysis" />
+          <UpgradeGate message="Market Concentration Analysis" compact />
         </div>
       )}
 

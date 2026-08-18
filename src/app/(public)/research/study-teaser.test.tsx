@@ -9,7 +9,7 @@ const HIGHLIGHTS = [
 ];
 
 describe("StudyTeaser", () => {
-  it("should_render_h1_abstract_highlights_and_a_single_pricing_link", () => {
+  it("should_render_h1_abstract_and_highlights_without_its_own_pricing_link", () => {
     render(
       <StudyTeaser
         title="Fee-to-Revenue Analysis"
@@ -28,9 +28,12 @@ describe("StudyTeaser", () => {
       expect(screen.getByText(highlight.value)).toBeInTheDocument();
     }
 
-    const pricingLinks = screen.getAllByRole("link", { name: /see pricing/i });
-    expect(pricingLinks).toHaveLength(1);
-    expect(pricingLinks[0]).toHaveAttribute("href", "/subscribe");
+    // StudyTeaser must never render its own pricing CTA: the calling page
+    // renders exactly one <UpgradeGate /> right after this component for
+    // non-premium visitors, and that is the single page-level pricing CTA.
+    // Regression guard for a bug where both StudyTeaser and UpgradeGate
+    // rendered a "See pricing" link, producing two on the composed page.
+    expect(screen.queryAllByRole("link", { name: /see pricing/i })).toHaveLength(0);
   });
 
   it("should_render_optional_chart_node_when_provided", () => {

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 export interface StudyHighlight {
@@ -19,6 +18,10 @@ interface StudyTeaserProps {
  * anonymous visitors and search engines see real research before the
  * paywall. The full dataset (correlation tables, methodology detail) stays
  * behind <UpgradeGate /> below this component.
+ *
+ * Deliberately renders no pricing/subscribe CTA of its own — the calling
+ * page renders exactly one <UpgradeGate /> immediately after this component
+ * for non-premium visitors, and that is the single page-level pricing CTA.
  */
 export function StudyTeaser({ title, abstract, highlights, chart }: StudyTeaserProps) {
   return (
@@ -63,16 +66,6 @@ export function StudyTeaser({ title, abstract, highlights, chart }: StudyTeaserP
           </table>
         </div>
       )}
-
-      <div className="mt-4">
-        <Link
-          href="/subscribe"
-          className="inline-flex items-center gap-1.5 text-sm font-bold text-[#A93D25] hover:underline"
-        >
-          See pricing
-          <span aria-hidden="true">&rarr;</span>
-        </Link>
-      </div>
     </div>
   );
 }
