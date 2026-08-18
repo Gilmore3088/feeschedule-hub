@@ -105,7 +105,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   return (
     <main className="min-h-screen bg-[#FAF7F2] text-[#1A1815]">
       <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9">
-        <section className="fi-reveal border-b border-[#D8CBB8] pb-6">
+        <section className="fi-reveal relative z-20 border-b border-[#D8CBB8] pb-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
