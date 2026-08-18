@@ -1,6 +1,7 @@
 import type { BadgeTier } from "@/lib/institution-badge";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { PRODUCT_NAME, REPORT_OFFER, SITE_NAME } from "@/lib/constants";
+import { formatNumber } from "@/lib/format";
 
 /** One name, one price, one turnaround — matches the plan's report offer. */
 export const COMPETITIVE_FEE_POSITION_REPORT = {
@@ -37,12 +38,15 @@ export const METHODOLOGY_COPY = [
  * counts and copy only, never the provisional rows themselves.
  */
 export function underReviewDetailsCopy(count: number): string {
-  return `${count} more fees have been collected from this institution's schedule and are being verified. Verified fees appear above as they clear review.`;
+  return `${formatNumber(count)} more fees have been collected from this institution's schedule and are being verified. Verified fees appear above as they clear review.`;
 }
 
 /**
  * Metadata description for the profile page's `<head>`, honest about tier:
  * only a verified profile claims "verified against its own fee schedule."
+ * Drops the "— N fees collected" clause entirely when there is nothing to
+ * count (e.g. a "partial" tier with 1-4 published fees and no backlog) —
+ * never renders "0 fees collected."
  */
 export function buildProfileDescription({
   tier,
@@ -59,5 +63,6 @@ export function buildProfileDescription({
   if (tier === "none") {
     return `No published fee schedule on file yet for ${nameAndPlace}. ${SITE_NAME} tracks bank and credit union fees as they are published.`;
   }
-  return `Fee schedule under review — ${provisionalCount} fees collected for ${nameAndPlace}. ${SITE_NAME} tracks bank and credit union fees as they clear review.`;
+  const collectedClause = provisionalCount > 0 ? ` — ${formatNumber(provisionalCount)} fees collected` : "";
+  return `Fee schedule under review${collectedClause} for ${nameAndPlace}. ${SITE_NAME} tracks bank and credit union fees as they clear review.`;
 }

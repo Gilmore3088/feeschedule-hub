@@ -12,6 +12,7 @@ import { computeInstitutionRating, generateInterpretation } from "@/lib/institut
 import { institutionBadge } from "@/lib/institution-badge";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { buildPublicInstitutionProfileLinks } from "@/lib/institution-profile-links";
+import { formatNumber } from "@/lib/format";
 import { formatAbsoluteDate } from "@/lib/public-stats";
 import { getCharterLabel, getSegmentLabel, toTitleCase } from "./enum-labels";
 import { FeeScheduleTable } from "./fee-schedule-table";
@@ -72,7 +73,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const badge = institutionBadge({
     published: inst.published_fee_count ?? 0,
     provisional: inst.provisional_fee_count ?? 0,
-    hasSource: Boolean(inst.fee_schedule_url),
+    hasSource: Boolean(inst.fee_schedule_url) || Boolean(inst.latest_source_status),
   });
   const description = buildProfileDescription({
     tier: badge.tier,
@@ -129,7 +130,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const badge = institutionBadge({
     published: verifiedCount,
     provisional: underReviewCount,
-    hasSource: Boolean(inst.fee_schedule_url),
+    hasSource: Boolean(inst.fee_schedule_url) || Boolean(inst.latest_source_status),
   });
 
   const nationalIndex =
@@ -138,7 +139,12 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const enoughForNarrative = verifiedFees.length >= MIN_VERIFIED_FEES_FOR_NARRATIVE;
   const showNarrative = rating !== null && enoughForNarrative;
   const thinProfile = verifiedFees.length < MIN_VERIFIED_FEES_FOR_OFFER;
-  const scoreLabel = rating && verifiedFees.length >= MIN_VERIFIED_FEES_FOR_OFFER ? rating.label : null;
+  // Public profiles stay facts-only — rating.label is an adjective verdict
+  // ("Consumer-Friendly" / "Above-Average Fees") reserved for a commissioned
+  // report or a future admin/Pro surface, never this page. The metric row's
+  // scoreLabel prop stays wired for that future surface; here it's always
+  // null, so the tile never renders (see InstitutionMetricRow).
+  const scoreLabel: string | null = null;
   const headline = pickHeadlineFees(verifiedFees);
   const interpretation =
     showNarrative && rating
@@ -221,7 +227,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
           {underReviewCount > 0 && (
             <details className="fi-reveal fi-reveal-delay-1 mb-5 border border-[#E0D7C9] bg-[#FDFBF8] px-4 py-3 text-sm text-[#5A5347] sm:px-5">
               <summary className="cursor-pointer font-semibold text-[#1A1815]">
-                What&rsquo;s under review ({underReviewCount})
+                What&rsquo;s under review ({formatNumber(underReviewCount)})
               </summary>
               <p className="mt-2 leading-relaxed">{underReviewDetailsCopy(underReviewCount)}</p>
             </details>

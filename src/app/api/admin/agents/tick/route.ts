@@ -104,7 +104,19 @@ async function handleGET(request: NextRequest) {
   });
   const scheduledLinkCheck = await scheduleDueLinkCheckRun({
     triggeredBy: "api.admin.agents.tick",
-  }).catch(() => null);
+  }).then(
+    (scheduled) =>
+      scheduled
+        ? { scheduled: scheduled.scheduled, runId: scheduled.run.id }
+        : { scheduled: false, runId: null },
+    // Surface scheduler failures in the tick response instead of swallowing them —
+    // an operator watching the tick endpoint should see why link-check didn't run.
+    (error: unknown) => ({
+      scheduled: false,
+      runId: null,
+      reason: error instanceof Error ? error.message : String(error),
+    }),
+  );
   const result = await executeQueuedAgentRuns({
     runLimit,
     maxStepsPerRun,
@@ -115,9 +127,7 @@ async function handleGET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     scheduledStateLanes,
-    scheduledLinkCheck: scheduledLinkCheck
-      ? { scheduled: scheduledLinkCheck.scheduled, runId: scheduledLinkCheck.run.id }
-      : { scheduled: false, runId: null },
+    scheduledLinkCheck,
     ...result,
   });
 }

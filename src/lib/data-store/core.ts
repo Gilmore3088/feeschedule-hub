@@ -1,6 +1,6 @@
 import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
-import { SEARCH_QUALITY_CTE } from "./quality-cte";
+import { buildQualityCte } from "./quality-cte";
 import {
   classifyInstitutionQuality,
   getFeePublicationStatus,
@@ -227,61 +227,19 @@ export async function getInstitutionsByFilter(filters: {
   return { rows, total: Number(countResult[0].cnt) };
 }
 
+/**
+ * Admin institution detail lookup. Shares `buildQualityCte`'s scoped
+ * (single-institution) form with `getPublicInstitutionById` below — one CTE
+ * definition, so the two surfaces can never drift on how counts are
+ * computed. `fee_count` here includes pipeline (verified-unpublished +
+ * raw-unverified) rows, since the admin surface is allowed to reflect them.
+ */
 export async function getInstitutionById(id: number): Promise<InstitutionDetail | null> {
-  const [row] = await sql<(InstitutionDetail & {
+  const rows = await sql.unsafe<(InstitutionDetail & {
     latest_source_error?: string | null;
     latest_source_collected_at?: string | Date | null;
-  })[]>`
-    WITH catalog_counts AS (
-      SELECT
-        institution_id,
-        COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count,
-        COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count,
-        COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS visible_fee_count
-      FROM published_fee_catalog
-      WHERE institution_id = ${id}
-      GROUP BY institution_id
-    ),
-    verified_unpublished_counts AS (
-      SELECT
-        fv.institution_id,
-        COUNT(*)::int AS verified_unpublished_fee_count
-      FROM verified_fee_observations fv
-      WHERE fv.institution_id = ${id}
-        AND fv.review_status <> 'rejected'
-        AND NOT EXISTS (
-          SELECT 1
-          FROM published_fee_catalog pfc
-          WHERE pfc.fee_verified_id = fv.fee_verified_id
-            AND pfc.review_status <> 'rejected'
-        )
-      GROUP BY fv.institution_id
-    ),
-    raw_unverified_counts AS (
-      SELECT
-        fr.institution_id,
-        COUNT(*)::int AS raw_unverified_fee_count
-      FROM raw_fee_observations fr
-      WHERE fr.institution_id = ${id}
-        AND NOT EXISTS (
-          SELECT 1
-          FROM verified_fee_observations fv
-          WHERE fv.fee_raw_id = fr.fee_raw_id
-            AND fv.review_status <> 'rejected'
-        )
-      GROUP BY fr.institution_id
-    ),
-    latest_docs AS (
-      SELECT DISTINCT ON (institution_id)
-        institution_id,
-        status AS latest_source_status,
-        COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
-        error_message AS latest_source_error,
-        crawled_at AS latest_source_collected_at
-      FROM source_documents
-      WHERE institution_id = ${id}
-      ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
-    )
+  })[]>(
+    `${buildQualityCte({ institutionId: id })}
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,
@@ -306,28 +264,34 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
     LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
     LEFT JOIN raw_unverified_counts ruc ON ruc.institution_id = ct.id
     LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
-    WHERE ct.id = ${id}
-  `;
+    WHERE ct.id = $1`,
+    [id],
+  );
+  const [row] = rows;
   if (!row) return null;
   return mapInstitutionDetailRow(row);
 }
 
 /**
- * Public institution profile lookup. Uses the same three-CTE fee-tier counts
- * as the directory (`searchInstitutions`/`autocompleteInstitutions`) so
- * `published_fee_count`/`provisional_fee_count` on the profile page always
- * agree with what the directory shows — `provisional_fee_count` reflects the
- * full verified-unpublished + raw-unverified backlog, not just the
- * catalog-only count (which is always zero, since `published_fee_catalog`
- * hard-codes `review_status = 'approved'`). `fee_count` stays catalog-only
- * (it gates whether the page loads pipeline preview evidence).
+ * Public institution profile lookup. Uses the same scoped three-CTE
+ * fee-tier counts as `getInstitutionById` (admin) and, unscoped, the
+ * directory (`searchInstitutions`/`autocompleteInstitutions`) — one CTE
+ * definition (`buildQualityCte`) — so `published_fee_count`/
+ * `provisional_fee_count` on the profile page always agree with what the
+ * directory shows. `provisional_fee_count` reflects the full
+ * verified-unpublished + raw-unverified backlog, not just the catalog-only
+ * count (which is always zero, since `published_fee_catalog` hard-codes
+ * `review_status = 'approved'`). `fee_count` stays catalog-only (it gates
+ * whether the page loads pipeline preview evidence). Scoping the CTE to
+ * this one institution (rather than aggregating the whole catalog + tier
+ * views and filtering the outer query) keeps a single profile view cheap.
  */
 export async function getPublicInstitutionById(id: number): Promise<InstitutionDetail | null> {
   const rows = await sql.unsafe<(InstitutionDetail & {
     latest_source_error?: string | null;
     latest_source_collected_at?: string | Date | null;
   })[]>(
-    `${SEARCH_QUALITY_CTE}
+    `${buildQualityCte({ institutionId: id })}
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,

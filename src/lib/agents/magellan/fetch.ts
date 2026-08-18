@@ -13,7 +13,7 @@ type Fetcher = typeof fetch;
 export const MAGELLAN_FETCH_DEFAULT_LIMIT = 25;
 export const MAGELLAN_FETCH_MAX_LIMIT = 50;
 
-const USER_AGENT = "AiBI-Magellan/1.0 (+https://theaibankinginstitute.com)";
+export const USER_AGENT = "AiBI-Magellan/1.0 (+https://theaibankinginstitute.com)";
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 
@@ -71,7 +71,7 @@ function boundedLimit(value: unknown): number {
   return Math.min(Math.max(Math.floor(parsed), 1), MAGELLAN_FETCH_MAX_LIMIT);
 }
 
-function normalizeHttpUrl(value: string | null): string | null {
+export function normalizeHttpUrl(value: string | null): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
 

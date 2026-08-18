@@ -1,4 +1,5 @@
 import { MIN_VERIFIED_FEES_FOR_OFFER } from "@/app/(public)/institution/[id]/profile-copy";
+import { formatNumber } from "@/lib/format";
 
 /**
  * Institution-level verification badge shown on the public profile hero and
@@ -30,15 +31,15 @@ export function institutionBadge({
     return {
       tier: "verified",
       label: "Verified",
-      detail: `${published.toLocaleString("en-US")} fees verified against the institution's own published fee schedule.`,
+      detail: `${formatNumber(published)} fees verified against the institution's own published fee schedule.`,
     };
   }
 
   if (published > 0) {
     return {
       tier: "partial",
-      label: `Partially verified (${published} of ${MIN_VERIFIED_FEES_FOR_OFFER})`,
-      detail: `${published} of ${MIN_VERIFIED_FEES_FOR_OFFER} fees needed for a full verified profile have cleared review.`,
+      label: `Partially verified (${formatNumber(published)} of ${formatNumber(MIN_VERIFIED_FEES_FOR_OFFER)})`,
+      detail: `${formatNumber(published)} of ${formatNumber(MIN_VERIFIED_FEES_FOR_OFFER)} fees needed for a full verified profile have cleared review.`,
     };
   }
 
@@ -48,7 +49,7 @@ export function institutionBadge({
       label: "Under review",
       detail:
         provisional > 0
-          ? `${provisional.toLocaleString("en-US")} fees have been collected from this institution's schedule and are being verified.`
+          ? `${formatNumber(provisional)} fees have been collected from this institution's schedule and are being verified.`
           : "A fee schedule source is on file for this institution and is being reviewed.",
     };
   }

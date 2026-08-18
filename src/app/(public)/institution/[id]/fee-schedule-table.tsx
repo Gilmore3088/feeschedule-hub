@@ -1,10 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { FEE_FAMILIES, getFeeFamily } from "@/lib/fee-taxonomy";
 import { formatDate, formatFeeAmount } from "@/lib/format";
+import { LINK_UNAVAILABLE_STATUS_THRESHOLD } from "@/lib/link-health";
 import { getFrequencyLabel } from "./enum-labels";
-
-/** HTTP status at/above which a fee's source link is reported unavailable (mirrors Magellan's link-check threshold). */
-const LINK_UNAVAILABLE_STATUS_THRESHOLD = 400;
 
 export interface DisplayFee {
   id: string;
@@ -178,7 +176,7 @@ function SourceLine({
       </a>
       {publishedLabel && <span className="text-[#6B6255]">&middot; published {publishedLabel}</span>}
       {linkUnavailable && (
-        <span className="text-[#A93D25]">(link currently unavailable &mdash; archived copy on request)</span>
+        <span className="text-[#A93D25]">(link currently unavailable)</span>
       )}
     </span>
   );

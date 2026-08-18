@@ -342,17 +342,24 @@ async function executeAgenticStep(
     case "link_check": {
       const linkCheck = await runLinkCheck(run.id, {
         limit: numericRunParam(params, ["link_check_limit", "limit", "size"]),
+        maxDurationMs: numericRunParam(params, ["link_check_max_duration_ms", "max_duration_ms"]),
       });
+      const stoppedEarlyNote = linkCheck.stoppedEarly
+        ? ` (stopped early on budget — ${linkCheck.remaining.toLocaleString()} remaining for the next run)`
+        : "";
       return {
         status: "completed",
-        summary: `Magellan checked ${linkCheck.processed.toLocaleString()} source document links backing published fees (${linkCheck.checked.toLocaleString()} reachable, ${linkCheck.unavailable.toLocaleString()} unavailable, ${linkCheck.failed.toLocaleString()} failed, ${linkCheck.skipped.toLocaleString()} skipped).`,
+        summary: `Magellan checked ${linkCheck.processed.toLocaleString()} source document links backing published fees (${linkCheck.checked.toLocaleString()} reachable, ${linkCheck.unavailable.toLocaleString()} unavailable, ${linkCheck.failed.toLocaleString()} failed, ${linkCheck.skipped.toLocaleString()} skipped)${stoppedEarlyNote}.`,
         detail: {
           selected_documents: linkCheck.selected,
           processed_documents: linkCheck.processed,
+          checked: linkCheck.checked,
           reachable_documents: linkCheck.checked,
           unavailable_documents: linkCheck.unavailable,
           failed_checks: linkCheck.failed,
           skipped_checks: linkCheck.skipped,
+          remaining: linkCheck.remaining,
+          stoppedEarly: linkCheck.stoppedEarly,
           link_check_limit: linkCheck.limit,
           sample_results: linkCheck.results.slice(0, 10).map((result) => ({
             source_document_id: result.sourceDocumentId,
@@ -361,6 +368,7 @@ async function executeAgenticStep(
             outcome: result.outcome,
             status_code: result.statusCode,
             reason: result.reason,
+            retried: result.retried,
           })),
         },
       };
