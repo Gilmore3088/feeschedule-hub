@@ -1,8 +1,10 @@
 "use client";
 
 import { createCheckoutSession } from "@/lib/stripe-actions";
+import { CONTACT_EMAIL } from "@/lib/constants";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { stripCheckoutParam } from "./checkout-url";
 
 interface SubscribeButtonProps {
   priceId: string;
@@ -17,6 +19,8 @@ interface SubscribeButtonProps {
 const DEFAULT_CLASS =
   "w-full rounded-md bg-[#C44B2E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#A93D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors";
 
+const NO_PRICE_ID_ERROR = `Checkout is not available right now. Email ${CONTACT_EMAIL} and we'll set up your seat.`;
+
 export function SubscribeButton({
   priceId,
   mode = "subscription",
@@ -26,9 +30,14 @@ export function SubscribeButton({
   autoStart = false,
 }: SubscribeButtonProps) {
   const router = useRouter();
-  // When auto-starting, render as pending from the first paint.
-  const [pending, setPending] = useState(autoStart);
-  const [error, setError] = useState<string | null>(null);
+  // A misconfigured price id is knowable at mount time from props alone, so
+  // it is derived here rather than discovered inside an effect.
+  const missingAutoStartPriceId = autoStart && !priceId;
+  // When auto-starting with a usable price id, render as pending from the first paint.
+  const [pending, setPending] = useState(autoStart && !missingAutoStartPriceId);
+  const [error, setError] = useState<string | null>(
+    missingAutoStartPriceId ? NO_PRICE_ID_ERROR : null,
+  );
   const autoStarted = useRef(false);
 
   const startCheckout = useCallback(async () => {
@@ -37,7 +46,15 @@ export function SubscribeButton({
     try {
       const { url } = await createCheckoutSession(priceId, mode, returnTo);
       if (url) {
-        window.location.href = url;
+        // Replace the current history entry with the checkout-stripped URL
+        // first, so pressing Back after the Stripe hand-off never returns to
+        // an auto-redirecting `?checkout=1` URL.
+        window.history.replaceState(
+          null,
+          "",
+          stripCheckoutParam(window.location.pathname + window.location.search),
+        );
+        window.location.assign(url);
       } else {
         setError("Could not create checkout. Please try again.");
         setPending(false);

@@ -70,7 +70,7 @@ describe("createCheckoutSession", () => {
         success_url:
           "https://feeinsight.com/account/welcome?success=true&from=%2Fpro%2Freports%3FinstId%3D2945%26intent%3Dcompetitive-brief",
         cancel_url:
-          "https://feeinsight.com/subscribe?from=%2Fpro%2Freports%3FinstId%3D2945%26intent%3Dcompetitive-brief",
+          "https://feeinsight.com/subscribe?from=%2Fpro%2Freports%3FinstId%3D2945%26intent%3Dcompetitive-brief&checkout=canceled",
         metadata: expect.objectContaining({
           user_id: "7",
           email: "owner@example.com",
@@ -88,7 +88,7 @@ describe("createCheckoutSession", () => {
     expect(mocks.stripeCheckoutCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         success_url: "https://feeinsight.com/account/welcome?success=true",
-        cancel_url: "https://feeinsight.com/subscribe",
+        cancel_url: "https://feeinsight.com/subscribe?checkout=canceled",
         metadata: expect.not.objectContaining({
           return_to: expect.any(String),
         }),

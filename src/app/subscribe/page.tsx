@@ -12,6 +12,7 @@ import { getPublicStatsSummary } from "@/lib/public-stats";
 import { SITE_NAME } from "@/lib/constants";
 import { HamiltonBenchmarkPreview } from "@/app/for-institutions/hamilton-benchmark-preview";
 import { HAMILTON_CANONICAL, PRO_SECTION_TITLE, PRO_SUBHEAD } from "@/app/for-institutions/hamilton-copy";
+import { checkoutNotice } from "./checkout-url";
 import { ProPlanCards } from "./pro-plan-cards";
 import { AdvisoryCard, FreeTierCard, PricingFaq, ReportCard } from "./pricing-sections";
 import {
@@ -38,7 +39,7 @@ interface SubscribeSearchParams {
   invite?: string;
   from?: string;
   plan?: string;
-  /** "1" right after signup: start checkout for ?plan= without another click. */
+  /** "1" right after signup starts checkout; "canceled" is Stripe's cancel-return leg. */
   checkout?: string;
 }
 
@@ -67,6 +68,7 @@ export default async function SubscribePage({
   const returnTo = params.from ? sanitizeInternalRedirect(params.from, WELCOME_PATH) : null;
   const requestedPlan: ProPlan | null = isProPlan(params.plan) ? params.plan : null;
   const checkoutRequested = params.checkout === "1";
+  const checkoutCanceled = checkoutNotice({ ...params }) === "canceled";
 
   if (user && canAccessPremium(user)) {
     redirect(returnTo && returnTo !== WELCOME_PATH ? returnTo : "/account");
@@ -153,6 +155,11 @@ export default async function SubscribePage({
               <p className="mt-2 text-sm leading-relaxed text-[#5A5347]">{PRO_SUBHEAD}</p>
             </div>
             <HamiltonBenchmarkPreview className="mb-5" />
+            {checkoutCanceled && (
+              <div className="mb-5 rounded-md border border-[#E0D7C9] bg-[#FDFBF8] px-4 py-3 text-center text-sm text-[#5A5347]">
+                Checkout cancelled — nothing was charged. Pick a plan whenever you&apos;re ready.
+              </div>
+            )}
             <ProPlanCards
               features={features}
               isLoggedIn={isLoggedIn}

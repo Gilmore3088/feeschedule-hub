@@ -29,6 +29,9 @@ export async function createCheckoutSession(
   const cancelPath = cancelParams.toString()
     ? `/subscribe?${cancelParams.toString()}`
     : "/subscribe";
+  // Marks the cancel-return leg so the subscribe page can show a quiet
+  // "nothing was charged" notice instead of auto-starting checkout again.
+  const cancelUrl = `${origin}${cancelPath}${cancelPath.includes("?") ? "&" : "?"}checkout=canceled`;
 
   const session = await stripe.checkout.sessions.create({
     mode,
@@ -36,7 +39,7 @@ export async function createCheckoutSession(
     customer: user.stripe_customer_id || undefined,
     customer_email: user.stripe_customer_id ? undefined : (user.email || user.username),
     success_url: `${origin}/account/welcome?${successParams.toString()}`,
-    cancel_url: `${origin}${cancelPath}`,
+    cancel_url: cancelUrl,
     metadata: {
       user_id: String(user.id),
       email: user.email || user.username,
