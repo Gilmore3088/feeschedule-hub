@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
 import {
   classifySample,
   trimOutliers,
@@ -68,5 +70,14 @@ describe("sample policy", () => {
     expect(trimOutliers([])).toEqual({ kept: [], flagged: [] });
     expect(histogramWindow([])).toEqual({ lo: 0, hi: 0 });
     expect(dedupePerInstitution([])).toEqual([]);
+  });
+
+  it("should_never_import_data_store_since_this_module_is_used_by_a_client_component", () => {
+    // sample-policy.ts is imported by DistributionChart ("use client"). A
+    // data-store import here (directly or via ./fees) pulls `postgres` and
+    // Node built-ins into the browser bundle and breaks `npm run build`
+    // ("Module not found: Can't resolve 'net'/'tls'/'fs'/'perf_hooks'").
+    const source = readFileSync(join(__dirname, "sample-policy.ts"), "utf-8");
+    expect(source).not.toMatch(/data-store/);
   });
 });

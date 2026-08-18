@@ -1,4 +1,4 @@
-import { computePercentile } from "@/lib/data-store/fees";
+import { computePercentile } from "@/lib/benchmarks/percentile";
 
 /**
  * Small-n and outlier policy shared by every page that renders a fee

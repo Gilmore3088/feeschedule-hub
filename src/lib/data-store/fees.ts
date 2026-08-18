@@ -1,6 +1,14 @@
 import { sql } from "./connection";
 import type { FeeReview } from "./types";
 import { getCanonicalBenchmarks } from "@/lib/benchmarks/canonical";
+import { computePercentile } from "@/lib/benchmarks/percentile";
+
+// Re-exported so existing importers of `computePercentile` from this module
+// keep working. The actual implementation lives in a DB-free module
+// (`@/lib/benchmarks/percentile`) so client components can depend on it
+// without pulling in `postgres` and Node built-ins. See that module for
+// the "why" — do not move it back here.
+export { computePercentile };
 
 export interface FeeCategorySummary {
   fee_category: string;
@@ -48,16 +56,6 @@ export interface FeeChangeEvent {
   new_amount: number | null;
   change_type: string;
   detected_at: string;
-}
-
-export function computePercentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  if (sorted.length === 1) return sorted[0];
-  const idx = (p / 100) * (sorted.length - 1);
-  const lo = Math.floor(idx);
-  const hi = Math.ceil(idx);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (idx - lo) * (sorted[hi] - sorted[lo]);
 }
 
 export function computeStats(amounts: number[]): {

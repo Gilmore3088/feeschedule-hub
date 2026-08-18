@@ -1,6 +1,6 @@
 import { sql } from "@/lib/data-store/connection";
 import { getDataFreshness } from "@/lib/data-store/core";
-import { computePercentile } from "@/lib/data-store/fees";
+import { computePercentile } from "@/lib/benchmarks/percentile";
 import { classifySample, trimOutliers, type SampleClass } from "./sample-policy";
 
 /**
