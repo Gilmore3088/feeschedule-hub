@@ -10,6 +10,7 @@ import { getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { DISPLAY_NAMES } from "@/lib/fee-taxonomy";
 import { sql } from "@/lib/data-store/connection";
 import { generateGlobalThesis } from "./generate";
+import { deriveThesisStatus } from "./customer-error";
 import type { ThesisOutput, ThesisSummaryPayload } from "./types";
 import type { HamiltonEvidencePolicy } from "@/lib/hamilton/request-contract";
 
@@ -66,16 +67,6 @@ export interface PositioningEntry {
  * "unavailable": thesis generation failed for any other reason.
  */
 export type ThesisStatus = "current" | "paused" | "unavailable";
-
-export interface HomeBriefingData {
-  thesis: ThesisOutput | null;
-  thesisStatus: ThesisStatus;
-  confidence: "high" | "medium" | "low";
-  positioning: PositioningEntry[];
-  spotlightCount: number;
-  totalInstitutions: number;
-  recommendedCategory: string | null;
-}
 
 /** DB-only portion of the Home briefing — no provider calls, safe to cache. */
 export interface HomeBriefingSummary {
@@ -227,7 +218,7 @@ export async function fetchHomeThesis(
       errorType,
       scope: "monthly_pulse",
     });
-    thesisStatus = /Emergency stop/i.test(errorMessage) ? "paused" : "unavailable";
+    thesisStatus = deriveThesisStatus(errorMessage);
     thesis = null;
   }
 
@@ -254,30 +245,6 @@ export async function fetchHomeThesis(
   return {
     thesis,
     thesisStatus: thesis ? "current" : thesisStatus,
-    recommendedCategory,
-  };
-}
-
-/**
- * Fetch all data needed for the Hamilton Home / Executive Briefing screen.
- * Convenience wrapper combining fetchHomeBriefingSummary + fetchHomeThesis.
- * Callers that need independent cache control over the DB summary vs. the
- * provider-backed thesis (per D-09) should call those two functions directly
- * instead — see hamilton/page.tsx.
- */
-export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
-  const summary = await fetchHomeBriefingSummary();
-  const { thesis, thesisStatus, recommendedCategory } = await fetchHomeThesis(
-    summary.thesisSummaryPayload,
-  );
-
-  return {
-    thesis,
-    thesisStatus,
-    confidence: summary.confidence,
-    positioning: summary.positioning,
-    spotlightCount: summary.spotlightCount,
-    totalInstitutions: summary.totalInstitutions,
     recommendedCategory,
   };
 }

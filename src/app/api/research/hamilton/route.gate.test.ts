@@ -230,7 +230,9 @@ describe("POST /api/research/hamilton — citation gate", () => {
 
     expect(res.status).toBe(423);
     const body = await res.json();
-    expect(body.error).toContain("Provider circuit is open");
+    expect(body.code).toBe("paused");
+    expect(body.error).toMatch(/paused/i);
+    expect(body.error).not.toMatch(/Anthropic|credit|circuit/i);
     expect(generateTextMock).not.toHaveBeenCalled();
   });
 
@@ -249,6 +251,8 @@ describe("POST /api/research/hamilton — citation gate", () => {
 
     expect(res.status).toBe(423);
     const body = await res.json();
-    expect(body.error).toContain("Provider circuit is open");
+    expect(body.code).toBe("paused");
+    expect(body.error).toMatch(/paused/i);
+    expect(body.error).not.toMatch(/Anthropic|credit|circuit/i);
   });
 });

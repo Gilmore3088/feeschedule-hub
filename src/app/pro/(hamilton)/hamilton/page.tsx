@@ -13,19 +13,60 @@ import { WhatChangedCard } from "@/components/hamilton/home/WhatChangedCard";
 import { PriorityAlertsCard } from "@/components/hamilton/home/PriorityAlertsCard";
 import { MonitorFeedPreview } from "@/components/hamilton/home/MonitorFeedPreview";
 import { RecommendedActionCard } from "@/components/hamilton/home/RecommendedActionCard";
-import type { HomeBriefingSignals } from "@/lib/hamilton/home-data";
+import type { HomeBriefingSignals, HomeThesisResult } from "@/lib/hamilton/home-data";
+import type { ThesisSummaryPayload } from "@/lib/hamilton/types";
 
 export const dynamic = "force-dynamic";
 
+const THESIS_CACHE_REVALIDATE_SECONDS = 300;
+
 // Numeric summary (positioning, confidence, institution counts) is DB-only —
-// safe to cache for a full day. The thesis narrative calls the AI provider
-// and is fetched fresh below (fetchHomeThesis, not wrapped in unstable_cache)
-// so a maintenance-window pause never gets memoized as a day-long outage.
+// safe to cache for a full day.
 const getCachedHomeBriefingSummary = unstable_cache(
   fetchHomeBriefingSummary,
   ["hamilton-home-summary"],
   { revalidate: 86400 },
 );
+
+/**
+ * Signals a thesis fetch that produced no thesis (paused/unavailable). Thrown
+ * (rather than returned) so getCachedHomeThesis below never persists it —
+ * unstable_cache does not store a rejected call, so a maintenance-window
+ * pause is retried fresh on the next request instead of being memoized as a
+ * real outage for the full revalidate window.
+ */
+class ThesisGenerationFailedError extends Error {
+  constructor(readonly result: HomeThesisResult) {
+    super("Thesis generation produced no thesis; skipping cache write.");
+    this.name = "ThesisGenerationFailedError";
+  }
+}
+
+// Only a *successful* thesis narrative is worth caching (it calls the AI
+// provider). Cached for 5 minutes, keyed by scope; a null thesis throws so
+// nothing gets written to the cache, per the ruling on cost vs. staleness.
+const getCachedHomeThesis = unstable_cache(
+  async (thesisSummaryPayload: ThesisSummaryPayload): Promise<HomeThesisResult> => {
+    const result = await fetchHomeThesis(thesisSummaryPayload);
+    if (!result.thesis) {
+      throw new ThesisGenerationFailedError(result);
+    }
+    return result;
+  },
+  ["hamilton-thesis", "monthly_pulse"],
+  { revalidate: THESIS_CACHE_REVALIDATE_SECONDS },
+);
+
+async function resolveHomeThesis(
+  thesisSummaryPayload: ThesisSummaryPayload,
+): Promise<HomeThesisResult> {
+  try {
+    return await getCachedHomeThesis(thesisSummaryPayload);
+  } catch (err) {
+    if (err instanceof ThesisGenerationFailedError) return err.result;
+    throw err;
+  }
+}
 
 export const metadata: Metadata = { title: "Executive Briefing" };
 
@@ -134,7 +175,7 @@ export default async function HamiltonHomePage({
 }: HamiltonHomePageProps) {
   const params = await searchParams;
   const summary = await getCachedHomeBriefingSummary();
-  const { thesis, thesisStatus, recommendedCategory } = await fetchHomeThesis(
+  const { thesis, thesisStatus, recommendedCategory } = await resolveHomeThesis(
     summary.thesisSummaryPayload,
   );
   const data = { ...summary, thesis, thesisStatus, recommendedCategory };

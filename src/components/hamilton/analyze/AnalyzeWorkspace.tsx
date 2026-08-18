@@ -13,7 +13,8 @@ import { ExploreFurtherPanel } from "./ExploreFurtherPanel";
 import { AnalyzeCTABar } from "./AnalyzeCTABar";
 import { AnalysisInputBar } from "./AnalysisInputBar";
 import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
-import { toCustomerFacingError } from "@/lib/hamilton/customer-error";
+import { PAUSED_MESSAGE, parseChatErrorBody, toCustomerFacingError } from "@/lib/hamilton/customer-error";
+import { isEmptyAnalysis } from "@/lib/hamilton/analysis-guard";
 import type { AnalyzeResponse } from "@/lib/hamilton/types";
 import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 
@@ -98,6 +99,21 @@ function extractTextFromMessage(message: { parts?: Array<{ type: string; text?: 
   );
 }
 
+/**
+ * useChat's HttpChatTransport throws `new Error(await response.text())` for
+ * any non-2xx chat API response, so `error.message` here is usually the raw
+ * JSON body our API route returns (`{ error, code }`), not a plain string.
+ * Prefer the server-computed customer-safe message when present; fall back
+ * to classifying the raw error client-side otherwise.
+ */
+function resolveChatErrorMessage(error: Error): string {
+  const parsedBody = parseChatErrorBody(error.message);
+  if (parsedBody) {
+    return parsedBody.code === "paused" ? PAUSED_MESSAGE : parsedBody.error;
+  }
+  return toCustomerFacingError(error).message;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 interface AnalyzeWorkspaceProps {
@@ -174,7 +190,7 @@ export function AnalyzeWorkspace({
       }),
     }),
     onError: (error) => {
-      setChatError(toCustomerFacingError(error).message);
+      setChatError(resolveChatErrorMessage(error));
     },
     onFinish: async ({ message }) => {
       const content = extractTextFromMessage(message);
@@ -184,7 +200,7 @@ export function AnalyzeWorkspace({
 
       // Hamilton streamed a response with no usable content — do not persist
       // an empty analysis; tell the user instead of saving a blank record.
-      if (!parsed.hamiltonView.trim() && parsed.whyItMatters.length === 0) {
+      if (isEmptyAnalysis(parsed)) {
         setChatError("Hamilton returned an empty analysis; nothing was saved.");
         return;
       }
