@@ -8,7 +8,7 @@ import {
   getCityFeeAverages,
   getNationalIndexCached,
 } from "@/lib/data-store";
-import { isCityIndexable } from "@/lib/data-store/city-fee-aggregation";
+import { isCityIndexable, CITY_SPOTLIGHT_CATEGORIES } from "@/lib/data-store/city-fee-aggregation";
 import { getDisplayName, isFeaturedFee } from "@/lib/fee-taxonomy";
 import { formatAmount, formatAssets } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
@@ -35,17 +35,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const institutions = await loadCityInstitutions(cityName, state.toUpperCase());
   const cityAverages = await loadCityFeeAverages(cityName, state.toUpperCase());
   const indexable = isCityIndexable(institutions.length, cityAverages);
+  // Prefer a matched institution's own (INITCAP'd) city value over the
+  // slug-derived name: cityName(slug) always rejoins words with a space, so
+  // it can't reproduce a hyphenated spelling like "Winston-Salem".
+  const displayCityName = institutions[0]?.city ?? cityName;
 
   return {
     robots: { index: indexable, follow: true },
-    title: `Bank Fees in ${cityName}, ${state.toUpperCase()} - Compare Local Fees`,
-    description: `Compare bank and credit union fees in ${cityName}, ${stateName}. See overdraft fees, monthly maintenance charges, NSF fees, and more from local institutions.`,
+    title: `Bank Fees in ${displayCityName}, ${state.toUpperCase()} - Compare Local Fees`,
+    description: `Compare bank and credit union fees in ${displayCityName}, ${stateName}. See overdraft fees, monthly maintenance charges, NSF fees, and more from local institutions.`,
     keywords: [
-      `${cityName} bank fees`,
-      `${cityName} ${stateName} overdraft fees`,
-      `banks in ${cityName}`,
-      `credit unions in ${cityName}`,
-      `${cityName} checking account fees`,
+      `${displayCityName} bank fees`,
+      `${displayCityName} ${stateName} overdraft fees`,
+      `banks in ${displayCityName}`,
+      `credit unions in ${displayCityName}`,
+      `${displayCityName} checking account fees`,
     ],
   };
 }
@@ -64,14 +68,16 @@ export default async function CityFeePage({ params }: PageProps) {
   const cityAverages = await loadCityFeeAverages(cityName, stateCode);
   const nationalIndex = await getNationalIndexCached();
   const indexable = isCityIndexable(institutions.length, cityAverages);
+  // Prefer a matched institution's own (INITCAP'd) city value over the
+  // slug-derived name — see generateMetadata for why.
+  const displayCityName = institutions[0]?.city ?? cityName;
 
   const nationalMedians: Record<string, number> = {};
   for (const entry of nationalIndex) {
     nationalMedians[entry.fee_category] = entry.median_amount ?? 0;
   }
 
-  const spotlightCategories = ["overdraft", "monthly_maintenance", "nsf", "atm_non_network"];
-  const spotlightAverages = spotlightCategories.map((cat) => {
+  const spotlightAverages = CITY_SPOTLIGHT_CATEGORIES.map((cat) => {
     const cityAvg = cityAverages.find((a) => a.fee_category === cat);
     const natMedian = nationalMedians[cat];
     return {
@@ -94,7 +100,7 @@ export default async function CityFeePage({ params }: PageProps) {
           { name: "Home", href: SITE_URL },
           { name: "Fees", href: `${SITE_URL}/fees` },
           { name: stateName, href: `${SITE_URL}/fees/city/${stateCode.toLowerCase()}` },
-          { name: cityName, href: `${SITE_URL}/fees/city/${stateCode.toLowerCase()}/${citySlug(cityName)}` },
+          { name: displayCityName, href: `${SITE_URL}/fees/city/${stateCode.toLowerCase()}/${citySlug(cityName)}` },
         ]}
       />
 
@@ -105,7 +111,7 @@ export default async function CityFeePage({ params }: PageProps) {
           <span className="text-[#D4C9BA]">/</span>
           <Link href={`/fees/city/${stateCode.toLowerCase()}`} className="hover:text-[#1A1815] transition-colors">{stateName}</Link>
           <span className="text-[#D4C9BA]">/</span>
-          <span className="text-[#5A5347]">{cityName}</span>
+          <span className="text-[#5A5347]">{displayCityName}</span>
         </nav>
 
         {/* Header */}
@@ -120,7 +126,7 @@ export default async function CityFeePage({ params }: PageProps) {
           className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815] mb-2"
           style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
         >
-          Bank Fees in {cityName}, {stateCode}
+          Bank Fees in {displayCityName}, {stateCode}
         </h1>
         <p className="text-[14px] text-[#6B6255] mb-2">
           {institutions.length} institution{institutions.length !== 1 ? "s" : ""} with fee data
@@ -163,7 +169,7 @@ export default async function CityFeePage({ params }: PageProps) {
               className="text-[14px] font-medium text-[#1A1815]"
               style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
             >
-              Institutions in {cityName}
+              Institutions in {displayCityName}
             </h2>
           </div>
           <div className="overflow-x-auto">
@@ -227,7 +233,7 @@ export default async function CityFeePage({ params }: PageProps) {
                 className="text-[14px] font-medium text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
               >
-                Median Fees in {cityName} vs National
+                Median Fees in {displayCityName} vs National
               </h2>
             </div>
             <div className="overflow-x-auto">
@@ -235,7 +241,7 @@ export default async function CityFeePage({ params }: PageProps) {
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
                     <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Fee Category</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">{cityName} median</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">{displayCityName} median</th>
                     <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">National</th>
                     <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Difference</th>
                     <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">Reporting</th>
@@ -281,7 +287,7 @@ export default async function CityFeePage({ params }: PageProps) {
         ) : (
           <div className="mt-10">
             <p className="mb-4 text-[13px] leading-relaxed text-[#6B6255]">
-              We don&rsquo;t yet have enough published fee data from {cityName} institutions to
+              We don&rsquo;t yet have enough published fee data from {displayCityName} institutions to
               show reliable city medians. Check back as more fee schedules are verified.
             </p>
             <ConsumerNextSteps stateCode={stateCode} />

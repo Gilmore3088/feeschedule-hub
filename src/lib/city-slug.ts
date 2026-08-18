@@ -27,3 +27,17 @@ export function cityName(slug: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
+
+/**
+ * Lookup key for matching a city name regardless of hyphen/space convention:
+ * "Winston-Salem" and "Winston Salem" both normalize to "winston salem".
+ * `cityName()` is lossy for hyphenated names (it always rejoins with spaces,
+ * so `cityName(citySlug("Winston-Salem"))` is "Winston Salem", not
+ * "Winston-Salem") — DB lookups must use this normalized key on both sides of
+ * the comparison rather than relying on `cityName`'s output matching the DB's
+ * stored spelling exactly. Mirrored in SQL as
+ * `regexp_replace(lower(x), '[-\s]+', ' ', 'g')`.
+ */
+export function normalizeCityKey(city: string): string {
+  return city.trim().toLowerCase().replace(/[-\s]+/g, " ");
+}

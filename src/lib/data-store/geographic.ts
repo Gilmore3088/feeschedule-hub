@@ -106,6 +106,11 @@ export async function getInstitutionIdsWithFeeDates(): Promise<InstitutionFeeFre
 
 export interface CityInstitution {
   id: number;
+  /** This institution's own city value, INITCAP'd (e.g. "Winston-Salem"). Use
+   *  a matched row's value as the page's display name — it preserves the
+   *  DB's real spelling (hyphens included), unlike `cityName(slug)`, which
+   *  always rejoins words with a space. */
+  city: string;
   institution_name: string;
   charter_type: string;
   asset_size: number | null;
@@ -127,6 +132,7 @@ export interface CitySummary {
 
 interface RawCityInstitutionRow {
   id: number | string;
+  city: string;
   institution_name: string;
   charter_type: string;
   asset_size: number | string | null;
@@ -175,10 +181,17 @@ export function normalizeCitySummaryRow(
   };
 }
 
+// City names are compared with hyphens and spaces treated as equivalent
+// (mirrors `normalizeCityKey` in ../city-slug.ts): a URL slug parsed back to a
+// display name always joins words with a space (`cityName("winston-salem")`
+// -> "Winston Salem"), but the DB may store the same city with a hyphen
+// ("Winston-Salem"). A plain `LOWER(ct.city) = LOWER(${city})` would miss
+// that match and 404 a page the sitemap just advertised.
+
 export async function getCityInstitutions(city: string, stateCode: string): Promise<CityInstitution[]> {
   const upperState = stateCode.toUpperCase();
   const rows = await sql`
-    SELECT ct.id, ct.institution_name, ct.charter_type, ct.asset_size,
+    SELECT ct.id, INITCAP(LOWER(ct.city)) as city, ct.institution_name, ct.charter_type, ct.asset_size,
            COALESCE(fc.fee_count, 0) as fee_count,
            (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'overdraft' AND ef.review_status = 'approved') as overdraft,
            (SELECT MIN(ef.amount) FROM published_fee_catalog ef WHERE ef.institution_id = ct.id AND ef.fee_category = 'monthly_maintenance' AND ef.review_status = 'approved') as monthly_maintenance,
@@ -190,7 +203,8 @@ export async function getCityInstitutions(city: string, stateCode: string): Prom
       FROM published_fee_catalog WHERE review_status = 'approved'
       GROUP BY institution_id
     ) fc ON ct.id = fc.institution_id
-    WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
+    WHERE regexp_replace(LOWER(ct.city), '[-\\s]+', ' ', 'g') = regexp_replace(LOWER(${city}), '[-\\s]+', ' ', 'g')
+      AND ct.state_code = ${upperState}
     AND fc.fee_count > 0
     ORDER BY ct.asset_size DESC NULLS LAST
   ` as RawCityInstitutionRow[];
@@ -204,7 +218,8 @@ export async function getCityFeeAverages(city: string, stateCode: string): Promi
     SELECT ef.institution_id, ef.fee_category, ef.amount
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
-    WHERE LOWER(ct.city) = LOWER(${city}) AND ct.state_code = ${upperState}
+    WHERE regexp_replace(LOWER(ct.city), '[-\\s]+', ' ', 'g') = regexp_replace(LOWER(${city}), '[-\\s]+', ' ', 'g')
+      AND ct.state_code = ${upperState}
       AND ef.review_status = 'approved'
       AND ef.amount IS NOT NULL
       AND ef.fee_category IS NOT NULL

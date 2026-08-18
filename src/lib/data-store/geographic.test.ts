@@ -9,6 +9,7 @@ describe("city geographic read-model normalization", () => {
     expect(
       normalizeCityInstitutionRow({
         id: 42,
+        city: "Winston-Salem",
         institution_name: "Example Bank",
         charter_type: "bank",
         asset_size: "125000",
@@ -20,6 +21,7 @@ describe("city geographic read-model normalization", () => {
       }),
     ).toEqual({
       id: 42,
+      city: "Winston-Salem",
       institution_name: "Example Bank",
       charter_type: "bank",
       asset_size: 125000,
