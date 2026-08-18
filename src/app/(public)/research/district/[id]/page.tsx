@@ -189,7 +189,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
           {districtStates.map((code) => (
             <Link
               key={code}
-              href={`/research/state/${code}`}
+              href={`/institutions?state=${code}`}
               className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] transition-colors hover:border-[#C44B2E]/30 hover:text-[#A93D25]"
             >
               {STATE_NAMES[code]}

@@ -1,13 +1,19 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   getInstitutionStateDirectorySummaries,
   searchInstitutions,
   type InstitutionSearchResult,
 } from "@/lib/data-store/search";
+import { getFeeCategoryDetail } from "@/lib/data-store";
+import { dedupePerInstitution } from "@/lib/benchmarks/sample-policy";
 import { getPublicStatsSummary } from "@/lib/public-stats";
+import { DISPLAY_NAMES, getDisplayName } from "@/lib/fee-taxonomy";
+import { formatFeeAmount } from "@/lib/format";
 import { STATE_NAMES } from "@/lib/us-states";
 import { PRODUCT_NAME } from "@/lib/constants";
+import { getCharterLabel } from "../institution/[id]/enum-labels";
 import { InstitutionSearchBar } from "./search-bar";
 import { StateDirectoryMap } from "./state-directory-map";
 import { DirectoryFilters } from "./directory-filters";
@@ -34,6 +40,7 @@ interface PageProps {
     q?: string;
     state?: string;
     charter?: string;
+    fee?: string;
     page?: string;
   }>;
 }
@@ -41,6 +48,39 @@ interface PageProps {
 interface DirectoryResults {
   rows: InstitutionSearchResult[];
   total: number;
+}
+
+interface FeeDirectoryRow {
+  institution_id: number;
+  institution_name: string;
+  amount: number;
+  state_code: string | null;
+  charter_type: string;
+}
+
+interface FeeDirectoryResults {
+  rows: FeeDirectoryRow[];
+  total: number;
+}
+
+/**
+ * Institutions with a published fee in one category — backs
+ * /institutions?fee={category}, the "See all N institutions in the
+ * directory" link on /fees/[category]. Reuses the same category read the
+ * fee page already does (getFeeCategoryDetail) instead of a parallel query.
+ */
+async function loadFeeResults(category: string, page: number): Promise<FeeDirectoryResults> {
+  const detail = await getFeeCategoryDetail(category);
+  const priced = detail.fees
+    .filter((f) => f.amount !== null && f.amount >= 0)
+    .map((f) => ({ ...f, amount: f.amount as number }));
+  const deduped = dedupePerInstitution(priced, "min").sort((a, b) =>
+    a.institution_name.localeCompare(b.institution_name)
+  );
+  return {
+    rows: paginate(deduped, page, DIRECTORY_PAGE_SIZE),
+    total: deduped.length,
+  };
 }
 
 /**
@@ -73,15 +113,17 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const query = params.q || "";
   const stateCode = (params.state || "").toUpperCase();
   const charterType = params.charter || "";
+  const feeCategory = params.fee && DISPLAY_NAMES[params.fee] ? params.fee : "";
   const page = Math.max(1, parseInt(params.page || "1", 10) || 1);
 
   const hasQuery = query.trim().length >= 2;
   const hasState = Boolean(stateCode);
-  const shouldShowResults = hasQuery || hasState;
-  const [stats, stateSummaries, results] = await Promise.all([
+  const hasFee = Boolean(feeCategory);
+  const shouldShowResults = hasQuery || hasState || hasFee;
+  const [stats, stateSummaries, results, feeResults] = await Promise.all([
     getPublicStatsSummary(),
     getInstitutionStateDirectorySummaries({ charter_type: charterType || undefined }),
-    shouldShowResults
+    shouldShowResults && !hasFee
       ? loadResults({
           query: hasQuery ? query : undefined,
           state_code: stateCode || undefined,
@@ -89,15 +131,26 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           page,
         })
       : Promise.resolve<DirectoryResults>({ rows: [], total: 0 }),
+    hasFee
+      ? loadFeeResults(feeCategory, page)
+      : Promise.resolve<FeeDirectoryResults>({ rows: [], total: 0 }),
   ]);
 
   const totalPages = Math.ceil(results.total / DIRECTORY_PAGE_SIZE);
+  const feeTotalPages = Math.ceil(feeResults.total / DIRECTORY_PAGE_SIZE);
+  const feeName = hasFee ? getDisplayName(feeCategory) : "";
   const selectedStateName = stateCode ? STATE_NAMES[stateCode] ?? stateCode : "";
   const buildPageHref = (nextPage: number) => {
     const search = new URLSearchParams();
     if (query) search.set("q", query);
     if (stateCode) search.set("state", stateCode);
     if (charterType) search.set("charter", charterType);
+    search.set("page", String(nextPage));
+    return `/institutions?${search.toString()}`;
+  };
+  const buildFeePageHref = (nextPage: number) => {
+    const search = new URLSearchParams();
+    search.set("fee", feeCategory);
     search.set("page", String(nextPage));
     return `/institutions?${search.toString()}`;
   };
@@ -164,7 +217,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           </section>
         )}
 
-        {shouldShowResults && results.total > 0 && (
+        {!hasFee && shouldShowResults && results.total > 0 && (
           <section className="fi-reveal fi-reveal-delay-2 pt-5">
             <div className="mb-4">
               <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
@@ -191,15 +244,114 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
           </section>
         )}
 
-        {shouldShowResults && results.total === 0 && (
+        {!hasFee && shouldShowResults && results.total === 0 && (
           <div className="fi-reveal fi-reveal-delay-2 py-8 text-center">
             <p className="text-sm text-[#6B6255]">
               No institutions found. Try adjusting your search or filters.
             </p>
           </div>
         )}
+
+        {hasFee && feeResults.total > 0 && (
+          <section className="fi-reveal fi-reveal-delay-2 pt-5">
+            <div className="mb-4">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#6B6255]">
+                {feeName} directory
+              </h2>
+              <p className="mt-1 text-sm text-[#6B6255]">
+                {feeResults.total.toLocaleString("en-US")} institution
+                {feeResults.total !== 1 ? "s" : ""} with a published {feeName.toLowerCase()} fee.
+              </p>
+            </div>
+
+            <FeeResultsCards rows={feeResults.rows} />
+            <FeeResultsTable rows={feeResults.rows} feeName={feeName} />
+            <DirectoryPagination page={page} totalPages={feeTotalPages} buildHref={buildFeePageHref} />
+          </section>
+        )}
+
+        {hasFee && feeResults.total === 0 && (
+          <div className="fi-reveal fi-reveal-delay-2 py-8 text-center">
+            <p className="text-sm text-[#6B6255]">
+              No institutions found with a published fee in this category.
+            </p>
+          </div>
+        )}
       </div>
     </main>
+  );
+}
+
+const FEE_TH_CLASS = "px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6B6255]";
+
+/** Mobile cards for the /institutions?fee={category} listing. */
+function FeeResultsCards({ rows }: { rows: FeeDirectoryRow[] }) {
+  return (
+    <div className="grid gap-2 sm:hidden">
+      {rows.map((row) => (
+        <Link
+          key={row.institution_id}
+          href={`/institution/${row.institution_id}`}
+          className="fi-row-interaction block border border-[#E0D7C9] bg-[#FDFBF8] px-3 py-3"
+        >
+          <div className="flex min-w-0 items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-semibold leading-snug text-[#1A1815]">
+                {row.institution_name}
+              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[#6B6255]">
+                <span>{getCharterLabel(row.charter_type)}</span>
+                {row.state_code && <span>{row.state_code}</span>}
+              </div>
+            </div>
+            <span className="shrink-0 tabular-nums text-sm font-medium text-[#1A1815]">
+              {formatFeeAmount(row.amount) ?? "-"}
+            </span>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/** Desktop table for the /institutions?fee={category} listing. */
+function FeeResultsTable({ rows, feeName }: { rows: FeeDirectoryRow[]; feeName: string }) {
+  return (
+    <div className="hidden overflow-hidden border border-[#E0D7C9] bg-[#FDFBF8] sm:block">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left text-sm">
+          <thead>
+            <tr className="border-b border-[#E0D7C9] bg-[#FAF7F2]">
+              <th className={FEE_TH_CLASS}>Institution</th>
+              <th className={FEE_TH_CLASS}>State</th>
+              <th className={`hidden md:table-cell ${FEE_TH_CLASS}`}>Type</th>
+              <th className={`text-right ${FEE_TH_CLASS}`}>{feeName}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.institution_id} className="fi-row-interaction border-b border-[#E0D7C9] last:border-0">
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/institution/${row.institution_id}`}
+                    className="font-medium text-[#1A1815] transition-colors hover:text-[#C44B2E]"
+                  >
+                    {row.institution_name}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-[#6B6255]">{row.state_code ?? "-"}</td>
+                <td className="hidden px-4 py-3 text-[#6B6255] md:table-cell">
+                  {getCharterLabel(row.charter_type)}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums font-medium text-[#1A1815]">
+                  {formatFeeAmount(row.amount) ?? "-"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

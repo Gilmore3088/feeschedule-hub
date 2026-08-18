@@ -450,7 +450,12 @@ export default async function GuidePage({ params }: PageProps) {
                       <span className="text-[#6B6255] tabular-nums mr-1">
                         {i + 1}.
                       </span>
-                      {f.institution_name}
+                      <Link
+                        href={`/institution/${f.institution_id}`}
+                        className="hover:text-[#A93D25] hover:underline"
+                      >
+                        {f.institution_name}
+                      </Link>
                     </span>
                     <span className="tabular-nums font-semibold text-emerald-700 shrink-0">
                       {formatAmount(f.amount)}
@@ -477,7 +482,12 @@ export default async function GuidePage({ params }: PageProps) {
                       <span className="text-[#6B6255] tabular-nums mr-1">
                         {i + 1}.
                       </span>
-                      {f.institution_name}
+                      <Link
+                        href={`/institution/${f.institution_id}`}
+                        className="hover:text-[#A93D25] hover:underline"
+                      >
+                        {f.institution_name}
+                      </Link>
                     </span>
                     <span className="tabular-nums font-semibold text-red-600 shrink-0">
                       {formatAmount(f.amount)}

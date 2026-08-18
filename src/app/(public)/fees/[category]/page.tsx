@@ -23,6 +23,7 @@ import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
 import { InsufficientDataPanel } from "@/components/public/insufficient-data-panel";
+import { InstitutionsCharging } from "./institutions-charging";
 import { STATE_NAMES } from "@/lib/us-states";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
@@ -137,6 +138,11 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   // national fee index, and the state/district "national" column.
   const pricedFees = detail.fees.filter((f) => f.amount !== null && f.amount > 0);
   const amounts = pricedFees.map((f) => f.amount!);
+  // Institutions Charging list: unlike the histogram, $0 rows count as a
+  // legitimate "lowest" (a bank that waives this fee), so include them.
+  const chargingRows = detail.fees
+    .filter((f) => f.amount !== null && f.amount >= 0)
+    .map((f) => ({ ...f, amount: f.amount as number }));
   const fallbackStats = computeStats(amounts);
   const verifiedFeeCount = bench?.observation_count ?? amounts.length;
   const institutionCount =
@@ -255,6 +261,8 @@ export default async function FeeCategoryPage({ params }: PageProps) {
               />
             </div>
           </section>
+
+          <InstitutionsCharging rows={chargingRows} category={category} name={name} />
         </>
       )}
 

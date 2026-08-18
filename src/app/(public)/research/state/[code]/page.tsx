@@ -174,6 +174,13 @@ export default async function StateReportPage({ params }: PageProps) {
         ))}
       </div>
 
+      <Link
+        href={`/institutions?state=${stateCode}`}
+        className="mt-3 inline-block text-[13px] font-medium text-[#C44B2E] hover:underline"
+      >
+        View all {stats.institution_count.toLocaleString()} {stateName} institutions &rarr;
+      </Link>
+
       {/* Charter breakdown */}
       {stateIndex.length > 0 && (
         <section className="mt-8">
