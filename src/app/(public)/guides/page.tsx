@@ -1,13 +1,9 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { formatAbsoluteDate } from "@/lib/public-stats";
+import { getPublicStatsSummary } from "@/lib/public-stats";
 import { GUIDES } from "@/lib/guides";
-import {
-  getFeeCategorySummaries,
-  getStats,
-  getDataFreshness,
-} from "@/lib/data-store";
+import { getFeeCategorySummaries } from "@/lib/data-store";
 import { getDisplayName, FAMILY_COLORS as TAXONOMY_FAMILY_COLORS, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -186,14 +182,10 @@ function GuideCard({
 
 export default async function GuidesIndexPage() {
   const allSummaries = await getFeeCategorySummaries();
-  const stats = await getStats();
-  const freshness = await getDataFreshness();
-
-  const totalObservations = allSummaries.reduce(
-    (a, s) => a + s.total_observations,
-    0
-  );
-  const updateDate = formatAbsoluteDate(freshness.last_crawl_at);
+  // Single source of truth for every public-facing headline number, so the
+  // guides index agrees with every guide detail page (and every other public
+  // page) instead of hand-rolling its own institution/observation counts.
+  const summary = await getPublicStatsSummary();
 
   const primaryGuides = GUIDES.filter((g) => PRIMARY_SLUGS.has(g.slug));
   const secondaryGuides = GUIDES.filter((g) => !PRIMARY_SLUGS.has(g.slug));
@@ -227,21 +219,17 @@ export default async function GuidesIndexPage() {
         <p className="mt-4 text-[15px] leading-relaxed text-[#6B6255]">
           Plain-language guides backed by live benchmark data from{" "}
           <span className="font-medium text-[#5A5347] tabular-nums">
-            {stats.total_institutions.toLocaleString()}
+            {summary.institutionsLabel}
           </span>{" "}
           institutions.
         </p>
 
         <div className="mt-4 flex items-center gap-4 text-[12px] text-[#6B6255]">
           <span className="tabular-nums">
-            {totalObservations.toLocaleString()} fee observations
+            {summary.observationsLabel} fee observations
           </span>
-          {updateDate && (
-            <>
-              <span className="h-3 w-px bg-[#D4C9BA]" />
-              <span>Updated {updateDate}</span>
-            </>
-          )}
+          <span className="h-3 w-px bg-[#D4C9BA]" />
+          <span>{summary.freshnessLabel}</span>
         </div>
       </div>
 
@@ -318,21 +306,21 @@ export default async function GuidesIndexPage() {
         </div>
       </div>
 
-      {/* Pro teaser */}
+      {/* Consumer CTA */}
       <div className="mt-8 rounded-xl border border-[#E8DFD1] bg-gradient-to-r from-[#FFFDF9] to-[#FAF7F2] px-7 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <p className="text-[13px] font-medium text-[#1A1815]">
-            Want to benchmark your institution?
+            Want to see what your own bank charges?
           </p>
           <p className="mt-0.5 text-[12px] text-[#6B6255]">
-            Pro members get evidence-labeled peer comparisons, FDIC financial data, and Hamilton analysis workflows.
+            Search the directory for every published fee at your bank or credit union, with sources.
           </p>
         </div>
         <Link
-          href="/subscribe"
+          href="/institutions"
           className="shrink-0 rounded-full bg-[#C44B2E] px-5 py-2 text-[12px] font-semibold text-white no-underline hover:bg-[#A83D25] transition-colors"
         >
-          View Plans
+          Look up your bank
         </Link>
       </div>
 

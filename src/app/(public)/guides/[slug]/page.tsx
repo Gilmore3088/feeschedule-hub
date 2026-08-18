@@ -13,9 +13,17 @@ import { getDisplayName, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/public/distribution-chart";
-import { SITE_URL } from "@/lib/constants";
+import { SITE_NAME, SITE_URL, REPORT_OFFER } from "@/lib/constants";
 import { dedupePerInstitution, trimOutliers, MIN_N_PUBLISH } from "@/lib/benchmarks/sample-policy";
 import type { FeeInstance } from "@/lib/data-store";
+import { getCanonicalBenchmark } from "@/lib/benchmarks/canonical";
+import { renderGuideProse } from "@/lib/guides-render";
+import { InstitutionSearchBar } from "@/app/(public)/institutions/search-bar";
+import { EmailSignup } from "@/components/public/email-signup";
+
+/** Fixed authoring date for the guide content itself; live data updates are tracked separately via dateModified. */
+const GUIDES_PUBLISHED_AT = "2026-01-15";
+const REPORT_LANE_HREF = "/for-institutions#report";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -43,18 +51,24 @@ export default async function GuidePage({ params }: PageProps) {
   if (!guide) notFound();
 
   const allSummaries = await getFeeCategorySummaries();
-  const relevantFees = allSummaries.filter((s) =>
-    guide.feeCategories.includes(s.fee_category)
-  );
+  // Order matches guide.feeCategories (primaryCategory first), not whatever
+  // order the underlying summary rows happen to come back in — otherwise the
+  // hero card, action button, and "cheapest/most expensive" labels can lead
+  // with a different fee than the chart below them.
+  const feeCategoryOrder = new Map(guide.feeCategories.map((c, i) => [c, i]));
+  const relevantFees = allSummaries
+    .filter((s) => feeCategoryOrder.has(s.fee_category))
+    .sort((a, b) => feeCategoryOrder.get(a.fee_category)! - feeCategoryOrder.get(b.fee_category)!);
 
   const freshness = await getDataFreshness();
   const publicStats = await getPublicStatsSummary();
 
-  const primaryCategory = guide.feeCategories[0];
+  const primaryCategory = guide.primaryCategory;
   const primaryDetail = await getFeeCategoryDetail(primaryCategory);
   const primarySummary = relevantFees.find(
     (f) => f.fee_category === primaryCategory
   );
+  const primaryBenchmark = await getCanonicalBenchmark(primaryCategory);
 
   // Histogram: every priced row (tiered pricing still shows up), with a
   // single mis-extracted extreme (e.g. a $5,000 "monthly maintenance" fee)
@@ -119,6 +133,10 @@ export default async function GuidePage({ params }: PageProps) {
         >
           {guide.title.split(":")[0]}
         </h1>
+
+        <p className="mt-3 text-[12px] font-medium text-[#6B6255]">
+          By {SITE_NAME} research &middot; {publicStats.freshnessLabel}
+        </p>
 
         <p className="mt-4 text-[15px] leading-relaxed text-[#6B6255]">
           {guide.description}
@@ -259,7 +277,7 @@ export default async function GuidePage({ params }: PageProps) {
                   {section.heading}
                 </h2>
                 <p className="text-[15px] leading-[1.85] text-[#5A5347]">
-                  {section.content}
+                  {renderGuideProse(section.content, primaryBenchmark)}
                 </p>
                 {i < guide.sections.length - 1 && (
                   <div className="mt-10 h-px bg-gradient-to-r from-[#E8DFD1] via-[#E8DFD1]/40 to-transparent" />
@@ -267,6 +285,30 @@ export default async function GuidePage({ params }: PageProps) {
               </section>
             ))}
           </div>
+
+          {/* ── Sources ── */}
+          {guide.sources.length > 0 && (
+            <div className="mt-10 border-t border-[#E8DFD1]/60 pt-6">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
+                Sources
+              </p>
+              <ol className="mt-3 space-y-1.5">
+                {guide.sources.map((source, i) => (
+                  <li key={source.url} className="text-[12px] text-[#6B6255]">
+                    {i + 1}.{" "}
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="text-[#A93D25]/80 hover:text-[#A93D25] hover:underline"
+                    >
+                      {source.label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {/* ── Explore the Data ── */}
           <section className="mt-14">
@@ -517,36 +559,38 @@ export default async function GuidePage({ params }: PageProps) {
             </nav>
           </div>
 
-          {/* CTA */}
-          <div className="rounded-xl border border-[#1A1815] bg-[#1A1815] px-5 py-6 text-center overflow-hidden relative">
-            <div className="absolute inset-0 opacity-[0.04]" style={{
-              backgroundImage: "linear-gradient(rgba(255,255,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.3) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-            }} />
-            <div className="relative">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A09788]">
-                For Professionals
-              </p>
-              <p
-                className="mt-2.5 text-[16px] font-medium text-white"
-                style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-              >
-                Need deeper analysis?
-              </p>
-              <p className="mt-1.5 text-[12px] text-[#6B6255]">
-                API access, custom datasets, and research reports.
-              </p>
-              <Link
-                href="/api-docs"
-                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2 text-[12px] font-semibold text-[#1A1815] transition-all hover:shadow-md no-underline"
-              >
-                View API docs
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </Link>
+          {/* Find your bank */}
+          <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A93D25]/60">
+              Find Your Bank
+            </p>
+            <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
+              See every published fee for your own institution next to the national benchmark.
+            </p>
+            <div className="mt-3">
+              <InstitutionSearchBar
+                variant="light"
+                ariaLabel="Search institutions"
+                placeholder="Search your bank or credit union..."
+              />
             </div>
           </div>
+
+          {/* Newsletter */}
+          <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-5">
+            <EmailSignup />
+          </div>
+
+          {/* Report bridge — one line, not a B2B CTA card on a consumer page */}
+          <p className="px-1 text-[11px] leading-relaxed text-[#6B6255]">
+            Work at a bank or credit union?{" "}
+            <Link
+              href={REPORT_LANE_HREF}
+              className="font-semibold text-[#A93D25] hover:underline"
+            >
+              Get the {REPORT_OFFER.priceLabel} {REPORT_OFFER.name}
+            </Link>
+          </p>
         </aside>
       </div>
 
@@ -559,6 +603,11 @@ export default async function GuidePage({ params }: PageProps) {
             headline: guide.title,
             description: guide.description,
             url: `${SITE_URL}/guides/${slug}`,
+            image: `${SITE_URL}/opengraph-image`,
+            author: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
+            publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
+            datePublished: GUIDES_PUBLISHED_AT,
+            dateModified: freshness.last_crawl_at ?? GUIDES_PUBLISHED_AT,
             mainEntity: {
               "@type": "FAQPage",
               mainEntity: guide.sections.map((s) => ({
@@ -566,7 +615,7 @@ export default async function GuidePage({ params }: PageProps) {
                 name: s.heading,
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: s.content,
+                  text: renderGuideProse(s.content, primaryBenchmark),
                 },
               })),
             },
