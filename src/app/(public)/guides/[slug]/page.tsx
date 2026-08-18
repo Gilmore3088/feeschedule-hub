@@ -14,6 +14,8 @@ import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DistributionChart } from "@/components/public/distribution-chart";
 import { SITE_URL } from "@/lib/constants";
+import { dedupePerInstitution, trimOutliers, MIN_N_PUBLISH } from "@/lib/benchmarks/sample-policy";
+import type { FeeInstance } from "@/lib/data-store";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -50,18 +52,33 @@ export default async function GuidePage({ params }: PageProps) {
 
   const primaryCategory = guide.feeCategories[0];
   const primaryDetail = await getFeeCategoryDetail(primaryCategory);
-  const primaryAmounts = primaryDetail.fees
-    .map((f) => f.amount)
-    .filter((a): a is number => a !== null && a > 0);
   const primarySummary = relevantFees.find(
     (f) => f.fee_category === primaryCategory
   );
 
-  const sortedFees = primaryDetail.fees
-    .filter((f) => f.amount !== null && f.amount >= 0)
-    .sort((a, b) => (a.amount ?? 0) - (b.amount ?? 0));
-  const cheapest = sortedFees.slice(0, 5);
-  const mostExpensive = sortedFees.slice(-5).reverse();
+  // Histogram: every priced row (tiered pricing still shows up), with a
+  // single mis-extracted extreme (e.g. a $5,000 "monthly maintenance" fee)
+  // trimmed so it can't flatten the chart. See sample-policy.ts: trimOutliers.
+  const primaryPricedAmounts = primaryDetail.fees
+    .map((f) => f.amount)
+    .filter((a): a is number => a !== null && a > 0);
+  const { kept: primaryAmounts, flagged: primaryOutliers } = trimOutliers(primaryPricedAmounts);
+
+  // Cheapest/most-expensive: one row per institution (its minimum priced
+  // tier) so an institution can't appear in both lists via a tiered row, and
+  // with the same outliers excluded so the sidebar can't surface a value the
+  // histogram just excluded as unreliable.
+  const nonNegativeFees = primaryDetail.fees.filter(
+    (f): f is FeeInstance & { amount: number } => f.amount !== null && f.amount >= 0
+  );
+  const dedupedFees = dedupePerInstitution(nonNegativeFees, "min");
+  const outlierAmounts = new Set(primaryOutliers);
+  const sortedFees = dedupedFees
+    .filter((f) => !outlierAmounts.has(f.amount))
+    .sort((a, b) => a.amount - b.amount);
+  const showExtremeLists = sortedFees.length >= MIN_N_PUBLISH;
+  const cheapest = showExtremeLists ? sortedFees.slice(0, 5) : [];
+  const mostExpensive = showExtremeLists ? sortedFees.slice(-5).reverse() : [];
   const zeroFeeCount = sortedFees.filter((f) => f.amount === 0).length;
 
   return (
@@ -191,7 +208,7 @@ export default async function GuidePage({ params }: PageProps) {
         {/* Main column */}
         <div>
           {/* ── Distribution chart ── */}
-          {primaryAmounts.length >= 5 && primarySummary && (
+          {primaryAmounts.length >= MIN_N_PUBLISH && primarySummary && (
             <section className="mb-12">
               <h2
                 className="text-[18px] font-medium tracking-[-0.01em] text-[#1A1815]"
@@ -213,6 +230,11 @@ export default async function GuidePage({ params }: PageProps) {
                   bucketCount={16}
                 />
               </div>
+              {primaryOutliers.length > 0 && (
+                <p className="mt-2 text-[11px] text-[#6B6255]">
+                  {primaryOutliers.length} value(s) under review are excluded.
+                </p>
+              )}
               <div className="mt-2.5 flex justify-end">
                 <Link
                   href={`/fees/${primaryCategory}`}

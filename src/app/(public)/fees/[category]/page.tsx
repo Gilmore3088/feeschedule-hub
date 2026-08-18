@@ -8,6 +8,7 @@ import {
 } from "@/lib/data-store";
 import { computeStats } from "@/lib/data-store";
 import { getCanonicalBenchmark } from "@/lib/benchmarks/canonical";
+import { classifySample } from "@/lib/benchmarks/sample-policy";
 import {
   getDisplayName,
   getFeeFamily,
@@ -21,6 +22,7 @@ import { formatFeeAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { DistributionChart } from "@/components/public/distribution-chart";
+import { InsufficientDataPanel } from "@/components/public/insufficient-data-panel";
 import { STATE_NAMES } from "@/lib/us-states";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
@@ -41,10 +43,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { category } = await params;
   const name = getDisplayName(category);
   const family = getFeeFamily(category);
+  const bench = await getCanonicalBenchmark(category);
+  const sample = classifySample(bench?.institution_count ?? 0);
 
-  return {
+  const metadata: Metadata = {
     title: `${name} Fee - National Benchmarks & Analysis`,
-    description: `National benchmarking data for ${name.toLowerCase()} fees. See median, P25/P75, distribution, and breakdowns by bank vs. credit union, asset tier, Fed district, and state.`,
+    description:
+      sample === "insufficient"
+        ? `Fewer than 5 institutions have a published ${name.toLowerCase()} fee. We list them without a national benchmark.`
+        : `National benchmarking data for ${name.toLowerCase()} fees. See median, P25/P75, distribution, and breakdowns by bank vs. credit union, asset tier, Fed district, and state.`,
     openGraph: {
       title: `${name} Fee Benchmarks`,
       description: `How much do banks charge for ${name.toLowerCase()}? National median, distribution, and peer comparisons.`,
@@ -56,6 +63,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       family ? `${family.toLowerCase()} fees` : "bank fees",
     ],
   };
+
+  // A benchmark over fewer than MIN_N_PUBLISH institutions isn't a national
+  // number worth indexing; keep the page crawlable via links (follow) but
+  // out of search results until there's enough data to publish a benchmark.
+  if (sample === "insufficient") {
+    metadata.robots = { index: false, follow: true };
+  }
+
+  return metadata;
 }
 
 export async function generateStaticParams() {
@@ -128,6 +144,7 @@ export default async function FeeCategoryPage({ params }: PageProps) {
   const stats = bench
     ? { median: bench.median, p25: bench.p25, p75: bench.p75, min: bench.min, max: bench.max }
     : fallbackStats;
+  const sample = classifySample(institutionCount);
 
   const familyMembers = family
     ? (FEE_FAMILIES[family] ?? []).filter((c) => c !== category)
@@ -170,12 +187,19 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         </span>
       </div>
 
-      <h1
-        className="mt-3 text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
-        style={SERIF}
-      >
-        {name} Fee
-      </h1>
+      <div className="mt-3 flex flex-wrap items-baseline gap-2.5">
+        <h1
+          className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
+          style={SERIF}
+        >
+          {name} Fee
+        </h1>
+        {sample === "early" && (
+          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-700">
+            Early data &mdash; 5&ndash;9 institutions
+          </span>
+        )}
+      </div>
       <p className="mt-2 text-[14px] text-[#6B6255]">
         Based on {verifiedFeeCount.toLocaleString()} verified fees from{" "}
         {institutionCount.toLocaleString()} institutions.
@@ -184,49 +208,55 @@ export default async function FeeCategoryPage({ params }: PageProps) {
         <DataFreshness />
       </div>
 
-      {/* Stat cards */}
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Median", value: money(stats.median) },
-          { label: "25th Percentile", value: money(stats.p25) },
-          { label: "75th Percentile", value: money(stats.p75) },
-          {
-            label: "Range",
-            value: `${money(stats.min)} \u2013 ${money(stats.max)}`,
-          },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5"
-          >
-            <p className={EYEBROW}>
-              {s.label}
-            </p>
-            <p
-              className="mt-1 text-[22px] font-light tabular-nums text-[#1A1815]"
+      {sample === "insufficient" ? (
+        <InsufficientDataPanel feeName={name} />
+      ) : (
+        <>
+          {/* Stat cards */}
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { label: "Median", value: money(stats.median) },
+              { label: "25th Percentile", value: money(stats.p25) },
+              { label: "75th Percentile", value: money(stats.p75) },
+              {
+                label: "Range",
+                value: `${money(stats.min)} \u2013 ${money(stats.max)}`,
+              },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3.5"
+              >
+                <p className={EYEBROW}>
+                  {s.label}
+                </p>
+                <p
+                  className="mt-1 text-[22px] font-light tabular-nums text-[#1A1815]"
+                  style={SERIF}
+                >
+                  {s.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Distribution */}
+          <section className="mt-10">
+            <h2
+              className="text-[16px] font-medium text-[#1A1815]"
               style={SERIF}
             >
-              {s.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Distribution */}
-      <section className="mt-10">
-        <h2
-          className="text-[16px] font-medium text-[#1A1815]"
-          style={SERIF}
-        >
-          Fee Distribution
-        </h2>
-        <div className="mt-3 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
-          <DistributionChart
-            amounts={amounts}
-            median={stats.median}
-          />
-        </div>
-      </section>
+              Fee Distribution
+            </h2>
+            <div className="mt-3 rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm p-5">
+              <DistributionChart
+                amounts={amounts}
+                median={stats.median}
+              />
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Premium gate */}
       {!isPro && (
@@ -433,7 +463,10 @@ export default async function FeeCategoryPage({ params }: PageProps) {
             "@context": "https://schema.org",
             "@type": "Article",
             headline: `${name} Fee - National Benchmarks`,
-            description: `National ${name.toLowerCase()} fee: median ${money(stats.median)}, based on ${verifiedFeeCount} verified fees from ${institutionCount} institutions.`,
+            description:
+              sample === "insufficient"
+                ? `Fewer than 5 institutions have a published ${name.toLowerCase()} fee; listed without a national benchmark.`
+                : `National ${name.toLowerCase()} fee: median ${money(stats.median)}, based on ${verifiedFeeCount} verified fees from ${institutionCount} institutions.`,
             url: `${SITE_URL}/fees/${category}`,
             dateModified: freshness.last_crawl_at ?? undefined,
             publisher: {

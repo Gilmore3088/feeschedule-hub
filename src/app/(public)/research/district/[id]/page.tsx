@@ -13,6 +13,7 @@ import {
   getDisplayName,
   isFeaturedFee,
 } from "@/lib/fee-taxonomy";
+import { MIN_ROW_N } from "@/lib/benchmarks/sample-policy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessFullDistrict } from "@/lib/access";
@@ -100,7 +101,7 @@ export default async function DistrictReportPage({ params }: PageProps) {
 
   // Build comparison data
   const comparisons = districtIndex
-    .filter((e) => e.median_amount !== null && e.institution_count >= 3)
+    .filter((e) => e.median_amount !== null && e.institution_count >= MIN_ROW_N)
     .map((entry) => {
       const national = nationalMap.get(entry.fee_category);
       const nationalMedian = national?.median_amount ?? null;

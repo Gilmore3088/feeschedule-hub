@@ -40,5 +40,39 @@ describe("computeBenchmark", () => {
     expect(b.p75).toBeCloseTo(40, 2);
     expect(b.min).toBe(10);
     expect(b.max).toBe(50);
+    expect(b.outlier_flagged).toBe(0);
+    expect(b.sample).toBe("early");
+  });
+
+  it("should_exclude_a_5000_dollar_outlier_from_percentiles_but_still_count_it", () => {
+    const b = computeBenchmark([
+      { institution_id: 1, amount: 5 },
+      { institution_id: 2, amount: 6 },
+      { institution_id: 3, amount: 6 },
+      { institution_id: 4, amount: 8 },
+      { institution_id: 5, amount: 10 },
+      { institution_id: 6, amount: 12 },
+      { institution_id: 7, amount: 15 },
+      { institution_id: 8, amount: 5000 },
+    ]);
+    expect(b.institution_count).toBe(8);
+    expect(b.outlier_flagged).toBe(1);
+    expect(b.min).toBe(5);
+    expect(b.max).toBe(15);
+    expect(b.median).toBe(8);
+    expect(b.sample).toBe("early");
+  });
+
+  it("should_classify_insufficient_and_established_samples", () => {
+    const thin = computeBenchmark([
+      { institution_id: 1, amount: 10 },
+      { institution_id: 2, amount: 20 },
+    ]);
+    expect(thin.sample).toBe("insufficient");
+
+    const rich = computeBenchmark(
+      Array.from({ length: 12 }, (_, i) => ({ institution_id: i + 1, amount: 10 + i }))
+    );
+    expect(rich.sample).toBe("established");
   });
 });

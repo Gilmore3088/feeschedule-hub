@@ -1,6 +1,7 @@
 import { sql } from "@/lib/data-store/connection";
 import { getDataFreshness } from "@/lib/data-store/core";
 import { computePercentile } from "@/lib/data-store/fees";
+import { classifySample, trimOutliers, type SampleClass } from "./sample-policy";
 
 /**
  * The one canonical benchmark per fee category, computed live from
@@ -17,6 +18,11 @@ import { computePercentile } from "@/lib/data-store/fees";
  *   - percentiles = linear interpolation over each institution's
  *     *minimum* priced amount, so tiered fee rows do not let one
  *     institution count multiple times in the distribution.
+ *   - outliers (see sample-policy.ts: trimOutliers) are excluded from the
+ *     percentile/min/max math but still counted in institution_count, and
+ *     surfaced via outlier_flagged so callers can note they were excluded.
+ *   - sample (see sample-policy.ts: classifySample) tells callers whether
+ *     institution_count is enough to publish a benchmark at all.
  */
 export type CanonicalBenchmark = {
   fee_category: string;
@@ -27,6 +33,8 @@ export type CanonicalBenchmark = {
   max: number | null;
   institution_count: number;
   observation_count: number;
+  outlier_flagged: number;
+  sample: SampleClass;
   as_of: string | null;
 };
 
@@ -59,6 +67,7 @@ export function computeBenchmark(
 
   const institution_count = minByInstitution.size;
   const amounts = [...minByInstitution.values()].sort((a, b) => a - b);
+  const sample = classifySample(institution_count);
 
   if (amounts.length === 0) {
     return {
@@ -69,17 +78,27 @@ export function computeBenchmark(
       max: null,
       institution_count,
       observation_count,
+      outlier_flagged: 0,
+      sample,
     };
   }
 
+  // A single mis-extracted extreme (e.g. a $5,000 "monthly maintenance" fee)
+  // must not drag the median/percentiles or set min/max; it is still one of
+  // the institutions counted above, just excluded from the price math below.
+  const { kept, flagged } = trimOutliers(amounts);
+  const priceBasis = kept.length > 0 ? kept : amounts;
+
   return {
-    median: round2(computePercentile(amounts, 50)),
-    p25: round2(computePercentile(amounts, 25)),
-    p75: round2(computePercentile(amounts, 75)),
-    min: amounts[0],
-    max: amounts[amounts.length - 1],
+    median: round2(computePercentile(priceBasis, 50)),
+    p25: round2(computePercentile(priceBasis, 25)),
+    p75: round2(computePercentile(priceBasis, 75)),
+    min: priceBasis[0],
+    max: priceBasis[priceBasis.length - 1],
     institution_count,
     observation_count,
+    outlier_flagged: flagged.length,
+    sample,
   };
 }
 

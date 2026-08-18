@@ -11,6 +11,7 @@ import {
   getDisplayName,
   isFeaturedFee,
 } from "@/lib/fee-taxonomy";
+import { MIN_ROW_N } from "@/lib/benchmarks/sample-policy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
 import { formatAmount } from "@/lib/format";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
@@ -88,7 +89,7 @@ export default async function StateReportPage({ params }: PageProps) {
 
   // Build comparison data: state vs national with deltas
   const comparisons = stateIndex
-    .filter((e) => e.median_amount !== null && e.institution_count >= 3)
+    .filter((e) => e.median_amount !== null && e.institution_count >= MIN_ROW_N)
     .map((entry) => {
       const national = nationalMap.get(entry.fee_category);
       const nationalMedian = national?.median_amount ?? null;
@@ -356,9 +357,9 @@ export default async function StateReportPage({ params }: PageProps) {
           Data sourced from published fee schedules of FDIC-insured banks and
           NCUA-insured credit unions in {stateName}. Medians computed from
           extracted fee amounts excluding rejected reviews. Delta shows
-          percentage difference from the national median. Institutions with
-          fewer than 3 observations per category are excluded from state-level
-          reporting.
+          percentage difference from the national median. Categories with
+          fewer than {MIN_ROW_N} institutions in this state are excluded from
+          state-level reporting.
         </p>
       </section>
 
