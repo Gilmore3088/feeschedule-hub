@@ -59,13 +59,39 @@ export interface PositioningEntry {
   maturityTier: "strong" | "provisional" | "insufficient";
 }
 
+/**
+ * "current": thesis generated successfully this request.
+ * "paused": Hamilton's automation control flag is off (e.g. provider credit
+ *   exhausted) — a known, temporary condition, not a data/product failure.
+ * "unavailable": thesis generation failed for any other reason.
+ */
+export type ThesisStatus = "current" | "paused" | "unavailable";
+
 export interface HomeBriefingData {
   thesis: ThesisOutput | null;
+  thesisStatus: ThesisStatus;
   confidence: "high" | "medium" | "low";
   positioning: PositioningEntry[];
   spotlightCount: number;
   totalInstitutions: number;
   recommendedCategory: string | null;
+}
+
+/** DB-only portion of the Home briefing — no provider calls, safe to cache. */
+export interface HomeBriefingSummary {
+  confidence: "high" | "medium" | "low";
+  positioning: PositioningEntry[];
+  spotlightCount: number;
+  totalInstitutions: number;
+  thesisSummaryPayload: ThesisSummaryPayload;
+}
+
+/** Provider-backed portion of the Home briefing — must NOT be cached for a
+ * full day, or a maintenance-window failure gets memoized as a real outage. */
+export interface HomeThesisResult {
+  thesis: ThesisOutput | null;
+  thesisStatus: ThesisStatus;
+  recommendedCategory: string;
 }
 
 function getCurrentQuarter(): string {
@@ -98,11 +124,11 @@ function deriveConfidence(
 }
 
 /**
- * Fetch all data needed for the Hamilton Home / Executive Briefing screen.
- * Calls generateGlobalThesis() with a monthly_pulse scope — lighter than quarterly.
- * Returns thesis: null on API failure so page can render empty state gracefully.
+ * Fetch the DB-backed numeric summary for the Home / Executive Briefing screen
+ * (positioning, confidence, institution counts). No provider calls — safe to
+ * cache for a full day (see hamilton/page.tsx's unstable_cache wrapper).
  */
-export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
+export async function fetchHomeBriefingSummary(): Promise<HomeBriefingSummary> {
   // getNationalIndexCached hits the DB. During build-time ISR prerender (revalidate=86400)
   // the DB can be unreachable; degrade to an empty briefing — the page already renders an
   // "Analysis unavailable" state for null data — instead of crashing the build. Normal
@@ -143,7 +169,7 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
 
   // Build minimal ThesisSummaryPayload — lighter scope, no heavy data sources
   const top10 = allEntries.slice(0, 10);
-  const thesisSummary: ThesisSummaryPayload = {
+  const thesisSummaryPayload: ThesisSummaryPayload = {
     quarter: getCurrentQuarter(),
     total_institutions: totalInstitutions,
     top_categories: top10.map((e) => ({
@@ -161,9 +187,33 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
     derived_tensions: [],
   };
 
+  return {
+    confidence,
+    positioning,
+    spotlightCount: positioning.length,
+    totalInstitutions,
+    thesisSummaryPayload,
+  };
+}
+
+/**
+ * Generate the global thesis narrative for the Home screen. Calls the AI
+ * provider (via generateGlobalThesis), so this must be invoked fresh per
+ * request rather than memoized with a 24h cache — otherwise a maintenance
+ * window (automation paused) gets cached as a real outage for a full day.
+ * Returns thesis: null on failure so the page can render a status banner
+ * instead of crashing; thesisStatus distinguishes a known pause (automation
+ * control engaged) from any other failure.
+ */
+export async function fetchHomeThesis(
+  thesisSummaryPayload: ThesisSummaryPayload,
+): Promise<HomeThesisResult> {
+  const spotlightCategories = getSpotlightCategories();
+
   let thesis: ThesisOutput | null = null;
+  let thesisStatus: ThesisStatus = "unavailable";
   try {
-    thesis = await generateGlobalThesis({ scope: "monthly_pulse", data: thesisSummary });
+    thesis = await generateGlobalThesis({ scope: "monthly_pulse", data: thesisSummaryPayload });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     let errorType: "missing_key" | "rate_limit" | "api_error" = "api_error";
@@ -177,11 +227,11 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
       errorType,
       scope: "monthly_pulse",
     });
+    thesisStatus = /Emergency stop/i.test(errorMessage) ? "paused" : "unavailable";
     thesis = null;
   }
 
   // Derive recommendedCategory from thesis tensions (per D-07)
-  // Note: spotlightCategories is already declared at the top of this function.
   let recommendedCategory: string | null = null;
   if (thesis) {
     const textToSearch = [
@@ -203,10 +253,31 @@ export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
 
   return {
     thesis,
-    confidence,
-    positioning,
-    spotlightCount: positioning.length,
-    totalInstitutions,
+    thesisStatus: thesis ? "current" : thesisStatus,
+    recommendedCategory,
+  };
+}
+
+/**
+ * Fetch all data needed for the Hamilton Home / Executive Briefing screen.
+ * Convenience wrapper combining fetchHomeBriefingSummary + fetchHomeThesis.
+ * Callers that need independent cache control over the DB summary vs. the
+ * provider-backed thesis (per D-09) should call those two functions directly
+ * instead — see hamilton/page.tsx.
+ */
+export async function fetchHomeBriefingData(): Promise<HomeBriefingData> {
+  const summary = await fetchHomeBriefingSummary();
+  const { thesis, thesisStatus, recommendedCategory } = await fetchHomeThesis(
+    summary.thesisSummaryPayload,
+  );
+
+  return {
+    thesis,
+    thesisStatus,
+    confidence: summary.confidence,
+    positioning: summary.positioning,
+    spotlightCount: summary.spotlightCount,
+    totalInstitutions: summary.totalInstitutions,
     recommendedCategory,
   };
 }

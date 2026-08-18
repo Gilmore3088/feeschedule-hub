@@ -43,6 +43,7 @@ import {
   type HamiltonPersistedContextSource,
 } from "@/lib/hamilton/context-source";
 import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
+import { toCustomerFacingError } from "@/lib/hamilton/customer-error";
 import type { ReportArtifactMetadata, ReportSummaryResponse } from "@/lib/hamilton/types";
 import type { HamiltonEvidencePolicy } from "@/lib/hamilton/request-contract";
 
@@ -642,8 +643,7 @@ export async function generateReport(
 
     return { success: true, reportId, report, artifactMetadata };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `Report generation failed: ${message}` };
+    return { success: false, error: toCustomerFacingError(err).message };
   }
 }
 

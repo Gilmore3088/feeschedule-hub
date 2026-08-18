@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import { unstable_cache, unstable_noStore } from "next/cache";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { fetchHomeBriefingData, fetchHomeBriefingSignals } from "@/lib/hamilton/home-data";
+import { fetchHomeBriefingSummary, fetchHomeThesis, fetchHomeBriefingSignals } from "@/lib/hamilton/home-data";
 import { getCurrentUser } from "@/lib/auth";
 import { hrefWithInstitutionContext } from "@/lib/hamilton/context-link";
 import { resolveHamiltonInstitutionContext } from "@/lib/hamilton/workspace-context";
 import { HamiltonViewCard } from "@/components/hamilton/home/HamiltonViewCard";
+import { HamiltonStatusBanner } from "@/components/hamilton/home/HamiltonStatusBanner";
 import { PositioningEvidence } from "@/components/hamilton/home/PositioningEvidence";
 import { WhatChangedCard } from "@/components/hamilton/home/WhatChangedCard";
 import { PriorityAlertsCard } from "@/components/hamilton/home/PriorityAlertsCard";
@@ -16,9 +17,13 @@ import type { HomeBriefingSignals } from "@/lib/hamilton/home-data";
 
 export const dynamic = "force-dynamic";
 
-const getCachedHomeBriefing = unstable_cache(
-  fetchHomeBriefingData,
-  ["hamilton-home-briefing"],
+// Numeric summary (positioning, confidence, institution counts) is DB-only —
+// safe to cache for a full day. The thesis narrative calls the AI provider
+// and is fetched fresh below (fetchHomeThesis, not wrapped in unstable_cache)
+// so a maintenance-window pause never gets memoized as a day-long outage.
+const getCachedHomeBriefingSummary = unstable_cache(
+  fetchHomeBriefingSummary,
+  ["hamilton-home-summary"],
   { revalidate: 86400 },
 );
 
@@ -128,7 +133,11 @@ export default async function HamiltonHomePage({
   searchParams,
 }: HamiltonHomePageProps) {
   const params = await searchParams;
-  const data = await getCachedHomeBriefing();
+  const summary = await getCachedHomeBriefingSummary();
+  const { thesis, thesisStatus, recommendedCategory } = await fetchHomeThesis(
+    summary.thesisSummaryPayload,
+  );
+  const data = { ...summary, thesis, thesisStatus, recommendedCategory };
   const selectedInstitutionId = await resolveSelectedInstitutionId(params);
   const reportsHref = hrefWithInstitutionContext(
     "/pro/reports?intent=executive-briefing",
@@ -174,7 +183,11 @@ export default async function HamiltonHomePage({
               color: "var(--hamilton-on-surface-variant)",
             }}
           >
-            {data.thesis ? "Analysis current" : "Analysis unavailable"}
+            {data.thesisStatus === "current"
+              ? "Analysis current"
+              : data.thesisStatus === "paused"
+                ? "Analysis paused for maintenance"
+                : "Analysis unavailable"}
           </span>
         </div>
 
@@ -212,6 +225,8 @@ export default async function HamiltonHomePage({
 
       {/* Content grid */}
       <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+        <HamiltonStatusBanner status={data.thesisStatus} />
+
         {/* Row 1: Hamilton's View — full width */}
         <HamiltonViewCard
           thesis={data.thesis}

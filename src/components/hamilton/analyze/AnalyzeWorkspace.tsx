@@ -13,6 +13,7 @@ import { ExploreFurtherPanel } from "./ExploreFurtherPanel";
 import { AnalyzeCTABar } from "./AnalyzeCTABar";
 import { AnalysisInputBar } from "./AnalysisInputBar";
 import { normalizeCanonicalInstitutionId } from "@/lib/hamilton/context-link";
+import { toCustomerFacingError } from "@/lib/hamilton/customer-error";
 import type { AnalyzeResponse } from "@/lib/hamilton/types";
 import type { HamiltonSelectedInstitutionContext } from "@/lib/hamilton/institution-context";
 
@@ -152,6 +153,7 @@ export function AnalyzeWorkspace({
     return "";
   });
   const [isExporting, setIsExporting] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   // Ref to always have latest activeTab inside async callbacks
   const activeTabRef = useRef<AnalysisFocus>(ANALYSIS_FOCUS_TABS[0]);
@@ -160,7 +162,7 @@ export function AnalyzeWorkspace({
   // Track the last prompt submitted for saving alongside the response
   const lastPromptRef = useRef<string>("");
 
-  const { messages, sendMessage, status, setMessages } = useChat({
+  const { messages, sendMessage, status, setMessages, regenerate } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/research/hamilton",
       body: () => ({
@@ -171,11 +173,21 @@ export function AnalyzeWorkspace({
         evidencePolicy: "provisional-first",
       }),
     }),
+    onError: (error) => {
+      setChatError(toCustomerFacingError(error).message);
+    },
     onFinish: async ({ message }) => {
       const content = extractTextFromMessage(message);
       const parsed = parseAnalyzeResponse(content);
       setParsedResponse(parsed);
       setIsSaved(false);
+
+      // Hamilton streamed a response with no usable content — do not persist
+      // an empty analysis; tell the user instead of saving a blank record.
+      if (!parsed.hamiltonView.trim() && parsed.whyItMatters.length === 0) {
+        setChatError("Hamilton returned an empty analysis; nothing was saved.");
+        return;
+      }
 
       // Auto-save if user context is available
       if (userId) {
@@ -209,6 +221,7 @@ export function AnalyzeWorkspace({
     lastPromptRef.current = trimmed;
     setParsedResponse(null);
     setIsSaved(false);
+    setChatError(null);
     sendMessage({ text: trimmed });
     setInput("");
   }, [input, isLoading, sendMessage]);
@@ -218,6 +231,7 @@ export function AnalyzeWorkspace({
       lastPromptRef.current = prompt;
       setParsedResponse(null);
       setIsSaved(false);
+      setChatError(null);
       setMessages([]);
       sendMessage({ text: prompt });
     },
@@ -369,6 +383,42 @@ export function AnalyzeWorkspace({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {chatError && (
+        <div
+          role="alert"
+          className="hamilton-error"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "1rem",
+            padding: "1rem 1.25rem",
+            borderRadius: "0.5rem",
+            backgroundColor: "var(--hamilton-error-container)",
+            color: "var(--hamilton-error)",
+            fontSize: "0.875rem",
+          }}
+        >
+          <span>{chatError}</span>
+          <button
+            type="button"
+            onClick={() => regenerate()}
+            style={{
+              flexShrink: 0,
+              padding: "0.375rem 0.875rem",
+              borderRadius: "0.375rem",
+              border: "1px solid var(--hamilton-error)",
+              color: "var(--hamilton-error)",
+              backgroundColor: "transparent",
+              fontSize: "0.8125rem",
+              fontWeight: 500,
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 

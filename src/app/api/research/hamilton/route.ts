@@ -33,6 +33,7 @@ import {
   type HamiltonRequestContract,
 } from "@/lib/hamilton/request-contract";
 import { getRequestSubjectKey } from "@/lib/api-hardening/audit";
+import { toCustomerFacingError } from "@/lib/hamilton/customer-error";
 
 export const maxDuration = 30;
 
@@ -361,11 +362,20 @@ async function handlePOST(request: Request) {
       });
     }
 
-    if (
-      err instanceof ProviderCircuitOpenError
-      || err instanceof ProviderBudgetBlockedError
-      || message.includes("Emergency stop")
-    ) {
+    // EmergencyStopActiveError bubbles up as a plain Error whose message names
+    // the internal reason (e.g. provider credit balance) — never forward that
+    // text to the client. ProviderCircuitOpenError/ProviderBudgetBlockedError
+    // still return their raw message below; scrubbing those is a follow-up
+    // (see task-3-report.md) and out of scope for this fix.
+    if (message.includes("Emergency stop")) {
+      const customerError = toCustomerFacingError(err);
+      return Response.json(
+        { error: customerError.message, code: customerError.code },
+        { status: 423 },
+      );
+    }
+
+    if (err instanceof ProviderCircuitOpenError || err instanceof ProviderBudgetBlockedError) {
       return Response.json({ error: message }, { status: 423 });
     }
 
