@@ -215,8 +215,11 @@ export async function getCityFeeAverages(city: string, stateCode: string): Promi
 
 export async function getCitiesInState(stateCode: string): Promise<CitySummary[]> {
   const upperState = stateCode.toUpperCase();
+  // Group by the lowercased city so "Fort Worth" and "FORT WORTH" collapse into one
+  // row instead of appearing as separate cities; INITCAP gives a single, consistent
+  // display name regardless of how any individual institution's city was cased.
   const rows = await sql`
-    SELECT ct.city, ct.state_code,
+    SELECT INITCAP(LOWER(ct.city)) as city, ct.state_code,
            COUNT(*) as institution_count,
            COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) as with_fees
     FROM institution_sources ct
@@ -226,7 +229,7 @@ export async function getCitiesInState(stateCode: string): Promise<CitySummary[]
       GROUP BY institution_id
     ) fc ON ct.id = fc.institution_id
     WHERE ct.state_code = ${upperState} AND ct.city IS NOT NULL AND ct.city != ''
-    GROUP BY LOWER(ct.city), ct.city, ct.state_code
+    GROUP BY LOWER(ct.city), ct.state_code
     HAVING COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) > 0
     ORDER BY COUNT(DISTINCT CASE WHEN fc.fee_count > 0 THEN ct.id END) DESC, COUNT(*) DESC
   ` as RawCitySummaryRow[];

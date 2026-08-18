@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { citySlug, cityName } from "./lib/city-slug";
 
 function requestHeadersWithPath(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
@@ -25,6 +26,32 @@ function permanentRedirectStatus(method: string) {
   return method === "GET" || method === "HEAD" ? 301 : 308;
 }
 
+const CITY_PAGE_PATTERN = /^\/fees\/city\/([^/]+)\/([^/]+)\/?$/;
+
+/**
+ * Canonicalizes `/fees/city/:state/:city` to a lowercase state code and a
+ * lowercase, hyphenated city slug (e.g. `/fees/city/TX/Fort%20Worth` or
+ * `/fees/city/tx/FORT-WORTH` -> `/fees/city/tx/fort-worth`). Returns null
+ * when the path already is canonical or isn't a city page at all.
+ */
+function canonicalCityPath(pathname: string): string | null {
+  const match = pathname.match(CITY_PAGE_PATTERN);
+  if (!match) return null;
+  const [, stateSegment, citySegment] = match;
+
+  const canonicalState = stateSegment.toLowerCase();
+  let canonicalCity: string;
+  try {
+    canonicalCity = citySlug(cityName(citySegment));
+  } catch {
+    return null;
+  }
+  if (!canonicalCity || (canonicalState === stateSegment && canonicalCity === citySegment)) {
+    return null;
+  }
+  return `/fees/city/${canonicalState}/${canonicalCity}`;
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
@@ -44,6 +71,13 @@ export function proxy(request: NextRequest) {
   const legacyTarget = LEGACY_PATH_REDIRECTS[pathname];
   if (legacyTarget) {
     const url = new URL(legacyTarget, request.url);
+    return NextResponse.redirect(url, permanentRedirectStatus(request.method));
+  }
+
+  const canonicalCity = canonicalCityPath(pathname);
+  if (canonicalCity) {
+    const url = new URL(canonicalCity, request.url);
+    url.search = request.nextUrl.search;
     return NextResponse.redirect(url, permanentRedirectStatus(request.method));
   }
 

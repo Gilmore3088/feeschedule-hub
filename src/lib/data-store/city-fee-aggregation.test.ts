@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateCityFeeAverages } from "./city-fee-aggregation";
+import { aggregateCityFeeAverages, isCityIndexable } from "./city-fee-aggregation";
 
 describe("aggregateCityFeeAverages", () => {
   it("counts a single reporting institution instead of dropping the category", () => {
@@ -47,5 +47,36 @@ describe("aggregateCityFeeAverages", () => {
       "wire_domestic_outgoing",
     ]);
     expect(result[0].median).toBe(2.5);
+  });
+
+  it("reports the true median, not the mean, when values are skewed", () => {
+    // Two institutions charge $10, one charges $100. The mean ($40) would
+    // misrepresent what most institutions in the city actually charge.
+    const result = aggregateCityFeeAverages([
+      { institution_id: 1, fee_category: "overdraft", amount: 10 },
+      { institution_id: 2, fee_category: "overdraft", amount: 10 },
+      { institution_id: 3, fee_category: "overdraft", amount: 100 },
+    ]);
+    expect(result).toEqual([{ fee_category: "overdraft", median: 10, institution_count: 3 }]);
+  });
+});
+
+describe("isCityIndexable", () => {
+  it("is false below the minimum institution count even with spotlight data", () => {
+    expect(
+      isCityIndexable(2, [{ fee_category: "overdraft", median: 30, institution_count: 2 }]),
+    ).toBe(false);
+  });
+
+  it("is false at the minimum institution count when no spotlight category has data", () => {
+    expect(
+      isCityIndexable(3, [{ fee_category: "wire_domestic_outgoing", median: 25, institution_count: 3 }]),
+    ).toBe(false);
+  });
+
+  it("is true at the minimum institution count once a spotlight category has data", () => {
+    expect(
+      isCityIndexable(3, [{ fee_category: "nsf", median: 30, institution_count: 3 }]),
+    ).toBe(true);
   });
 });

@@ -3,17 +3,18 @@ import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
 import { STATE_CODES } from "@/lib/us-states";
 import {
   getCitiesInState,
+  getCityFeeAverages,
   getDataFreshness,
   getInstitutionIdsWithFeeDates,
 } from "@/lib/data-store";
+import { isCityIndexable, MIN_INDEXABLE_CITY_INSTITUTIONS } from "@/lib/data-store/city-fee-aggregation";
 import { GUIDES } from "@/lib/guides";
 import { getSql } from "@/lib/data-store/connection";
 import { SITE_URL } from "@/lib/constants";
+import { citySlug } from "@/lib/city-slug";
 
 const BASE_URL = SITE_URL;
 const SAMPLE_REPORT_PATH = "/reports/sample-competitive-fee-position";
-/** City pages below this many verified institutions are noindexed and left out of the sitemap. */
-const MIN_INDEXABLE_CITY_INSTITUTIONS = 3;
 const TOP_CITIES_PER_STATE = 20;
 const FED_DISTRICT_COUNT = 12;
 const REPORTS_PRIORITY_WITH_CONTENT = 0.9;
@@ -58,12 +59,17 @@ async function loadCityPages(dataUpdated: Date): Promise<Entry[]> {
   for (const code of STATE_CODES) {
     try {
       const cities = await getCitiesInState(code);
-      const indexable = cities
+      // Sitemap eligibility uses the exact same rule as the page's own robots
+      // directive (`isCityIndexable`) so a page never appears in the sitemap
+      // while being noindexed, or vice versa. Pre-filter on institution count
+      // (cheap, already in hand) before spending a query on spotlight data.
+      const candidates = cities
         .filter((c) => c.with_fees >= MIN_INDEXABLE_CITY_INSTITUTIONS)
         .slice(0, TOP_CITIES_PER_STATE);
-      for (const c of indexable) {
-        const citySlug = encodeURIComponent(c.city.toLowerCase());
-        pages.push(entry(`/fees/city/${code.toLowerCase()}/${citySlug}`, dataUpdated, "weekly", 0.6));
+      for (const c of candidates) {
+        const cityAverages = await getCityFeeAverages(c.city, code);
+        if (!isCityIndexable(c.with_fees, cityAverages)) continue;
+        pages.push(entry(`/fees/city/${code.toLowerCase()}/${citySlug(c.city)}`, dataUpdated, "weekly", 0.6));
       }
     } catch {
       // Skip states with no data

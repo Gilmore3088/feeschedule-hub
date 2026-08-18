@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCitiesInState } from "@/lib/data-store";
 import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
+import { citySlug } from "@/lib/city-slug";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
 
@@ -97,7 +98,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
                     <tr key={`${c.city}-${c.state_code}`} className="hover:bg-[#FAF7F2]/60 transition-colors">
                       <td className="px-4 py-2.5">
                         <Link
-                          href={`/fees/city/${stateCode.toLowerCase()}/${encodeURIComponent(c.city.toLowerCase())}`}
+                          href={`/fees/city/${stateCode.toLowerCase()}/${citySlug(c.city)}`}
                           className="font-medium text-[#1A1815] hover:text-[#C44B2E] transition-colors"
                         >
                           {c.city}

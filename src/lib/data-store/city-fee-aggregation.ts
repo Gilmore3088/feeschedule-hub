@@ -2,6 +2,10 @@
  * Pure per-city fee aggregation used by /fees/city/[state]/[city].
  * Kept free of SQL so the "N institutions reporting" logic is unit-testable.
  */
+import { computePercentile } from "../benchmarks/percentile";
+
+const MEDIAN_PERCENTILE = 50;
+
 export interface CityFeeAverage {
   fee_category: string;
   median: number;
@@ -23,7 +27,7 @@ function toAmount(value: number | string | null | undefined): number | null {
 /**
  * Pure aggregation for city fee cards/tables: one value per institution per category
  * (the lowest published consumer-facing amount, matching the report methodology and
- * the per-institution columns on the city page), then a per-category average across
+ * the per-institution columns on the city page), then a per-category median across
  * every institution listed on the page. A single reporting institution still counts.
  */
 export function aggregateCityFeeAverages(rows: CityInstitutionFeeRow[]): CityFeeAverage[] {
@@ -40,14 +44,44 @@ export function aggregateCityFeeAverages(rows: CityInstitutionFeeRow[]): CityFee
 
   return [...perInstitution.entries()]
     .map(([fee_category, byInstitution]) => {
-      const values = [...byInstitution.values()];
-      const sum = values.reduce((total, value) => total + value, 0);
+      const values = [...byInstitution.values()].sort((a, b) => a - b);
+      const median = computePercentile(values, MEDIAN_PERCENTILE);
       return {
         fee_category,
-        median: Math.round((sum / values.length) * 100) / 100,
+        median: Math.round(median * 100) / 100,
         institution_count: values.length,
       };
     })
     .sort((a, b) => b.institution_count - a.institution_count || a.fee_category.localeCompare(b.fee_category));
+}
+
+/** City pages below this many fee-reporting institutions are noindexed and left out of the sitemap. */
+export const MIN_INDEXABLE_CITY_INSTITUTIONS = 3;
+
+/** Fee categories shown as spotlight cards on the city page. */
+export const CITY_SPOTLIGHT_CATEGORIES = [
+  "overdraft",
+  "monthly_maintenance",
+  "nsf",
+  "atm_non_network",
+] as const;
+
+function hasSpotlightData(cityAverages: Pick<CityFeeAverage, "fee_category">[]): boolean {
+  return CITY_SPOTLIGHT_CATEGORIES.some((category) =>
+    cityAverages.some((avg) => avg.fee_category === category),
+  );
+}
+
+/**
+ * Single indexability rule shared by the city page (`generateMetadata`'s
+ * robots directive, and its "honest empty state" branch) and the sitemap, so
+ * both agree on what counts as a real city page: enough reporting
+ * institutions AND at least one spotlight fee category with data.
+ */
+export function isCityIndexable(
+  institutionCount: number,
+  cityAverages: Pick<CityFeeAverage, "fee_category">[],
+): boolean {
+  return institutionCount >= MIN_INDEXABLE_CITY_INSTITUTIONS && hasSpotlightData(cityAverages);
 }
 

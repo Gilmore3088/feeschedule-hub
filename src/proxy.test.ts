@@ -58,6 +58,31 @@ describe("proxy", () => {
     }
   });
 
+  it("canonicalizes legacy city slugs (%20 or uppercase) to a lowercase-hyphen path", () => {
+    const cases: Array<[string, string]> = [
+      ["https://feeinsight.com/fees/city/tx/fort%20worth", "https://feeinsight.com/fees/city/tx/fort-worth"],
+      ["https://feeinsight.com/fees/city/TX/Fort-Worth", "https://feeinsight.com/fees/city/tx/fort-worth"],
+      ["https://feeinsight.com/fees/city/tx/FORT-WORTH", "https://feeinsight.com/fees/city/tx/fort-worth"],
+    ];
+    for (const [from, to] of cases) {
+      const response = proxy(request(from));
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get("location"), from).toBe(to);
+    }
+  });
+
+  it("does not redirect an already-canonical city path", () => {
+    const response = proxy(request("https://feeinsight.com/fees/city/tx/fort-worth"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("does not treat the state city directory as a city page needing canonicalization", () => {
+    const response = proxy(request("https://feeinsight.com/fees/city/tx"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
   it("does not redirect nested or similarly named routes as legacy paths", () => {
     for (const path of ["/pro/districts", "/research/district/2", "/checkout", "/consumers"]) {
       const response = proxy(
