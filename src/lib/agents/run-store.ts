@@ -6,6 +6,7 @@ import { runHamiltonPublish } from "@/lib/agents/hamilton/publish";
 import { runKnoxExtract } from "@/lib/agents/knox/extract";
 import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
+import { runLinkCheck } from "@/lib/agents/magellan/link-check";
 import {
   clusterPublicDiscoveryFindings,
   runPublicDiscoveryAudit,
@@ -29,7 +30,7 @@ import type {
 const ACTIVE_STATUSES = ["queued", "running", "cancel_requested"];
 const RUN_KINDS_WITH_LEDGER = ["workflow", "workflow_lane", "state_agent", "report", "manual_repair", "dry_run"] as const;
 const AGENTIC_SUMMARY =
-  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs, fetch source documents, and inventory public discovery routes; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and classify public page findings; Darwin can verify canonical-hinted raw rows and cluster public findings; Hamilton can publish eligible verified rows into the Tier-3 ledger and summarize public discovery diagnosis. Durable queues, scanned-PDF OCR, provider extraction, browser-render screenshots, and adversarial review depth remain gated until each agent module is implemented.";
+  "Agentic run advanced through the TypeScript run ledger with committed step events. Magellan can reduce missing fee URLs, fetch source documents, inventory public discovery routes, and HEAD-check source document links backing published fees; Rosetta can normalize HTML/text/PDF source documents and route scanned PDFs to OCR; Knox can extract conservative raw fee observations and classify public page findings; Darwin can verify canonical-hinted raw rows and cluster public findings; Hamilton can publish eligible verified rows into the Tier-3 ledger and summarize public discovery diagnosis. Durable queues, scanned-PDF OCR, provider extraction, browser-render screenshots, and adversarial review depth remain gated until each agent module is implemented.";
 
 type SqlTag = typeof sql;
 
@@ -333,6 +334,32 @@ async function executeAgenticStep(
             status_code: result.statusCode,
             document_type: result.documentType,
             content_hash: result.contentHash,
+            reason: result.reason,
+          })),
+        },
+      };
+    }
+    case "link_check": {
+      const linkCheck = await runLinkCheck(run.id, {
+        limit: numericRunParam(params, ["link_check_limit", "limit", "size"]),
+      });
+      return {
+        status: "completed",
+        summary: `Magellan checked ${linkCheck.processed.toLocaleString()} source document links backing published fees (${linkCheck.checked.toLocaleString()} reachable, ${linkCheck.unavailable.toLocaleString()} unavailable, ${linkCheck.failed.toLocaleString()} failed, ${linkCheck.skipped.toLocaleString()} skipped).`,
+        detail: {
+          selected_documents: linkCheck.selected,
+          processed_documents: linkCheck.processed,
+          reachable_documents: linkCheck.checked,
+          unavailable_documents: linkCheck.unavailable,
+          failed_checks: linkCheck.failed,
+          skipped_checks: linkCheck.skipped,
+          link_check_limit: linkCheck.limit,
+          sample_results: linkCheck.results.slice(0, 10).map((result) => ({
+            source_document_id: result.sourceDocumentId,
+            institution_id: result.institutionId,
+            url: result.url,
+            outcome: result.outcome,
+            status_code: result.statusCode,
             reason: result.reason,
           })),
         },
@@ -1106,6 +1133,7 @@ export async function executeAgentRun(
         step.stepKey === "rescue" ||
         step.stepKey === "fetch" ||
         step.stepKey === "read" ||
+        step.stepKey === "link_check" ||
         step.stepKey === "public-discovery" ||
         step.stepKey === "public-audit"
           ? await executeAgenticStep(sql, run, step)

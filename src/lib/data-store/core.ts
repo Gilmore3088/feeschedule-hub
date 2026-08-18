@@ -1,5 +1,6 @@
 import { sql } from "./connection";
 import { VALID_US_CODES } from "../us-states";
+import { SEARCH_QUALITY_CTE } from "./quality-cte";
 import {
   classifyInstitutionQuality,
   getFeePublicationStatus,
@@ -86,10 +87,12 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
     SELECT ef.id, ef.fee_name, ef.amount, ef.frequency, ef.conditions,
            ef.extraction_confidence, ef.review_status,
            ef.validation_flags, ef.fee_category, ef.fee_family,
-           ef.source_url, ef.created_at,
+           ef.source_url, ef.created_at, ef.updated_at, ef.source_document_id,
+           sd.last_status AS link_status,
            ct.institution_name, ef.institution_id
     FROM published_fee_catalog ef
     JOIN institution_sources ct ON ef.institution_id = ct.id
+    LEFT JOIN source_documents sd ON sd.id = ef.source_document_id
     WHERE ef.institution_id = ${targetId}
     ORDER BY ef.fee_name
   `;
@@ -100,6 +103,10 @@ export async function getFeesByInstitution(targetId: number): Promise<ExtractedF
     institution_id: Number(r.institution_id),
     amount: r.amount !== null ? Number(r.amount) : null,
     extraction_confidence: Number(r.extraction_confidence),
+    source_document_id: r.source_document_id !== null && r.source_document_id !== undefined
+      ? Number(r.source_document_id)
+      : null,
+    link_status: r.link_status !== null && r.link_status !== undefined ? Number(r.link_status) : null,
   }));
 }
 
@@ -305,48 +312,46 @@ export async function getInstitutionById(id: number): Promise<InstitutionDetail 
   return mapInstitutionDetailRow(row);
 }
 
+/**
+ * Public institution profile lookup. Uses the same three-CTE fee-tier counts
+ * as the directory (`searchInstitutions`/`autocompleteInstitutions`) so
+ * `published_fee_count`/`provisional_fee_count` on the profile page always
+ * agree with what the directory shows — `provisional_fee_count` reflects the
+ * full verified-unpublished + raw-unverified backlog, not just the
+ * catalog-only count (which is always zero, since `published_fee_catalog`
+ * hard-codes `review_status = 'approved'`). `fee_count` stays catalog-only
+ * (it gates whether the page loads pipeline preview evidence).
+ */
 export async function getPublicInstitutionById(id: number): Promise<InstitutionDetail | null> {
-  const [row] = await sql<(InstitutionDetail & {
+  const rows = await sql.unsafe<(InstitutionDetail & {
     latest_source_error?: string | null;
     latest_source_collected_at?: string | Date | null;
-  })[]>`
-    WITH catalog_counts AS (
-      SELECT
-        institution_id,
-        COUNT(*) FILTER (WHERE review_status = 'approved')::int AS published_fee_count,
-        COUNT(*) FILTER (WHERE review_status <> 'approved' AND review_status <> 'rejected')::int AS catalog_provisional_fee_count,
-        COUNT(*) FILTER (WHERE review_status <> 'rejected')::int AS visible_fee_count
-      FROM published_fee_catalog
-      WHERE institution_id = ${id}
-      GROUP BY institution_id
-    ),
-    latest_docs AS (
-      SELECT DISTINCT ON (institution_id)
-        institution_id,
-        status AS latest_source_status,
-        COALESCE(fees_extracted, 0)::int AS latest_extracted_fee_count,
-        error_message AS latest_source_error,
-        crawled_at AS latest_source_collected_at
-      FROM source_documents
-      WHERE institution_id = ${id}
-      ORDER BY institution_id, crawled_at DESC NULLS LAST, id DESC
-    )
+  })[]>(
+    `${SEARCH_QUALITY_CTE}
     SELECT ct.id, ct.institution_name, ct.state_code, ct.charter_type,
            ct.asset_size, ct.asset_size_tier, ct.fed_district, ct.city,
            ct.source, ct.cert_number, ct.rssd_id, ct.lei, ct.document_type,
            ct.website_url, ct.fee_schedule_url,
            COALESCE(cc.visible_fee_count, 0) as fee_count,
            COALESCE(cc.published_fee_count, 0) as published_fee_count,
-           COALESCE(cc.catalog_provisional_fee_count, 0) as provisional_fee_count,
+           (
+             COALESCE(cc.catalog_provisional_fee_count, 0)
+             + COALESCE(vuc.verified_unpublished_fee_count, 0)
+             + COALESCE(ruc.raw_unverified_fee_count, 0)
+           ) as provisional_fee_count,
            ld.latest_source_status,
            COALESCE(ld.latest_extracted_fee_count, 0) as latest_extracted_fee_count,
            ld.latest_source_error,
            ld.latest_source_collected_at
     FROM institution_sources ct
     LEFT JOIN catalog_counts cc ON cc.institution_id = ct.id
+    LEFT JOIN verified_unpublished_counts vuc ON vuc.institution_id = ct.id
+    LEFT JOIN raw_unverified_counts ruc ON ruc.institution_id = ct.id
     LEFT JOIN latest_docs ld ON ld.institution_id = ct.id
-    WHERE ct.id = ${id}
-  `;
+    WHERE ct.id = $1`,
+    [id],
+  );
+  const [row] = rows;
   if (!row) return null;
   return mapInstitutionDetailRow(row);
 }

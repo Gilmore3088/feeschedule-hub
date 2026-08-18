@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatCompactDollars } from "@/lib/format";
 import { getFrequencyLabel, getPublicStatusLabel, getSegmentLabel, toTitleCase } from "./enum-labels";
-import { groupFeesByFamily, type DisplayFee } from "./fee-schedule-table";
+import { groupFeesByFamily, host, type DisplayFee } from "./fee-schedule-table";
 import {
   assetSizeToDollars,
   formatReportQuarter,
@@ -222,5 +222,16 @@ describe("fee schedule grouping", () => {
     const overdraft = groups.find((group) => group.family === "Overdraft & NSF");
     expect(overdraft?.rows).toHaveLength(2);
     expect(groups.find((group) => group.family === "Other fees")?.provisionalCount).toBe(1);
+  });
+});
+
+describe("source line host", () => {
+  it("strips www and returns the bare hostname", () => {
+    expect(host("https://www.angelinabankonline.com/fees")).toBe("angelinabankonline.com");
+    expect(host("https://angelinabankonline.com/fees")).toBe("angelinabankonline.com");
+  });
+
+  it("falls back to the raw string for an unparseable URL", () => {
+    expect(host("not-a-url")).toBe("not-a-url");
   });
 });

@@ -33,6 +33,8 @@ export function toDisplayFees(fees: ExtractedFee[]): DisplayFee[] {
     conditions: fee.conditions,
     status: isVerifiedFee(fee) ? "verified" : "provisional",
     sourceUrl: fee.source_url ?? null,
+    publishedAt: fee.updated_at ?? null,
+    linkStatus: fee.link_status ?? null,
   }));
 }
 

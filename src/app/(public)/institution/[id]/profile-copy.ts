@@ -1,3 +1,4 @@
+import type { BadgeTier } from "@/lib/institution-badge";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { PRODUCT_NAME, REPORT_OFFER, SITE_NAME } from "@/lib/constants";
 
@@ -30,3 +31,33 @@ export const METHODOLOGY_COPY = [
   "Fees marked Under review are shown with their source for context, but stay out of benchmark scores until they clear.",
   `Financial figures come from public FDIC and NCUA call reports and are shown in whole dollars by ${SITE_NAME}.`,
 ] as const;
+
+/**
+ * Body copy for the profile's collapsed "What's under review" detail —
+ * counts and copy only, never the provisional rows themselves.
+ */
+export function underReviewDetailsCopy(count: number): string {
+  return `${count} more fees have been collected from this institution's schedule and are being verified. Verified fees appear above as they clear review.`;
+}
+
+/**
+ * Metadata description for the profile page's `<head>`, honest about tier:
+ * only a verified profile claims "verified against its own fee schedule."
+ */
+export function buildProfileDescription({
+  tier,
+  nameAndPlace,
+  provisionalCount,
+}: {
+  tier: BadgeTier;
+  nameAndPlace: string;
+  provisionalCount: number;
+}): string {
+  if (tier === "verified") {
+    return `Published fees for ${nameAndPlace}, verified against its own fee schedule, with peer benchmarks from ${SITE_NAME}.`;
+  }
+  if (tier === "none") {
+    return `No published fee schedule on file yet for ${nameAndPlace}. ${SITE_NAME} tracks bank and credit union fees as they are published.`;
+  }
+  return `Fee schedule under review — ${provisionalCount} fees collected for ${nameAndPlace}. ${SITE_NAME} tracks bank and credit union fees as they clear review.`;
+}

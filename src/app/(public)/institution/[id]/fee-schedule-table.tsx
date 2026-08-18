@@ -1,7 +1,10 @@
 import { ExternalLink } from "lucide-react";
 import { FEE_FAMILIES, getFeeFamily } from "@/lib/fee-taxonomy";
-import { formatFeeAmount } from "@/lib/format";
+import { formatDate, formatFeeAmount } from "@/lib/format";
 import { getFrequencyLabel } from "./enum-labels";
+
+/** HTTP status at/above which a fee's source link is reported unavailable (mirrors Magellan's link-check threshold). */
+const LINK_UNAVAILABLE_STATUS_THRESHOLD = 400;
 
 export interface DisplayFee {
   id: string;
@@ -12,6 +15,10 @@ export interface DisplayFee {
   conditions: string | null;
   status: "verified" | "provisional";
   sourceUrl: string | null;
+  /** When this fee was published (catalog `updated_at`); null for pipeline preview rows. */
+  publishedAt?: string | Date | null;
+  /** Most recent Magellan link-check HTTP status for this fee's source document. */
+  linkStatus?: number | null;
 }
 
 interface FeeGroup {
@@ -59,21 +66,16 @@ export function groupFeesByFamily(fees: DisplayFee[]): FeeGroup[] {
   });
 }
 
-function GroupBadge({ group }: { group: FeeGroup }) {
-  const verified = group.verifiedCount > 0;
-  const className = verified
-    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-    : "border-amber-200 bg-amber-50 text-amber-900";
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${className}`}>
-        {verified ? "Verified" : "Under review"}
-      </span>
-      {verified && group.provisionalCount > 0 && (
-        <span className="text-[11px] text-[#6B6255]">{group.provisionalCount} under review</span>
-      )}
-    </span>
-  );
+/**
+ * Fee-family groups no longer carry their own "Verified"/"Under review" pill
+ * — that verdict lives once, at the institution level, in the profile hero
+ * badge (`institutionBadge`). A family with any provisional rows still gets
+ * a plain count hint; individual provisional rows in a mixed group keep
+ * their own `UnderReviewChip`.
+ */
+function GroupNote({ group }: { group: FeeGroup }) {
+  if (group.provisionalCount === 0) return null;
+  return <span className="text-[11px] text-[#6B6255]">{group.provisionalCount} under review</span>;
 }
 
 const HEADER_CELL = "px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B6255]";
@@ -112,7 +114,7 @@ export function FeeScheduleTable({
                   <th scope="rowgroup" colSpan={5} className="px-4 py-2.5 text-left">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-[#1A1815]">{group.family}</span>
-                      <GroupBadge group={group} />
+                      <GroupNote group={group} />
                     </div>
                   </th>
                 </tr>
@@ -136,18 +138,49 @@ function UnderReviewChip() {
   );
 }
 
-function SourceLink({ href }: { href: string | null }) {
+/** Bare hostname for a source URL, e.g. "angelinabankonline.com" (drops "www."). */
+export function host(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * Per-row source attribution: "Source: {host} · published {date}", plus an
+ * unavailable note when Magellan's most recent link-check saw a 4xx/5xx.
+ * Counts and copy only — never a provisional fee row's raw pipeline data.
+ */
+function SourceLine({
+  fee,
+  disclosureUrl,
+}: {
+  fee: DisplayFee;
+  disclosureUrl: string | null;
+}) {
+  const href = fee.sourceUrl ?? disclosureUrl;
   if (!href) return <span className="text-xs text-[#6B6255]">&mdash;</span>;
+
+  const publishedLabel = fee.publishedAt ? formatDate(fee.publishedAt) : null;
+  const linkUnavailable = (fee.linkStatus ?? 0) >= LINK_UNAVAILABLE_STATUS_THRESHOLD;
+
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-semibold text-[#A93D25] hover:text-[#A93D25]"
-    >
-      Source
-      <ExternalLink className="h-3 w-3" />
-    </a>
+    <span className="inline-flex flex-wrap items-center justify-end gap-1 text-xs">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 font-semibold text-[#A93D25] hover:text-[#A93D25]"
+      >
+        Source: {host(href)}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+      {publishedLabel && <span className="text-[#6B6255]">&middot; published {publishedLabel}</span>}
+      {linkUnavailable && (
+        <span className="text-[#A93D25]">(link currently unavailable &mdash; archived copy on request)</span>
+      )}
+    </span>
   );
 }
 
@@ -160,7 +193,6 @@ function FeeRow({
   disclosureUrl: string | null;
   mixedGroup: boolean;
 }) {
-  const sourceUrl = fee.sourceUrl ?? disclosureUrl;
   const amount = formatFeeAmount(fee.amount);
   const basis = getFrequencyLabel(fee.frequency);
   const showUnderReview = mixedGroup && fee.status === "provisional";
@@ -178,8 +210,8 @@ function FeeRow({
       <td className="max-w-[280px] px-4 py-2.5 align-top text-xs leading-relaxed text-[#6B6255]">
         {fee.conditions ? <span className="break-words">{fee.conditions}</span> : "\u2014"}
       </td>
-      <td className="whitespace-nowrap px-4 py-2.5 text-right align-top">
-        <SourceLink href={sourceUrl} />
+      <td className="px-4 py-2.5 text-right align-top">
+        <SourceLine fee={fee} disclosureUrl={disclosureUrl} />
       </td>
     </tr>
   );
@@ -193,11 +225,10 @@ function FeeScheduleStack({ groups, disclosureUrl }: { groups: FeeGroup[]; discl
         <section key={group.family} className="border-t border-[#E0D7C9]">
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF7F2] px-4 py-2.5">
             <span className="text-sm font-semibold text-[#1A1815]">{group.family}</span>
-            <GroupBadge group={group} />
+            <GroupNote group={group} />
           </div>
           <ul>
             {group.rows.map((fee) => {
-              const sourceUrl = fee.sourceUrl ?? disclosureUrl;
               const basis = getFrequencyLabel(fee.frequency);
               const showUnderReview = group.verifiedCount > 0 && fee.status === "provisional";
               return (
@@ -213,8 +244,8 @@ function FeeScheduleStack({ groups, disclosureUrl }: { groups: FeeGroup[]; discl
                   </div>
                   <p className="mt-1 text-xs leading-relaxed text-[#6B6255]">
                     {[basis || null, fee.conditions].filter(Boolean).join(" \u00b7 ")}
-                    {(basis || fee.conditions) && sourceUrl ? " \u00b7 " : null}
-                    {sourceUrl && <SourceLink href={sourceUrl} />}
+                    {(basis || fee.conditions) ? " \u00b7 " : null}
+                    <SourceLine fee={fee} disclosureUrl={disclosureUrl} />
                   </p>
                 </li>
               );

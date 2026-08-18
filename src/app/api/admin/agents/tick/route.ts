@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser, hasPermission } from "@/lib/auth";
 import { executeQueuedAgentRuns } from "@/lib/agents/run-store";
 import { scheduleDueStateLaneRuns } from "@/lib/agents/state-lane-scheduler";
+import { scheduleDueLinkCheckRun } from "@/lib/agents/magellan/link-check-scheduler";
 import { getAutomationControl } from "@/lib/automation-control";
 import { matchesConfiguredCronSecret } from "@/lib/cron-secret";
 import { getExecutionBackendStatus } from "@/lib/execution-backend";
@@ -101,6 +102,9 @@ async function handleGET(request: NextRequest) {
     limit: stateLaneLimit,
     triggeredBy: "api.admin.agents.tick",
   });
+  const scheduledLinkCheck = await scheduleDueLinkCheckRun({
+    triggeredBy: "api.admin.agents.tick",
+  }).catch(() => null);
   const result = await executeQueuedAgentRuns({
     runLimit,
     maxStepsPerRun,
@@ -108,7 +112,14 @@ async function handleGET(request: NextRequest) {
     maxProviderCallsPerRun: budget.maxProviderCalls ?? null,
     maxEstimatedCostMicrousd: budget.maxEstimatedMicrousd ?? null,
   });
-  return NextResponse.json({ ok: true, scheduledStateLanes, ...result });
+  return NextResponse.json({
+    ok: true,
+    scheduledStateLanes,
+    scheduledLinkCheck: scheduledLinkCheck
+      ? { scheduled: scheduledLinkCheck.scheduled, runId: scheduledLinkCheck.run.id }
+      : { scheduled: false, runId: null },
+    ...result,
+  });
 }
 
 async function handlePOST(request: NextRequest) {

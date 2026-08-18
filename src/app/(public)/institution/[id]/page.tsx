@@ -8,8 +8,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { SITE_NAME } from "@/lib/constants";
 import { computeInstitutionRating, generateInterpretation } from "@/lib/institution-rating";
+import { institutionBadge } from "@/lib/institution-badge";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { buildPublicInstitutionProfileLinks } from "@/lib/institution-profile-links";
 import { formatAbsoluteDate } from "@/lib/public-stats";
@@ -18,7 +18,12 @@ import { FeeScheduleTable } from "./fee-schedule-table";
 import { FinancialContext } from "./financial-context";
 import { assetSizeToDollars, formatReportQuarter, selectFinancialsByQuarter } from "./financial-units";
 import { InstitutionMetricRow, InstitutionOfferBand } from "./institution-metrics";
-import { MIN_VERIFIED_FEES_FOR_NARRATIVE, MIN_VERIFIED_FEES_FOR_OFFER } from "./profile-copy";
+import {
+  buildProfileDescription,
+  MIN_VERIFIED_FEES_FOR_NARRATIVE,
+  MIN_VERIFIED_FEES_FOR_OFFER,
+  underReviewDetailsCopy,
+} from "./profile-copy";
 import {
   buildProfileTitle,
   getPublicInstitutionForPage,
@@ -63,12 +68,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const city = toTitleCase(inst.city);
   const place = [city, inst.state_code].filter(Boolean).join(", ");
   const stateName = inst.state_code ? STATE_NAMES[inst.state_code] : null;
+  const nameAndPlace = `${inst.institution_name}${place ? ` (${place})` : ""}`;
+  const badge = institutionBadge({
+    published: inst.published_fee_count ?? 0,
+    provisional: inst.provisional_fee_count ?? 0,
+    hasSource: Boolean(inst.fee_schedule_url),
+  });
+  const description = buildProfileDescription({
+    tier: badge.tier,
+    nameAndPlace,
+    provisionalCount: inst.provisional_fee_count ?? 0,
+  });
 
   return {
     // Thin profiles (no verified fees yet) stay reachable but out of the index.
     robots: verifiedFees.length === 0 ? { index: false, follow: true } : undefined,
     title: buildProfileTitle(inst.institution_name, headline),
-    description: `Published fees for ${inst.institution_name}${place ? ` (${place})` : ""}, verified against its own fee schedule, with peer benchmarks from ${SITE_NAME}.`,
+    description,
     keywords: [
       inst.institution_name,
       `${inst.institution_name} fees`,
@@ -106,16 +122,15 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const verifiedFees = visibleFees.filter(isVerifiedFee);
   const catalogRows = toDisplayFees(visibleFees);
   const displayFees = catalogRows.length > 0 ? catalogRows : toPipelineDisplayFees(evidence);
-  const pipelineCounts = evidence?.pipeline_counts ?? null;
-  const pipelineUnderReview = pipelineCounts
-    ? Math.max(0, (pipelineCounts.raw_without_verified_count ?? 0) + (pipelineCounts.verified_without_published_count ?? 0))
-    : 0;
   const verifiedCount = inst.published_fee_count ?? verifiedFees.length;
-  const underReviewCount = Math.max(
-    inst.provisional_fee_count ?? 0,
-    visibleFees.length - verifiedFees.length,
-    pipelineUnderReview,
-  );
+  // Matches the directory's three-CTE count (catalog-provisional + verified-unpublished
+  // + raw-unverified), not just the always-empty catalog-only provisional count.
+  const underReviewCount = inst.provisional_fee_count ?? 0;
+  const badge = institutionBadge({
+    published: verifiedCount,
+    provisional: underReviewCount,
+    hasSource: Boolean(inst.fee_schedule_url),
+  });
 
   const nationalIndex =
     verifiedFees.length > 0 ? await getNationalIndexCached().catch(fallbackTo("national index", [])) : [];
@@ -123,6 +138,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const enoughForNarrative = verifiedFees.length >= MIN_VERIFIED_FEES_FOR_NARRATIVE;
   const showNarrative = rating !== null && enoughForNarrative;
   const thinProfile = verifiedFees.length < MIN_VERIFIED_FEES_FOR_OFFER;
+  const scoreLabel = rating && verifiedFees.length >= MIN_VERIFIED_FEES_FOR_OFFER ? rating.label : null;
   const headline = pickHeadlineFees(verifiedFees);
   const interpretation =
     showNarrative && rating
@@ -184,7 +200,7 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
         <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-7">
           <ProfileHeader
             name={inst.institution_name}
-            status={status}
+            badge={badge}
             segmentLabel={segmentLabel}
             locationLabel={locationLabel}
             charterLabel={charterLabel}
@@ -198,9 +214,18 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
             verifiedCount={verifiedCount}
             underReviewCount={underReviewCount}
             assetsDollars={assetsDollars}
-            scoreLabel={null}
+            scoreLabel={scoreLabel}
             financialsAsOf={financialsAsOf}
           />
+
+          {underReviewCount > 0 && (
+            <details className="fi-reveal fi-reveal-delay-1 mb-5 border border-[#E0D7C9] bg-[#FDFBF8] px-4 py-3 text-sm text-[#5A5347] sm:px-5">
+              <summary className="cursor-pointer font-semibold text-[#1A1815]">
+                What&rsquo;s under review ({underReviewCount})
+              </summary>
+              <p className="mt-2 leading-relaxed">{underReviewDetailsCopy(underReviewCount)}</p>
+            </details>
+          )}
 
           <StatusNotice
             status={status}

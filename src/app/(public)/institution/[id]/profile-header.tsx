@@ -1,25 +1,27 @@
 import { Building2, ExternalLink, FileText, Landmark, MapPin } from "lucide-react";
-import type { FeePublicationStatus } from "@/lib/institution-quality";
-import { getPublicStatusLabel } from "./enum-labels";
+import type { InstitutionBadge } from "@/lib/institution-badge";
 
-const STATUS_TONE: Record<FeePublicationStatus, string> = {
+const BADGE_TONE: Record<InstitutionBadge["tier"], string> = {
   verified: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  provisional: "border-amber-200 bg-amber-50 text-amber-900",
+  partial: "border-amber-200 bg-amber-50 text-amber-900",
   under_review: "border-amber-200 bg-amber-50 text-amber-900",
-  unavailable: "border-[#E0D7C9] bg-white text-[#6B6255]",
+  none: "border-[#E0D7C9] bg-white text-[#6B6255]",
 };
 
-export function StatusBadge({ status }: { status: FeePublicationStatus }) {
+export function StatusBadge({ badge }: { badge: InstitutionBadge }) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold ${STATUS_TONE[status]}`}>
-      {getPublicStatusLabel(status)}
+    <span
+      title={badge.detail}
+      className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-semibold ${BADGE_TONE[badge.tier]}`}
+    >
+      {badge.label}
     </span>
   );
 }
 
 export interface ProfileHeaderProps {
   name: string;
-  status: FeePublicationStatus;
+  badge: InstitutionBadge;
   segmentLabel: string | null;
   locationLabel: string | null;
   charterLabel: string;
@@ -34,7 +36,7 @@ const LINK_CLASS =
 
 export function ProfileHeader({
   name,
-  status,
+  badge,
   segmentLabel,
   locationLabel,
   charterLabel,
@@ -48,7 +50,7 @@ export function ProfileHeader({
       <div className="grid gap-5 border-b border-[#D8CBB8] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <div className="min-w-0">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <StatusBadge status={status} />
+            <StatusBadge badge={badge} />
             {segmentLabel && (
               <span className="rounded-md border border-[#E0D7C9] bg-white px-2 py-1 text-[11px] font-medium text-[#6B6255]">
                 {segmentLabel}

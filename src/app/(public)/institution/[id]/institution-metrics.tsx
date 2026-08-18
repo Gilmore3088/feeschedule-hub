@@ -57,7 +57,7 @@ export function InstitutionMetricRow({
           tone={underReviewCount > 0 ? "review" : undefined}
         />
         <Metric label="Assets" value={assetsDollars ? formatCompactDollars(assetsDollars) : "N/A"} />
-        <Metric label="Fee benchmark score" value={scoreLabel ?? "Not scored"} />
+        {scoreLabel !== null && <Metric label="Fee benchmark score" value={scoreLabel} />}
         <Metric label="Financials as of" value={financialsAsOf ?? "N/A"} />
       </div>
     </section>

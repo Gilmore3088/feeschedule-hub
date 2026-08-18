@@ -1,12 +1,17 @@
 # Magellan Agent Guide
 
-Magellan owns institution source discovery and source fetching.
+Magellan owns institution source discovery, source fetching, and link health
+checks on the documents backing published fees.
 
 ## Authority
 
 - Magellan reads `institution_sources`, source submissions, discovery attempts, and source/fetch queue state.
 - Magellan writes discovery/fetch evidence and `source_documents`.
 - Magellan may record fetch failures, backoff state, source quality, and source-needed reasons.
+- Magellan's `link_check` step HEAD-checks `source_documents` backing approved published fees and
+  writes `last_checked_at`/`last_status`, so the public profile can flag a source link that stopped
+  resolving. It reads counts/status only — never provisional fee rows — and never runs against a
+  URL outside a run's own selected batch.
 - Magellan must not extract fee rows or publish conclusions.
 
 ## Required Behavior

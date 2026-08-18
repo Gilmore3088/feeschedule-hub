@@ -7,6 +7,7 @@ const matchesConfiguredCronSecretMock = vi.fn();
 const getAutomationControlMock = vi.fn();
 const getExecutionBackendStatusMock = vi.fn();
 const scheduleDueStateLaneRunsMock = vi.fn();
+const scheduleDueLinkCheckRunMock = vi.fn();
 const executeQueuedAgentRunsMock = vi.fn();
 const assertCronTickBudgetAllowedMock = vi.fn();
 
@@ -29,6 +30,10 @@ vi.mock("@/lib/execution-backend", () => ({
 
 vi.mock("@/lib/agents/state-lane-scheduler", () => ({
   scheduleDueStateLaneRuns: scheduleDueStateLaneRunsMock,
+}));
+
+vi.mock("@/lib/agents/magellan/link-check-scheduler", () => ({
+  scheduleDueLinkCheckRun: scheduleDueLinkCheckRunMock,
 }));
 
 vi.mock("@/lib/agents/run-store", () => ({
@@ -67,6 +72,13 @@ describe("/api/admin/agents/tick", () => {
       failed: [],
       results: [{ stateCode: "CA", runId: 123, status: "queued", reused: false }],
     });
+    scheduleDueLinkCheckRunMock.mockResolvedValue({
+      run: { id: 456 },
+      steps: [],
+      reused: false,
+      scheduled: true,
+      idempotencyKey: "magellan:link-check:2026-08-18",
+    });
     executeQueuedAgentRunsMock.mockResolvedValue({
       selected: 1,
       results: [{ runId: 123, status: "queued", terminal: false, executedSteps: 1 }],
@@ -92,6 +104,10 @@ describe("/api/admin/agents/tick", () => {
       limit: 3,
       triggeredBy: "api.admin.agents.tick",
     });
+    expect(scheduleDueLinkCheckRunMock).toHaveBeenCalledWith({
+      triggeredBy: "api.admin.agents.tick",
+    });
+    expect(body.scheduledLinkCheck).toEqual({ scheduled: true, runId: 456 });
     expect(executeQueuedAgentRunsMock).toHaveBeenCalledWith({
       runLimit: 2,
       maxStepsPerRun: 1,
@@ -99,6 +115,17 @@ describe("/api/admin/agents/tick", () => {
       maxProviderCallsPerRun: 3,
       maxEstimatedCostMicrousd: 250_000,
     });
+  });
+
+  it("reports no scheduled link check when nothing was due", async () => {
+    scheduleDueLinkCheckRunMock.mockResolvedValue(null);
+    const { GET } = await import("./route");
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.scheduledLinkCheck).toEqual({ scheduled: false, runId: null });
   });
 
   it("does not create blocked runs while automation is stopped", async () => {
@@ -119,6 +146,7 @@ describe("/api/admin/agents/tick", () => {
     expect(body.paused).toBe(true);
     expect(body.pauseReason).toBe("Provider credit failure");
     expect(scheduleDueStateLaneRunsMock).not.toHaveBeenCalled();
+    expect(scheduleDueLinkCheckRunMock).not.toHaveBeenCalled();
     expect(executeQueuedAgentRunsMock).not.toHaveBeenCalled();
   });
 
@@ -138,6 +166,7 @@ describe("/api/admin/agents/tick", () => {
     expect(body.paused).toBe(true);
     expect(body.pauseReason).toBe("Agent execution is blocked.");
     expect(scheduleDueStateLaneRunsMock).not.toHaveBeenCalled();
+    expect(scheduleDueLinkCheckRunMock).not.toHaveBeenCalled();
     expect(executeQueuedAgentRunsMock).not.toHaveBeenCalled();
   });
 
@@ -157,6 +186,7 @@ describe("/api/admin/agents/tick", () => {
     expect(body.paused).toBe(true);
     expect(body.blockedReason).toBe("budget_policy_disabled");
     expect(scheduleDueStateLaneRunsMock).not.toHaveBeenCalled();
+    expect(scheduleDueLinkCheckRunMock).not.toHaveBeenCalled();
     expect(executeQueuedAgentRunsMock).not.toHaveBeenCalled();
   });
 });

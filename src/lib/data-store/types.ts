@@ -33,6 +33,10 @@ export interface ExtractedFee {
   fee_family?: string | null;
   source_url?: string | null;
   created_at?: string | Date;
+  updated_at?: string | Date | null;
+  source_document_id?: number | null;
+  /** Most recent Magellan link-check HTTP status for this fee's source document, or null if unchecked. */
+  link_status?: number | null;
 }
 
 export interface ReviewableFee extends ExtractedFee {
