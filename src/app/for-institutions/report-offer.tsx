@@ -14,7 +14,7 @@ const REPORT_CONTENTS = [
   "PDF, board-ready, with your complete published schedule as an appendix",
 ];
 
-export function ReportOfferSection() {
+export function ReportOfferSection({ emailConfigured }: { emailConfigured: boolean }) {
   return (
     <section id="report" className="scroll-mt-16 border-b border-warm-200 bg-white">
       <div className="mx-auto max-w-6xl px-6 py-14">
@@ -44,7 +44,7 @@ export function ReportOfferSection() {
             </ul>
             <ProofExcerpt />
           </div>
-          <RequestReportForm contactEmail={CONTACT_EMAIL} />
+          <RequestReportForm contactEmail={CONTACT_EMAIL} emailConfigured={emailConfigured} />
         </div>
       </div>
     </section>

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BarChart2, Megaphone, Shield, Users } from "lucide-react";
 import { getPublicStatsSummary } from "@/lib/public-stats";
+import { isLeadEmailConfigured } from "@/lib/email/config";
 import { CONTACT_EMAIL, PRODUCT_NAME, SITE_NAME } from "@/lib/constants";
 import { ConsumerNav } from "@/components/consumer-nav";
 import { CustomerFooter } from "@/components/customer-footer";
@@ -30,6 +31,7 @@ const PRIMARY_BUTTON = `${HERO_BUTTON_BASE} bg-[#C44B2E] font-bold text-white ho
 
 export default async function ForInstitutionsPage() {
   const summary = await getPublicStatsSummary();
+  const emailConfigured = isLeadEmailConfigured();
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -85,7 +87,7 @@ export default async function ForInstitutionsPage() {
           <div className="pointer-events-none absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-terra/[0.06] to-transparent" />
         </section>
 
-        <ReportOfferSection />
+        <ReportOfferSection emailConfigured={emailConfigured} />
         <ProToolsSection />
         <CompareTableSection summary={summary} />
         <AudienceSection />

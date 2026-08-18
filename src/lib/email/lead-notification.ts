@@ -32,6 +32,12 @@ const FROM_NOT_CONFIGURED =
   "REPORT_REQUEST_EMAIL_FROM, WORKSPACE_INVITE_EMAIL_FROM, TRANSACTIONAL_EMAIL_FROM, " +
   "or EMAIL_FROM is not configured.";
 
+/** Placeholder result for the team-inbox message when `notifyTeam` is false. */
+const TEAM_NOTIFICATION_SKIPPED: EmailDeliveryResult = {
+  status: "not_configured",
+  reason: "Team notification is not sent for this lead source.",
+};
+
 export function getLeadNotificationFromAddress() {
   return (
     (process.env.REPORT_REQUEST_EMAIL_FROM || "").trim() ||
@@ -80,12 +86,16 @@ function renderLeadEmailText(content: LeadEmailContent) {
 /**
  * Sends the internal notification and the requester auto-reply. Both share the
  * same not_configured guard so a missing From address is reported once per message.
+ * Pass `notifyTeam: false` to send only the requester confirmation (e.g. newsletter
+ * and notify-me leads, which should not page the CONTACT_EMAIL inbox).
  */
 export async function sendLeadNotificationPair(input: {
   requesterEmail: string;
   notification: LeadEmailContent;
   confirmation: LeadEmailContent;
+  notifyTeam?: boolean;
 }): Promise<LeadNotificationOutcome> {
+  const notifyTeam = input.notifyTeam ?? true;
   const from = getLeadNotificationFromAddress();
   if (!getResendApiKey()) {
     const result: EmailDeliveryResult = {
@@ -99,18 +109,22 @@ export async function sendLeadNotificationPair(input: {
     return { notification: result, confirmation: result };
   }
 
+  const notificationPromise = notifyTeam
+    ? sendResendEmail(
+        {
+          from,
+          to: CONTACT_EMAIL,
+          replyTo: input.requesterEmail,
+          subject: input.notification.subject,
+          html: renderLeadEmailHtml(input.notification),
+          text: renderLeadEmailText(input.notification),
+        },
+        "the lead notification",
+      )
+    : Promise.resolve(TEAM_NOTIFICATION_SKIPPED);
+
   const [notification, confirmation] = await Promise.all([
-    sendResendEmail(
-      {
-        from,
-        to: CONTACT_EMAIL,
-        replyTo: input.requesterEmail,
-        subject: input.notification.subject,
-        html: renderLeadEmailHtml(input.notification),
-        text: renderLeadEmailText(input.notification),
-      },
-      "the lead notification",
-    ),
+    notificationPromise,
     sendResendEmail(
       {
         from,

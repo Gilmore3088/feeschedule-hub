@@ -185,6 +185,29 @@ describe("sendContactRequestNotifications", () => {
     expect(reply.text).toContain("We reply within one business day.");
   });
 
+  it("sends only the requester confirmation when notifyTeam is false", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");
+    const fetchMock = vi.fn().mockResolvedValue(okResponse("em_1"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendContactRequestNotifications({
+      name: "Newsletter signup",
+      email: "a@b.co",
+      company: null,
+      role: null,
+      message: null,
+      inquiryType: null,
+      notifyTeam: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [reply] = sentBodies(fetchMock);
+    expect(reply.to).toBe("a@b.co");
+    expect(result.confirmation).toEqual({ status: "sent", providerId: "em_1" });
+    expect(result.notification.status).toBe("not_configured");
+  });
+
   it("escapes HTML in user-supplied fields", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test");
     vi.stubEnv("REPORT_REQUEST_EMAIL_FROM", "Fee Insight <reports@example.com>");

@@ -96,12 +96,36 @@ describe("POST /api/leads", () => {
     expect(update.values).toContain("report");
   });
 
-  it("does not send notifications for newsletter signups", async () => {
+  it("sends a confirmation-only notification for newsletter signups", async () => {
     sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     const res = await post({ name: "Newsletter signup", email: "a@b.co", source: "newsletter" });
-    expect(await res.json()).toEqual({ success: true });
+    expect(await res.json()).toEqual({
+      success: true,
+      notifications: { notification: "sent", confirmation: "sent" },
+    });
     expect(reportNotifyMock).not.toHaveBeenCalled();
-    expect(contactNotifyMock).not.toHaveBeenCalled();
+    expect(contactNotifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ notifyTeam: false }),
+    );
+  });
+
+  it("sends a confirmation-only notification for notify-verified signups", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const res = await post({
+      name: "Notify request",
+      email: "a@b.co",
+      company: "Example CU",
+      use_case: "notify-verified:4802",
+      source: "notify",
+    });
+    expect(await res.json()).toEqual({
+      success: true,
+      notifications: { notification: "sent", confirmation: "sent" },
+    });
+    expect(reportNotifyMock).not.toHaveBeenCalled();
+    expect(contactNotifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({ notifyTeam: false }),
+    );
   });
 
   it("stores institution_id and src on use_case and notifies for report requests", async () => {
@@ -201,6 +225,7 @@ describe("POST /api/leads", () => {
       role: "CFO",
       message: "Can we license the dataset?",
       inquiryType: "enterprise",
+      notifyTeam: true,
     });
     expect(reportNotifyMock).not.toHaveBeenCalled();
   });

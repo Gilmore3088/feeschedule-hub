@@ -27,6 +27,8 @@ export interface ContactRequestNotificationInput {
   role: string | null;
   message: string | null;
   inquiryType: string | null;
+  /** False for confirmation-only sources (newsletter, notify): skip the CONTACT_EMAIL message. */
+  notifyTeam?: boolean;
 }
 
 export const REPORT_REQUEST_CONFIRMATION_LINE =
@@ -97,6 +99,7 @@ export async function sendContactRequestNotifications(
 
   return sendLeadNotificationPair({
     requesterEmail: input.email,
+    notifyTeam: input.notifyTeam,
     notification: {
       subject: `New contact request${inquiry}: ${who}, ${input.email}`,
       lines: notificationLines,

@@ -8,6 +8,14 @@ import type { EmailDeliveryStatus } from "@/lib/email/resend";
 export const REPORT_SOURCE = "report";
 const CONTACT_SOURCE_PATTERN = /^contact(?:_([a-z0-9-]+))?$/;
 const ENTERPRISE_SOURCE = "enterprise";
+const NEWSLETTER_SOURCE = "newsletter";
+const NOTIFY_SOURCE = "notify";
+/** Sources that only get a requester confirmation; the team inbox is not paged. */
+const CONFIRMATION_ONLY_SOURCES: readonly string[] = [NEWSLETTER_SOURCE, NOTIFY_SOURCE];
+
+function isConfirmationOnlySource(source: string): boolean {
+  return CONFIRMATION_ONLY_SOURCES.includes(source);
+}
 
 const MAX_INSTITUTION_ID = 2_147_483_647;
 const SRC_PATTERN = /^[a-z0-9][a-z0-9_-]{0,39}$/i;
@@ -66,6 +74,7 @@ export function shouldNotify(source: string) {
   return (
     source === REPORT_SOURCE ||
     source === ENTERPRISE_SOURCE ||
+    isConfirmationOnlySource(source) ||
     CONTACT_SOURCE_PATTERN.test(source)
   );
 }
@@ -100,6 +109,7 @@ export async function notifyForLead(lead: StoredLead): Promise<LeadNotificationS
       message: lead.useCase,
       inquiryType:
         lead.source === ENTERPRISE_SOURCE ? ENTERPRISE_SOURCE : contactInquiryType(lead.source),
+      notifyTeam: !isConfirmationOnlySource(lead.source),
     });
     return toStatus(outcome);
   } catch (error) {

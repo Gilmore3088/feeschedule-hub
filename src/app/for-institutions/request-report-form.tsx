@@ -36,6 +36,7 @@ interface LeadsResponse {
 
 interface RequestReportFormProps {
   contactEmail: string;
+  emailConfigured: boolean;
 }
 
 interface Prefill {
@@ -76,6 +77,7 @@ function RequestReportFormWithParams(props: RequestReportFormProps) {
 
 function RequestReportFormInner({
   contactEmail,
+  emailConfigured,
   prefill,
 }: RequestReportFormProps & { prefill: Prefill | null }) {
   const [status, setStatus] = useState<Status>("idle");
@@ -223,8 +225,10 @@ function RequestReportFormInner({
         {status === "submitting" ? "Sending…" : `Request your report — ${REPORT_OFFER.priceLabel}`}
       </button>
       <p className="text-xs leading-relaxed text-[#6B6255]">
-        No payment is taken at this step. You get a confirmation email right away; we confirm
-        your peer set by email before any work starts.
+        No payment is taken at this step. {emailConfigured
+          ? "You get a confirmation email right away; we confirm your peer set by email before any work starts."
+          : `We confirm your peer set by email from ${contactEmail} before any work starts.`}
+        {" "}The $300 is invoiced after you confirm the peer set; pay by card link or purchase order.
       </p>
     </form>
   );
