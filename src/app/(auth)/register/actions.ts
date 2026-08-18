@@ -6,6 +6,7 @@ import { withTransaction } from "@/lib/data-store/connection";
 import { cookies } from "next/headers";
 import crypto from "crypto";
 import { resolvePostLoginRedirect, sanitizeInternalRedirect } from "@/lib/safe-redirect";
+import { registerErrorMessage } from "./register-error";
 
 const SESSION_TTL_HOURS = 24;
 
@@ -68,7 +69,7 @@ export async function register(
     });
   } catch (e) {
     console.error("[register] Stripe customer creation failed:", e);
-    return { success: false, error: "Registration failed. Please try again." };
+    return { success: false, error: registerErrorMessage("stripe") };
   }
 
   const sessionId = crypto.randomBytes(32).toString("hex");
@@ -101,7 +102,7 @@ export async function register(
       } catch { /* best effort cleanup */ }
 
       if (e instanceof Error && (e.message.includes("unique") || e.message.includes("duplicate"))) {
-        return { success: false, error: "An account with this email already exists" };
+        return { success: false, error: registerErrorMessage("duplicate") };
       }
       throw e;
     }
@@ -119,6 +120,6 @@ export async function register(
     return { success: true, redirect: resolvePostLoginRedirect(destination, "viewer") };
   } catch (e) {
     console.error("[register] Error:", e);
-    return { success: false, error: "Registration failed. Please try again." };
+    return { success: false, error: registerErrorMessage("db") };
   }
 }

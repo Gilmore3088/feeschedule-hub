@@ -1,6 +1,7 @@
 "use client";
 
 import { register } from "./actions";
+import { REGISTER_FALLBACK_CTA } from "./register-error";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -75,7 +76,10 @@ export function RegisterForm({ redirectTo = "/account" }: { redirectTo?: string 
     <form onSubmit={handleSubmit} className="bg-[#FFFDF9] rounded-lg border border-[#E8DFD1] shadow-sm p-6 space-y-4">
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-          {error}
+          <p>{error}</p>
+          <a href={REGISTER_FALLBACK_CTA.href} className="underline">
+            {REGISTER_FALLBACK_CTA.label}
+          </a>
         </div>
       )}
 
