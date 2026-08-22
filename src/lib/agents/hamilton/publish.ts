@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { sql } from "@/lib/data-store/connection";
 import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
+import { plausibilityVerdict } from "@/lib/fee-plausibility";
 import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
 
 type SqlTag = typeof sql;
@@ -12,6 +13,13 @@ export const HAMILTON_PUBLISH_MAX_LIMIT = 500;
 export const HAMILTON_PUBLISH_DEFAULT_MIN_CONFIDENCE = 0.8;
 
 const VALID_CANONICAL_KEYS = new Set(Object.values(CANONICAL_KEY_MAP));
+/**
+ * Set on a verified row to allow publishing without a `source_url`, when only
+ * the archived R2 document exists. Deliberately verbose so it is greppable in
+ * an audit and never set by accident.
+ */
+export const PROVENANCE_OVERRIDE_FLAG = "provenance_override:archived_document_only";
+
 const BLOCKING_FLAGS = new Set([
   "ambiguous",
   "challenge",
@@ -149,10 +157,36 @@ function publishSkipReason(row: VerifiedFeeRow, minConfidence: number): string |
   if (blockingFlag) return `Blocking flag: ${blockingFlag}`;
   if (!VALID_CANONICAL_KEYS.has(row.canonical_fee_key)) return "Invalid canonical fee key";
   if (!row.fee_name?.trim()) return "Missing fee name";
-  if (!row.source_url?.trim() && !row.document_r2_key?.trim()) return "Missing source lineage";
+
+  // Provenance gate. The agentic path already required *some* lineage, but an
+  // R2 key alone is not a citation a reader can follow, and every outreach
+  // report claims each figure links to the schedule it came from. Require a
+  // source URL, with an explicit, auditable override flag for the rare case
+  // where only the archived document exists.
+  //
+  // The 2,861 unsourced rows in the live catalog predate this path; they are
+  // legacy/migrated rows, not output of this function. See
+  // `docs/audits/2026-08-15-catalog-data-quality.md`.
+  if (!row.source_url?.trim()) {
+    if (!flags.includes(PROVENANCE_OVERRIDE_FLAG)) {
+      return "Missing source_url — provenance gate";
+    }
+    if (!row.document_r2_key?.trim()) {
+      return "Provenance override set but no archived document to cite";
+    }
+  }
+
   const amount = normalizedAmount(row.amount);
   if (amount == null || amount <= 0) return "Missing or invalid amount";
-  if (amount > 2_500) return "Amount outside deterministic publish range";
+
+  // Per-key plausibility, matching Darwin. Publishing is the last place a
+  // $5,000 monthly maintenance fee or a daily-frequency overdraft can be caught
+  // before it reaches the index and moves a median.
+  const verdict = plausibilityVerdict(row.canonical_fee_key, amount, row.frequency);
+  if (verdict.status === "review") {
+    return verdict.reason ?? "Failed plausibility check";
+  }
+
   if (normalizedConfidence(row.extraction_confidence) < minConfidence) {
     return "Below publish confidence threshold";
   }

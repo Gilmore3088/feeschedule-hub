@@ -2,8 +2,14 @@ import { createHash } from "crypto";
 
 import { sql } from "@/lib/data-store/connection";
 import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
-import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
+import { classifySegment } from "@/lib/fee-classification";
 import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
+
+// The pattern table and resolver live in `@/lib/fee-classification` so they can
+// be imported by tests and offline audit harnesses without pulling in the
+// database connection above. Re-exported here so existing imports keep working.
+export { FEE_PATTERNS, classifySegment } from "@/lib/fee-classification";
+export type { FeePattern } from "@/lib/fee-classification";
 
 type SqlTag = typeof sql;
 
@@ -66,60 +72,6 @@ export interface RunKnoxExtractResult {
   results: KnoxExtractDocumentResult[];
 }
 
-interface FeePattern {
-  key: string;
-  pattern: RegExp;
-}
-
-const FEE_PATTERNS: FeePattern[] = [
-  { key: "monthly_maintenance", pattern: /\b(monthly|maintenance|service charge|account service)\b/i },
-  { key: "minimum_balance", pattern: /\bminimum balance\b/i },
-  { key: "overdraft", pattern: /\boverdraft\b/i },
-  { key: "nsf", pattern: /\b(NSF|non[-\s]?sufficient|insufficient funds|returned item)\b/i },
-  { key: "continuous_od", pattern: /\b(continuous|sustained|extended).{0,30}\boverdraft\b/i },
-  { key: "od_protection_transfer", pattern: /\b(overdraft protection|OD protection).{0,40}\btransfer\b/i },
-  { key: "atm_international", pattern: /\b(international|foreign).{0,30}\bATM\b/i },
-  { key: "atm_non_network", pattern: /\b(ATM|non[-\s]?network|foreign ATM|out[-\s]?of[-\s]?network)\b/i },
-  { key: "card_foreign_txn", pattern: /\b(foreign transaction|international transaction)\b/i },
-  { key: "rush_card", pattern: /\b(rush|expedited).{0,30}\b(card|debit)\b/i },
-  { key: "card_replacement", pattern: /\b(replacement|replace).{0,30}\b(card|debit|PIN)\b/i },
-  { key: "wire_intl_outgoing", pattern: /\b(international|foreign).{0,40}\b(outgoing|send|sent).{0,40}\bwire\b/i },
-  { key: "wire_intl_incoming", pattern: /\b(international|foreign).{0,40}\b(incoming|receive|received).{0,40}\bwire\b/i },
-  { key: "wire_domestic_outgoing", pattern: /\b(domestic)?\s*(outgoing|send|sent).{0,40}\bwire\b/i },
-  { key: "wire_domestic_incoming", pattern: /\b(domestic)?\s*(incoming|receive|received).{0,40}\bwire\b/i },
-  { key: "cashiers_check", pattern: /\b(cashier'?s check|official check|certified check)\b/i },
-  { key: "money_order", pattern: /\bmoney order\b/i },
-  { key: "stop_payment", pattern: /\bstop payment\b/i },
-  { key: "check_printing", pattern: /\b(check printing|checks order|order checks)\b/i },
-  { key: "check_image", pattern: /\b(check image|check copy|copy of check)\b/i },
-  { key: "check_cashing", pattern: /\bcheck cashing\b/i },
-  { key: "paper_statement", pattern: /\b(paper statement|statement copy|mailed statement)\b/i },
-  { key: "estatement_fee", pattern: /\be[-\s]?statement\b/i },
-  { key: "ach_return", pattern: /\bACH.{0,30}\b(return|returned)\b/i },
-  { key: "ach_origination", pattern: /\bACH.{0,30}\b(origination|batch)\b/i },
-  { key: "bill_pay", pattern: /\bbill pay\b/i },
-  { key: "mobile_deposit", pattern: /\bmobile deposit\b/i },
-  { key: "deposited_item_return", pattern: /\b(deposited item return|returned deposited item|chargeback)\b/i },
-  { key: "coin_counting", pattern: /\bcoin (counting|processing)\b/i },
-  { key: "cash_advance", pattern: /\bcash advance\b/i },
-  { key: "night_deposit", pattern: /\bnight deposit\b/i },
-  { key: "notary_fee", pattern: /\bnotary\b/i },
-  { key: "safe_deposit_box", pattern: /\b(safe deposit|lock box|lost key|drill)\b/i },
-  { key: "garnishment_levy", pattern: /\b(garnishment|levy)\b/i },
-  { key: "legal_process", pattern: /\b(legal process|subpoena|court order|lien release)\b/i },
-  { key: "account_verification", pattern: /\baccount verification\b/i },
-  { key: "balance_inquiry", pattern: /\bbalance inquiry\b/i },
-  { key: "late_payment", pattern: /\blate (payment|charge|fee)\b/i },
-  { key: "loan_origination", pattern: /\bloan (origination|processing|extension|modification)\b/i },
-  { key: "appraisal_fee", pattern: /\bappraisal\b/i },
-  { key: "ira_administration", pattern: /\bIRA.{0,30}\b(administration|annual|maintenance)\b/i },
-  { key: "ira_termination", pattern: /\bIRA.{0,30}\b(termination|closing|closure)\b/i },
-  { key: "gift_card_purchase", pattern: /\bgift card\b/i },
-  { key: "prepaid_card_reload", pattern: /\b(prepaid|reload).{0,30}\bcard\b/i },
-  { key: "early_closure", pattern: /\b(early account closure|closed within|early closing)\b/i },
-  { key: "dormant_account", pattern: /\b(dormant|inactive|escheat)\b/i },
-  { key: "account_research", pattern: /\b(account research|research fee|reconciliation|account balancing)\b/i },
-];
 
 const AMOUNT_PATTERN = /\$\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/g;
 
@@ -163,11 +115,6 @@ function candidateSegments(text: string): string[] {
   return segments;
 }
 
-function classifySegment(segment: string): string | null {
-  const match = FEE_PATTERNS.find((entry) => entry.pattern.test(segment));
-  if (!match) return null;
-  return CANONICAL_KEY_MAP[match.key] ?? null;
-}
 
 function containsNegativeFeeLanguage(segment: string): boolean {
   return /\b(no fee|no charge|free|waiv(?:e|ed)|not charged|without charge)\b/i.test(segment);

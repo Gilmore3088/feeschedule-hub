@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { sql } from "@/lib/data-store/connection";
 import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
+import { plausibilityVerdict } from "@/lib/fee-plausibility";
 import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
 
 type SqlTag = typeof sql;
@@ -111,7 +112,21 @@ function verificationSkipReason(row: RawFeeRow, canonicalFeeKey: string | null):
   if (!row.fee_name?.trim()) return "Missing fee name";
   const amount = normalizedAmount(row.amount);
   if (amount == null || amount <= 0) return "Missing or invalid amount";
-  if (amount > 2_500) return "Amount outside deterministic verification range";
+
+  // Per-key plausibility replaces the previous single global $2,500 ceiling.
+  // That ceiling passed a $250 daily overdraft cap and a $5,000 monthly
+  // maintenance fee identically, because neither was checked against anything
+  // its own concept implies. Keys without an envelope still fall back to the
+  // $2,500 ceiling, so this is never stricter than the old behaviour on an
+  // unlisted key.
+  //
+  // The frequency arm uses the value Knox's `detectFrequency` already writes on
+  // every raw row and that nothing downstream previously read: a `daily`
+  // overdraft is the fingerprint of a cap filed on the fee key.
+  const verdict = plausibilityVerdict(canonicalFeeKey, amount, row.frequency);
+  if (verdict.status === "review") {
+    return verdict.reason ?? "Failed plausibility check";
+  }
   return null;
 }
 
