@@ -25,7 +25,9 @@ export type AtlasWorkflowId =
   | "classify"
   | "publish"
   | "review"
-  | "public-discovery";
+  | "public-discovery"
+  | "reclassify-dry"
+  | "reclassify-write";
 
 const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
@@ -177,6 +179,37 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
         key: "enhance",
         agent: "atlas",
         title: "Refresh institution source attributes",
+      },
+    ],
+  },
+  // Backfill for the legacy import. 102,965 rows landed from `migration_v10`
+  // with `outlier_flags = '[]'`, so Darwin has never been able to read a
+  // canonical key off any of them — the whole reason 104,370 raw rows have
+  // produced only 6,401 verified ones. The dry run writes nothing and reports
+  // the projected yield; read that before reaching for the writer.
+  "reclassify-dry": {
+    title: "Reclassify legacy rows (dry run)",
+    agent: "knox",
+    idempotencyKey: "knox:reclassify-dry",
+    steps: [
+      {
+        key: "reclassify",
+        agent: "knox",
+        title: "Project canonical hints for unhinted raw fee observations",
+        input: { reclassify_limit: 2000, source: "migration_v10" },
+      },
+    ],
+  },
+  "reclassify-write": {
+    title: "Reclassify legacy rows (write)",
+    agent: "knox",
+    idempotencyKey: "knox:reclassify-write",
+    steps: [
+      {
+        key: "reclassify",
+        agent: "knox",
+        title: "Write canonical hints onto unhinted raw fee observations",
+        input: { reclassify_limit: 5000, source: "migration_v10", mode: "write" },
       },
     ],
   },

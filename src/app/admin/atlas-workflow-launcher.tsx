@@ -50,6 +50,8 @@ const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
   publish: CheckCircle2,
   review: ShieldCheck,
   "public-discovery": Globe2,
+  "reclassify-dry": RotateCw,
+  "reclassify-write": RotateCw,
 };
 
 const ACTIVE_JOB_LIMIT = 3;

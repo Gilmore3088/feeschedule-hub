@@ -4,6 +4,7 @@ import { getExecutionBackend } from "@/lib/execution-backend";
 import { runDarwinVerify } from "@/lib/agents/darwin/verify";
 import { runHamiltonPublish } from "@/lib/agents/hamilton/publish";
 import { runKnoxExtract } from "@/lib/agents/knox/extract";
+import { runKnoxReclassify } from "@/lib/agents/knox/reclassify";
 import { runMagellanDiscovery } from "@/lib/agents/magellan/discovery";
 import { runMagellanFetch } from "@/lib/agents/magellan/fetch";
 import {
@@ -410,6 +411,56 @@ async function executeAgenticStep(
               confidence: candidate.confidence,
             })),
           })),
+        },
+      };
+    }
+    case "reclassify": {
+      // Backfill only. Writes nothing unless the run explicitly asks: a dry run
+      // is the default here, and `run_kind = 'dry_run'` also forces it.
+      const requestedWrite = stringRunParam(params, ["mode", "reclassify_mode"]) === "write";
+      const reclassification = await runKnoxReclassify({
+        runId: run.id,
+        dryRun: run.runKind === "dry_run" || !requestedWrite,
+        limit: numericRunParam(params, ["reclassify_limit", "limit", "size"]),
+        institutionId: numericRunParam(params, ["institution_id"]),
+        stateCode,
+        source: stringRunParam(params, ["source", "raw_source"]),
+        db: tx,
+      });
+      const verb = reclassification.dryRun ? "would hint" : "hinted";
+      return {
+        status: "completed",
+        summary:
+          `Knox ${verb} ${reclassification.classifiedRows.toLocaleString()} of ` +
+          `${reclassification.selectedRows.toLocaleString()} unhinted raw fee observations ` +
+          `(${reclassification.unclassifiedRows.toLocaleString()} unmatched). Projected Darwin outcome: ` +
+          `${reclassification.projected.wouldVerify.toLocaleString()} verify, ` +
+          `${reclassification.projected.wouldReview.toLocaleString()} review, ` +
+          `${reclassification.projected.skippedNoAmount.toLocaleString()} skipped for missing amount.` +
+          (reclassification.dryRun ? " Dry run - nothing written." : ""),
+        detail: {
+          selected_raw_fees: reclassification.selectedRows,
+          classified_raw_fees: reclassification.classifiedRows,
+          unclassified_raw_fees: reclassification.unclassifiedRows,
+          updated_raw_fees: reclassification.updatedRows,
+          reclassify_limit: reclassification.limit,
+          dry_run: reclassification.dryRun,
+          projected_verify: reclassification.projected.wouldVerify,
+          projected_review: reclassification.projected.wouldReview,
+          projected_skipped_no_amount: reclassification.projected.skippedNoAmount,
+          key_distribution: reclassification.keyDistribution.slice(0, 25),
+          sample_results: reclassification.results.slice(0, 15).map((result) => ({
+            fee_raw_id: result.feeRawId,
+            institution_id: result.institutionId,
+            fee_name: result.feeName,
+            canonical_hint: result.canonicalHint,
+            projected_outcome: result.projectedOutcome,
+            projected_reason: result.projectedReason,
+          })),
+          unclassified_sample: reclassification.results
+            .filter((result) => result.canonicalHint === null)
+            .slice(0, 15)
+            .map((result) => ({ fee_raw_id: result.feeRawId, fee_name: result.feeName })),
         },
       };
     }
