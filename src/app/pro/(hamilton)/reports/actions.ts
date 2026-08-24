@@ -560,6 +560,105 @@ export async function generateReport(
                 : "Insufficient data",
           }));
 
+    // Studio-aligned print sections. Every one is derived from data already
+    // fetched above — nothing here issues a new query, and each stays undefined
+    // when its source is empty so the PDF omits the section instead of printing
+    // an empty heading.
+    const cohortSize =
+      selectedFeeDeltas.length > 0
+        ? Math.max(...selectedFeeDeltas.map((d) => d.institution_count))
+        : (indexData[0]?.institution_count ?? 0);
+
+    const preparedOn = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    const cover: ReportSummaryResponse["cover"] = selectedInstitution
+      ? {
+          institutionName: selectedInstitution.institution_name,
+          cityState:
+            [selectedInstitution.city, selectedInstitution.state_code]
+              .filter(Boolean)
+              .join(", ") || undefined,
+          charterLabel: selectedInstitution.charter_type ?? undefined,
+          tierLabel: selectedInstitution.asset_size_tier ?? undefined,
+          cohortLabel: peerIndex.label,
+          cohortSize,
+          preparedOn,
+        }
+      : undefined;
+
+    const positionMap: ReportSummaryResponse["positionMap"] =
+      selectedFeeDeltas.length > 0
+        ? selectedFeeDeltas.slice(0, 14).map((d) => ({
+            category: d.fee_name || d.fee_category.replace(/_/g, " "),
+            yours: formatAmount(d.institution_amount),
+            peerMedian: formatAmount(d.peer_median),
+            delta: formatSignedAmount(d.delta_amount),
+            standing:
+              d.position === "above_peer_median"
+                ? ("above" as const)
+                : d.position === "below_peer_median"
+                  ? ("below" as const)
+                  : ("at" as const),
+          }))
+        : undefined;
+
+    // Only genuine divergences: the largest absolute gaps, and only where the
+    // comparison rests on verified evidence.
+    const divergenceSource = selectedFeeDeltas
+      .filter((d) => d.evidence_tier === "verified" && d.delta_amount !== 0)
+      .sort((a, b) => Math.abs(b.delta_amount) - Math.abs(a.delta_amount))
+      .slice(0, 4);
+    const divergences: ReportSummaryResponse["divergences"] =
+      divergenceSource.length > 0
+        ? divergenceSource.map((d) => ({
+            heading: `${d.fee_name || d.fee_category.replace(/_/g, " ")} sits ${formatSignedAmount(d.delta_amount)} against the ${peerIndex.label} median`,
+            detail:
+              `You post ${formatAmount(d.institution_amount)} where the median of ${d.institution_count} peers is ` +
+              `${formatAmount(d.peer_median)}` +
+              (d.peer_p25 != null && d.peer_p75 != null
+                ? `, with the middle half of the market between ${formatAmount(d.peer_p25)} and ${formatAmount(d.peer_p75)}.`
+                : "."),
+          }))
+        : undefined;
+
+    const fullLedger: ReportSummaryResponse["fullLedger"] =
+      selectedFees.length > 0
+        ? selectedFees
+            .filter((f) => f.amount != null)
+            .map((f) => ({
+              category: f.fee_name,
+              amount: formatAmount(Number(f.amount)),
+              frequency: f.frequency
+                ? String(f.frequency).replace(/_/g, " ")
+                : undefined,
+              asOf: f.created_at
+                ? new Date(f.created_at).toISOString().slice(0, 10)
+                : undefined,
+              source: f.source_url ?? undefined,
+            }))
+        : undefined;
+
+    // Distinct published sources behind the figures above.
+    const sourceUrls = Array.from(
+      new Set(
+        [
+          ...selectedFees.map((f) => f.source_url),
+          ...selectedFeeDeltas.map((d) => d.source_url),
+          selectedInstitution?.fee_schedule_url ?? null,
+        ].filter((u): u is string => typeof u === "string" && u.length > 0),
+      ),
+    ).slice(0, 12);
+
+    const asOf = fullLedger
+      ?.map((r) => r.asOf)
+      .filter((d): d is string => Boolean(d))
+      .sort()
+      .at(-1);
+
     // 5. Assemble ReportSummaryResponse
     const report: ReportSummaryResponse = {
       title: reportTitle,
@@ -584,6 +683,12 @@ export async function generateReport(
           : "No selected institution deltas were requested",
         "Verified benchmark conclusions exclude provisional rows unless explicitly labeled otherwise.",
       ],
+      cover,
+      positionMap,
+      divergences,
+      fullLedger,
+      sources: sourceUrls.length > 0 ? sourceUrls : undefined,
+      asOf,
       exportControls: {
         pdfEnabled: true,
         shareEnabled: false,

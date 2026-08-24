@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/r/**": ["./Reports/studio/out/*.html", "./Reports/studio/hosted-reports.json"],
     "/reports/sample-competitive-fee-position": ["./Reports/studio/sample/*.html"],
+    // Brand faces for generated PDFs. @react-pdf/renderer reads these from disk
+    // at render time (src/components/hamilton/reports/pdf-theme.ts); without
+    // this the renderer silently falls back to built-in Helvetica in production.
+    "/api/pro/report-pdf": ["./src/lib/pdf-fonts/*.ttf"],
   },
 
   async headers() {

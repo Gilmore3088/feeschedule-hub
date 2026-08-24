@@ -240,6 +240,38 @@ export interface SimulationResponse {
 }
 
 /** Report Builder screen response — read-only presentation with export controls (ARCH-05) */
+/**
+ * Cover-page facts for the printed report. Optional: reports generated without a
+ * selected institution have no cover subject and render header-first instead.
+ */
+export interface ReportCover {
+  institutionName: string;
+  cityState?: string;
+  charterLabel?: string;
+  tierLabel?: string;
+  cohortLabel: string;
+  cohortSize: number;
+  preparedOn: string;
+}
+
+/** One row of "your fee vs the peer baseline" — the studio position map. */
+export interface ReportPositionRow {
+  category: string;
+  yours: string;
+  peerMedian: string;
+  delta: string;
+  standing: "above" | "below" | "at";
+}
+
+/** One published fee line, for the full-ledger section. */
+export interface ReportLedgerRow {
+  category: string;
+  amount: string;
+  frequency?: string;
+  asOf?: string;
+  source?: string;
+}
+
 export interface ReportSummaryResponse {
   title: string;
   executiveSummary: string[];
@@ -248,6 +280,17 @@ export interface ReportSummaryResponse {
   tradeoffs: Array<{ label: string; value: string }>;
   recommendation: string;
   implementationNotes: string[];
+  /**
+   * Studio-aligned print sections. All optional so every existing caller and
+   * stored artifact stays valid; the PDF renders each only when populated
+   * rather than printing an empty heading.
+   */
+  cover?: ReportCover;
+  positionMap?: ReportPositionRow[];
+  divergences?: Array<{ heading: string; detail: string }>;
+  fullLedger?: ReportLedgerRow[];
+  sources?: string[];
+  asOf?: string;
   exportControls: {
     pdfEnabled: boolean;
     shareEnabled: boolean;
