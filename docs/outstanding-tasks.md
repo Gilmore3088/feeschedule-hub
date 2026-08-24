@@ -12,6 +12,41 @@ Make Fee Insight run through one visible agentic system:
 4. Provider usage and provider failures attach to `ai_api_usage_events`.
 5. No active runtime, prompt, config, script, or current plan points at retired external launchers, Supabase Edge Function product endpoints, or local crawler tooling.
 
+## The Publishability Line
+
+The stop rule, so that "the data isn't good enough yet" stops being available as
+a reason forever.
+
+**Metric.** An institution is *report-ready* when it publishes at least **9 of the
+15 featured fee categories** a Competitive Fee Position report is built from
+(`src/lib/data-quality/publishability.ts`, ported from the studio's
+`coverage.sql`). Twelve of fifteen is the stricter bar for a report with no
+visible gaps.
+
+**Target.** **50 report-ready institutions.** A count, not a share: a report is
+sold to an institution, not to a percentage of a state.
+
+**Stop rule.** Below the target, coverage work is the constraint on revenue and
+outranks all other inward work. At or above it, pipeline work ranks below
+anything outward — there are enough institutions to sell to, and further
+polishing is no longer what stands between the product and a customer.
+
+**Where it stands — measured 2026-08-24, first run against production:**
+
+| | Institutions |
+|---|---|
+| On file | 8,750 |
+| Publish any featured fee | 508 |
+| Report-ready (>= 9 of 15) | **30** |
+| No visible gaps (>= 12 of 15) | 9 |
+
+Read on `/admin/demand`.
+
+**What that means, plainly.** Thirty addressable institutions nationally. The
+studio picked its original 25 from exactly this set, which is why it was 25 and
+not 250. Coverage is not housekeeping — it is what creates customers, and the
+line says so with a number instead of a feeling.
+
 ## Priority Tiers
 
 Every task here states its completion as something observable. A task whose
@@ -31,6 +66,13 @@ glance rather than discovering two weeks later.
 | P0 | Rosetta | Scanned fee schedules stop producing blank institution pages | An institution whose only fee schedule is an image-only PDF still shows real fee amounts on its public page, instead of an empty one. |
 | P0 | Knox | Oddly formatted schedules stop producing partial fee lists | An institution whose schedule is readable but non-standard shows a complete fee list on its public page, not a truncated one. |
 | P0 | Darwin | Published fee changes reach the public site without waiting on a queue | A fee change that has been fetched and verified appears publicly without an operator clearing a review backlog first. |
+
+**Re-ranked against the line (D5).** The three promoted P0 rows are the ones
+that move report-ready count: OCR unlocks scanned schedules, the extraction
+fallback unlocks oddly formatted ones, and thinning review pressure gets verified
+rows published instead of parked. They are P0 on outward grounds *and* they are
+the work the line says is binding. The four rows below move no institution across
+the line and stay ranked under it.
 
 ### P1 — Internal
 

@@ -2,6 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { requireAuth } from "@/lib/auth";
 import { getDemandSnapshot, type FunnelWindow } from "@/lib/analytics/funnel";
+import {
+  getPublishabilitySnapshot,
+  publishabilityVerdict,
+} from "@/lib/data-quality/publishability";
 
 /**
  * The demand gauge.
@@ -35,7 +39,10 @@ function Stat({ value, muted }: { value: number; muted?: boolean }) {
 
 export default async function AdminDemandPage() {
   await requireAuth("view");
-  const snapshot = await getDemandSnapshot();
+  const [snapshot, coverage] = await Promise.all([
+    getDemandSnapshot(),
+    getPublishabilitySnapshot(),
+  ]);
   const week = snapshot.windows.find((w) => w.days === 7);
   const month = snapshot.windows.find((w) => w.days === 30);
 
@@ -116,6 +123,62 @@ export default async function AdminDemandPage() {
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section className="mt-12 border-t border-gray-200 pt-8 dark:border-gray-800">
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          Publishability — how many institutions can receive a report at all
+        </h2>
+        <p className="mt-1 max-w-[62ch] text-xs leading-relaxed text-gray-500 dark:text-gray-500">
+          An institution is report-ready when it publishes at least{" "}
+          {coverage.viableReportCategories} of the {coverage.fullReportCategories === 12 ? 15 : 15}{" "}
+          featured fee categories. This is the stop rule: below the target,
+          coverage work outranks other inward work.
+        </p>
+
+        {coverage.error ? (
+          <p className="mt-4 border-l-2 border-amber-500 pl-4 text-sm text-gray-600 dark:text-gray-400">
+            Coverage unreadable: {coverage.error}
+          </p>
+        ) : (
+          <>
+            <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-sm border border-gray-200 bg-gray-200 sm:grid-cols-4 dark:border-gray-800 dark:bg-gray-800">
+              {[
+                { n: coverage.institutions, l: "institutions on file" },
+                { n: coverage.withAnyFeaturedFee, l: "publish any featured fee" },
+                { n: coverage.viableReportReady, l: `report-ready (>= ${coverage.viableReportCategories})` },
+                { n: coverage.fullReportReady, l: `no visible gaps (>= ${coverage.fullReportCategories})` },
+              ].map((c) => (
+                <div key={c.l} className="bg-white p-4 dark:bg-gray-950">
+                  <div className="font-mono text-2xl tabular-nums text-gray-900 dark:text-gray-100">
+                    {c.n.toLocaleString()}
+                  </div>
+                  <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-500">{c.l}</div>
+                </div>
+              ))}
+            </div>
+
+            <p
+              className={`mt-5 border-l-2 pl-4 text-sm leading-relaxed ${
+                coverage.aboveLine
+                  ? "border-emerald-600 text-gray-700 dark:text-gray-300"
+                  : "border-amber-500 text-gray-700 dark:text-gray-300"
+              }`}
+            >
+              {publishabilityVerdict(coverage)}
+            </p>
+
+            {coverage.states.length > 0 && (
+              <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-1">
+                {coverage.states.slice(0, 12).map((st) => (
+                  <li key={st.stateCode} className="font-mono text-xs text-gray-600 dark:text-gray-400">
+                    {st.stateCode} {st.viableReportReady}/{st.institutions.toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </section>
 
