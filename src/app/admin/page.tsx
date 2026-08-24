@@ -299,6 +299,36 @@ function workflowLanes(
       href: "/admin/knox",
     },
     {
+      id: "reclassify-dry" as const,
+      title: "Reclassify legacy rows (dry run)",
+      owner: "knox",
+      metric: "102,965 rows with no canonical hint",
+      detail:
+        "The migration_v10 import landed with empty outlier_flags, so Darwin has never been able to read a canonical key off any of it. Projects the hint and the resulting verify/review split. Writes nothing, calls no provider.",
+      commandLabel: "reclassify (dry)",
+      href: "/admin/knox",
+    },
+    {
+      id: "reclassify-write" as const,
+      title: "Reclassify legacy rows (write)",
+      owner: "knox",
+      metric: "Run the dry pass first",
+      detail:
+        "Writes canonical_hint onto unhinted raw rows so Darwin can process them. Touches nothing else on the row — no amounts, no names, no lineage.",
+      commandLabel: "reclassify (write)",
+      href: "/admin/knox",
+    },
+    {
+      id: "reclassify-backfill-all" as const,
+      title: "Backfill all legacy hints",
+      owner: "knox",
+      metric: "12 batches x 10,000 rows",
+      detail:
+        "Runs the whole legacy backfill as one resumable run — twelve sequential steps, each its own ledger entry with its own counts. Re-running skips anything already hinted.",
+      commandLabel: "backfill all",
+      href: "/admin/knox",
+    },
+    {
       id: "classify" as const,
       title: "Verify raw fees",
       owner: "darwin",

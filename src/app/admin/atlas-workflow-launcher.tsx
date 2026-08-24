@@ -52,6 +52,7 @@ const ICONS: Record<AtlasWorkflowId, LucideIcon> = {
   "public-discovery": Globe2,
   "reclassify-dry": RotateCw,
   "reclassify-write": RotateCw,
+  "reclassify-backfill-all": RotateCw,
 };
 
 const ACTIVE_JOB_LIMIT = 3;

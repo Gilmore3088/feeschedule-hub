@@ -5,13 +5,16 @@ import { reclassificationSegment, runKnoxReclassify } from "./reclassify";
 type DbMock = ReturnType<typeof vi.fn> & { unsafe: ReturnType<typeof vi.fn> };
 
 function createDbMock(rows: Array<Record<string, unknown>>): DbMock {
-  const updates: number[] = [];
-  const db = vi.fn(() => {
-    // The only tagged-template statement in this module is the UPDATE.
-    updates.push(updates.length);
-    return Promise.resolve([{ fee_raw_id: updates.length }]);
-  }) as DbMock;
-  db.unsafe = vi.fn(() => Promise.resolve(rows));
+  const db = vi.fn(() => Promise.resolve([])) as DbMock;
+  // The module issues exactly two `unsafe` statements: the SELECT that claims a
+  // batch, then a single batched UPDATE. Distinguish them by the SQL text.
+  db.unsafe = vi.fn((query: string, params?: unknown[]) => {
+    if (query.includes("UPDATE raw_fee_observations")) {
+      const ids = (params?.[0] as number[] | undefined) ?? [];
+      return Promise.resolve(ids.map((id) => ({ fee_raw_id: id })));
+    }
+    return Promise.resolve(rows);
+  });
   return db;
 }
 
@@ -107,14 +110,15 @@ describe("runKnoxReclassify", () => {
 
     expect(result.dryRun).toBe(true);
     expect(result.updatedRows).toBe(0);
-    expect(db).not.toHaveBeenCalled();
+    // Only the claiming SELECT ran — no UPDATE was issued.
+    expect(db.unsafe).toHaveBeenCalledTimes(1);
   });
 
   it("stays a dry run when dryRun is passed explicitly", async () => {
     const db = createDbMock(LEGACY_ROWS);
     const result = await runKnoxReclassify({ runId: 1, dryRun: true, db: asReclassifyDb(db) });
     expect(result.updatedRows).toBe(0);
-    expect(db).not.toHaveBeenCalled();
+    expect(db.unsafe).toHaveBeenCalledTimes(1);
   });
 
   it("classifies real legacy rows, caps included", async () => {
@@ -157,12 +161,14 @@ describe("runKnoxReclassify", () => {
 
     expect(result.dryRun).toBe(false);
     expect(result.updatedRows).toBe(4);
-    expect(db).toHaveBeenCalledTimes(4);
+    // One SELECT plus ONE batched UPDATE — not one statement per row. A remote
+    // database makes per-row round-trips pathological at 10,000 rows.
+    expect(db.unsafe).toHaveBeenCalledTimes(2);
   });
 
   it("clamps the limit", async () => {
     const db = createDbMock([]);
-    expect((await runKnoxReclassify({ runId: 1, limit: 999_999, db: asReclassifyDb(db) })).limit).toBe(5_000);
+    expect((await runKnoxReclassify({ runId: 1, limit: 999_999, db: asReclassifyDb(db) })).limit).toBe(10_000);
     expect((await runKnoxReclassify({ runId: 1, limit: 0, db: asReclassifyDb(db) })).limit).toBe(1);
     expect((await runKnoxReclassify({ runId: 1, limit: Number.NaN, db: asReclassifyDb(db) })).limit).toBe(500);
   });

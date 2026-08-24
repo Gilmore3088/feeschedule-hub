@@ -39,7 +39,10 @@ type SqlTag = typeof sql;
  */
 
 export const KNOX_RECLASSIFY_DEFAULT_LIMIT = 500;
-export const KNOX_RECLASSIFY_MAX_LIMIT = 5_000;
+// 2,000 rows classified in well under a second of actual work (9s wall clock
+// including run creation and pickup). 10,000 keeps a single step inside the
+// 60-second budget with a wide margin.
+export const KNOX_RECLASSIFY_MAX_LIMIT = 10_000;
 
 /** Appended alongside the hint so the row enters Darwin's normal queue. */
 const VERIFICATION_FLAG = "needs_darwin_verification";
@@ -180,22 +183,42 @@ async function selectUnhintedRows(
 }
 
 /**
- * Appends the hint and the verification flag, preserving every flag already on
- * the row and repairing a non-array `outlier_flags` to an array in passing.
+ * Applies every hint for the batch in ONE statement.
+ *
+ * The first cut of this did a single-row UPDATE per hint, awaited in sequence.
+ * That is fine against a local database and pathological against a remote one:
+ * 10,000 rows became 10,000 round-trips and blew far past the per-step wall-time
+ * budget. `unnest` turns the whole batch into one round-trip.
+ *
+ * Existing flags are preserved and a non-array `outlier_flags` is repaired to an
+ * array in passing.
  */
-async function applyHint(db: SqlTag, feeRawId: number, canonicalFeeKey: string): Promise<boolean> {
-  const updated = await db`
-    UPDATE raw_fee_observations
-       SET outlier_flags = (
-             CASE WHEN jsonb_typeof(COALESCE(outlier_flags, '[]'::jsonb)) = 'array'
-                  THEN COALESCE(outlier_flags, '[]'::jsonb)
-                  ELSE '[]'::jsonb
-             END
-           ) || to_jsonb(ARRAY[${`canonical_hint:${canonicalFeeKey}`}::text, ${VERIFICATION_FLAG}::text])
-     WHERE fee_raw_id = ${feeRawId}
-     RETURNING fee_raw_id
-  `;
-  return updated.length > 0;
+async function applyHints(
+  db: SqlTag,
+  hints: Array<{ feeRawId: number; canonicalFeeKey: string }>,
+): Promise<number> {
+  if (hints.length === 0) return 0;
+  const ids = hints.map((hint) => hint.feeRawId);
+  const flags = hints.map((hint) => `canonical_hint:${hint.canonicalFeeKey}`);
+  const updated = await db.unsafe<Array<{ fee_raw_id: number }>>(
+    `
+      UPDATE raw_fee_observations fr
+         SET outlier_flags = (
+               CASE WHEN jsonb_typeof(COALESCE(fr.outlier_flags, '[]'::jsonb)) = 'array'
+                    THEN COALESCE(fr.outlier_flags, '[]'::jsonb)
+                    ELSE '[]'::jsonb
+               END
+             ) || to_jsonb(ARRAY[batch.hint, $3::text])
+        FROM (
+          SELECT unnest($1::bigint[]) AS fee_raw_id,
+                 unnest($2::text[])   AS hint
+        ) AS batch
+       WHERE fr.fee_raw_id = batch.fee_raw_id
+       RETURNING fr.fee_raw_id
+    `,
+    [ids, flags, VERIFICATION_FLAG],
+  );
+  return updated.length;
 }
 
 export async function runKnoxReclassify(
@@ -210,6 +233,7 @@ export async function runKnoxReclassify(
   const rows = await selectUnhintedRows(db, limit, options.institutionId, options.stateCode, options.source);
 
   const results: KnoxReclassifyRowResult[] = [];
+  const pendingHints: Array<{ feeRawId: number; canonicalFeeKey: string }> = [];
   const keyCounts = new Map<string, number>();
   let classifiedRows = 0;
   let updatedRows = 0;
@@ -259,11 +283,12 @@ export async function runKnoxReclassify(
       }
     }
 
-    if (!dryRun && (await applyHint(db, feeRawId, canonicalHint))) {
-      updatedRows += 1;
-    }
-
+    pendingHints.push({ feeRawId, canonicalFeeKey: canonicalHint });
     results.push({ feeRawId, institutionId, feeName, canonicalHint, projectedOutcome, projectedReason });
+  }
+
+  if (!dryRun) {
+    updatedRows = await applyHints(db, pendingHints);
   }
 
   return {

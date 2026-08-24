@@ -27,7 +27,8 @@ export type AtlasWorkflowId =
   | "review"
   | "public-discovery"
   | "reclassify-dry"
-  | "reclassify-write";
+  | "reclassify-write"
+  | "reclassify-backfill-all";
 
 const FULL_CYCLE_STEPS: AgentRunStepDefinition[] = [
   {
@@ -209,9 +210,24 @@ const WORKFLOW_JOBS: Record<AtlasWorkflowId, {
         key: "reclassify",
         agent: "knox",
         title: "Write canonical hints onto unhinted raw fee observations",
-        input: { reclassify_limit: 5000, source: "migration_v10", mode: "write" },
+        input: { reclassify_limit: 10000, source: "migration_v10", mode: "write" },
       },
     ],
+  },
+  // The whole legacy backfill as one run: 12 sequential 10,000-row steps,
+  // each inside the per-step wall-time budget, each its own ledger entry with
+  // its own counts. Resumable — a step that fails leaves the rows it did not
+  // claim untouched, and re-running skips everything already hinted.
+  "reclassify-backfill-all": {
+    title: "Backfill all legacy hints (12 x 10,000)",
+    agent: "knox",
+    idempotencyKey: "knox:reclassify-backfill-all",
+    steps: Array.from({ length: 12 }, (_, index) => ({
+      key: "reclassify",
+      agent: "knox" as const,
+      title: `Write canonical hints - batch ${index + 1} of 12`,
+      input: { reclassify_limit: 10000, source: "migration_v10", mode: "write" },
+    })),
   },
   discover: {
     title: "Find missing fee URLs",
