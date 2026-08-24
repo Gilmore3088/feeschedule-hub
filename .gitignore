@@ -73,3 +73,4 @@ reports/v4.2/
 reports/studio/packs/
 reports/studio/out/*.pdf
 reports/studio/out/_superseded*/
+.demand-snapshot.json
