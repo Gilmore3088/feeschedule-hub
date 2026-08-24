@@ -12,14 +12,24 @@ their market. Why us: live verified fee data (published_fee_catalog) + banking d
 expertise. Kept fully separate from the CSI day job.
 
 ## Status
-ACTIVE (slot 1 of 1). Milestone: all 25 competitive fee reports RENDERED
-(Reports/studio/out/, brand-matched to Hamilton system). Distance to first dollar:
-your review pass + finding contacts + sending.
+ACTIVE (slot 1 of 1). Milestone: the Competitive Fee Position report is generated
+**on demand** by Hamilton Reports (`/pro/reports`), carrying the studio design —
+Newsreader/IBM Plex, terracotta spine, cover page, position map, divergences, full
+ledger, sources. The manual studio pipeline that produced the original batch is
+retired; the 25 batch PDFs are discarded.
+
+Still served: the 25 hosted HTML reports at `/r/<token>` (tokens live until
+2026-11-14) and the public sample at `/reports/sample-competitive-fee-position`.
+Delete `Reports/studio/out/*.html` and `hosted-reports.json` after that date.
 
 ## Next action
-Review the 25 PDFs in Reports/studio/out/ (flag any narrative to fix), then find one
-contact per institution and send using Reports/studio/outreach-template.md. Log
-everything in outreach-log.md.
+Working the outward turn plan (`docs/plans/2026-08-23-outward-turn-plan.md`).
+Workstreams E, A and C1–C3 are done. Next up: B — demand instrumentation
+(`/admin/demand`), then D — the publishability threshold and re-rank.
+
+Distribution — who these reports go to and how — is your call and is deliberately
+not planned here. `Reports/studio/outreach-template.md` and `outreach-log.md`
+remain for that purpose.
 
 # Agent Guidance
 
