@@ -12,6 +12,25 @@ published. The manual studio pipeline is replaced by on-demand generation (Works
 
 ---
 
+## Status — 2026-08-24
+
+**Done: E1–E4, A1–A5, C1–C3, C11–C14, B1–B6, D1–D5** (30 of 35 tasks).
+Not run: C4–C10, which were not in the execution order.
+
+Two deliberate deviations, both recorded in the commits:
+
+1. **C11 kept the 25 rendered HTML reports.** They are not inventory — `/r/<token>`
+   serves them to named prospects and every token is live until **2026-11-14**.
+   Only the batch PDFs and the pipeline were deleted. CLAUDE.md carries the date
+   to remove the HTML.
+2. **D reversed part of the plan's premise.** Measuring publishability found only
+   **30 report-ready institutions out of 8,750**. Coverage, not roadmap framing,
+   is the binding constraint on revenue. The P0 rows still stand — they are the
+   coverage work — but "pipeline work is optional above a threshold" was wrong at
+   today's numbers.
+
+---
+
 ## Workstream A — Steering
 
 The priority table cannot produce traction while every "Done When" describes a database row.
