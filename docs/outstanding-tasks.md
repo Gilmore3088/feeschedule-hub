@@ -12,17 +12,42 @@ Make Fee Insight run through one visible agentic system:
 4. Provider usage and provider failures attach to `ai_api_usage_events`.
 5. No active runtime, prompt, config, script, or current plan points at retired external launchers, Supabase Edge Function product endpoints, or local crawler tooling.
 
-## Current Priorities
+## Priority Tiers
 
-| Priority | Owner | Task | Done When |
+Every task here states its completion as something observable. A task whose
+completion can only be observed from inside the system is **internal** and ranks
+below outward work no matter how much it needs doing.
+
+### P0 — Outward
+
+Reserved for work whose completion is visible to someone outside this building.
+**An empty P0 is a reading, not a failure** — it means nothing currently in flight
+changes what an institution or a visitor can do, and that is worth knowing at a
+glance rather than discovering two weeks later.
+
+| Priority | Owner | Task | Done when |
 |---|---|---|---|
-| P1 | Rosetta | Add scanned-PDF OCR fallback | Image-only PDF rows move from `needs_ocr` to readable document text or explicit terminal failure. |
-| P1 | Knox | Add bounded provider-assisted extraction fallback | Deterministic misses on readable documents get one metered fallback, with only anomalies sent to human review. |
-| P1 | Darwin | Thin review pressure | Verification routes ordinary canonical rows forward and challenges only suspicious rows. |
-| P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. |
-| P1 | Schema | Rename or baseline physical source storage | Empty database can be built around agentic source names without recreating retired table names as active infrastructure. |
-| P2 | Schema | Audit FK/column compatibility names | Remaining physical FK/storage names are documented or replaced without breaking existing data. |
-| P2 | Docs | Keep active docs current-only | `npm run guard:legacy` blocks stale active guidance and historical docs stay in archive. |
+| P0 | Reports | On-demand competitive report matches the batch report's quality | An institution can generate its own competitive fee position report and the output is one you would put in front of a prospect. Tracked as C1–C3 in `docs/plans/2026-08-23-outward-turn-plan.md`. |
+| P0 | Rosetta | Scanned fee schedules stop producing blank institution pages | An institution whose only fee schedule is an image-only PDF still shows real fee amounts on its public page, instead of an empty one. |
+| P0 | Knox | Oddly formatted schedules stop producing partial fee lists | An institution whose schedule is readable but non-standard shows a complete fee list on its public page, not a truncated one. |
+| P0 | Darwin | Published fee changes reach the public site without waiting on a queue | A fee change that has been fetched and verified appears publicly without an operator clearing a review backlog first. |
+
+### P1 — Internal
+
+Necessary work whose completion is only observable inside the system. These rank
+below every P0. They are not deprioritized because they are unimportant; they are
+ranked here because finishing all of them changes nothing an outsider can see.
+
+| Priority | Owner | Task | Done when | Rewrite attempted |
+|---|---|---|---|---|
+| P1 | Hamilton | Publish data-quality summaries | Admin can distinguish no source, source fetched, PDF pending OCR, extracted, verified, and published. | Yes — resists. An admin screen has no outward form. **Internal — not a priority candidate.** |
+| P1 | Schema | Rename or baseline physical source storage | Empty database can be built around agentic source names without recreating retired table names as active infrastructure. | Yes — resists. **Internal — not a priority candidate.** |
+| P2 | Schema | Audit FK/column compatibility names | Remaining physical FK/storage names are documented or replaced without breaking existing data. | Yes — resists. **Internal — not a priority candidate.** |
+| P2 | Docs | Keep active docs current-only | `npm run guard:legacy` blocks stale active guidance and historical docs stay in archive. | Yes — resists. **Internal — not a priority candidate.** |
+
+Three of the original seven priorities (Rosetta OCR, Knox extraction fallback,
+Darwin review pressure) had an outward form and were promoted to P0 with rewritten
+completion criteria. Four did not and stay here, labelled.
 
 ## Recently Shipped
 
