@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import type { PublicStats, DataFreshness } from "@/lib/data-store/core";
 
 interface LandingTrustStatsProps {
@@ -39,7 +40,7 @@ export function LandingTrustStats({ stats, freshness }: LandingTrustStatsProps) 
 
           <div>
             <dd className="text-[28px] font-bold text-warm-900 tabular-nums">
-              49
+              {TAXONOMY_COUNT}
             </dd>
             <dt className="text-[12px] font-normal text-warm-600 uppercase tracking-wide mt-1">
               Fee categories

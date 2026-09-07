@@ -11,7 +11,7 @@ import {
 import { DISTRICT_NAMES } from "@/lib/fed-districts";
 import { STATE_NAMES, US_STATES_ONLY, US_TERRITORIES } from "@/lib/us-states";
 import { UsStateMap } from "@/components/public/us-state-map";
-import { getDisplayName } from "@/lib/fee-taxonomy";
+import { getDisplayName, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { formatAmount } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { SITE_URL } from "@/lib/constants";
@@ -118,7 +118,7 @@ export default async function ResearchHubPage() {
           </span>
           <span className="hidden sm:inline text-[#D4C9BA]">|</span>
           <span>
-            <span className="font-semibold tabular-nums text-[#5A5347]">49</span>{" "}
+            <span className="font-semibold tabular-nums text-[#5A5347]">{TAXONOMY_COUNT}</span>{" "}
             fee categories
           </span>
           <span className="hidden sm:inline text-[#D4C9BA]">|</span>
@@ -227,7 +227,7 @@ export default async function ResearchHubPage() {
                     Categories
                   </p>
                   <p className="mt-0.5 text-lg font-bold tabular-nums text-[#1A1815]">
-                    49
+                    {TAXONOMY_COUNT}
                   </p>
                 </div>
                 <div>

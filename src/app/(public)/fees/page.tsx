@@ -462,7 +462,7 @@ export default async function FeeCatalogPage() {
             "@type": "Dataset",
             name: "Bank Fee Index - Complete Fee Catalog",
             description:
-              "National benchmarking data across 49 bank and credit union fee categories.",
+              "National benchmarking data across the full catalog of bank and credit union fee categories.",
             url: `${SITE_URL}/fees`,
           }).replace(/</g, "\\u003c"),
         }}

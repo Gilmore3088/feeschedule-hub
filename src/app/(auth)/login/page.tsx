@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { getCurrentUser } from "@/lib/auth";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { redirect } from "next/navigation";
 import { LoginForm } from "./login-form";
 import type { Metadata } from "next";
@@ -72,7 +73,7 @@ export default async function LoginPage({
               <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Institutions</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-[#1A1815] tabular-nums">49</p>
+              <p className="text-lg font-bold text-[#1A1815] tabular-nums">{TAXONOMY_COUNT}</p>
               <p className="text-[11px] text-[#7A7062] uppercase tracking-wider font-medium mt-0.5">Fee categories</p>
             </div>
             <div>

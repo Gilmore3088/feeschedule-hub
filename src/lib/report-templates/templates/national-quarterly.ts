@@ -154,7 +154,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
       sectionLabel: "Data",
     },
     {
-      title: "Full 49-Category Index",
+      title: "Full Category Index",
       description: "Complete national benchmark data for all tracked fee categories",
       page: 11,
     },
@@ -556,7 +556,7 @@ export function renderNationalQuarterlyReport(input: NationalQuarterlyReportInpu
   // No pageBreak() here — methodology flows directly into appendix to avoid blank pages.
   // The compact table uses break-inside:auto so it flows across pages naturally.
   const appendix = [
-    chapterDivider("A", "Full 49-Category Index"),
+    chapterDivider("A", "Full Category Index"),
     compactTable({
       columns: APPENDIX_COLUMNS,
       rows: data.categories.map((c) => ({

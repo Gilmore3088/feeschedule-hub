@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -261,7 +262,7 @@ export default async function ForInstitutionsPage() {
             </div>
             <div className="text-center">
               <p className="text-[32px] font-bold text-warm-150 tabular-nums">
-                49
+                {TAXONOMY_COUNT}
               </p>
               <p className="mt-1 text-[12px] uppercase tracking-[0.1em] text-warm-600">
                 Fee Categories

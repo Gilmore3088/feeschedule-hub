@@ -111,12 +111,12 @@ export default function MethodologyPage() {
         {/* Section 4: Categorization */}
         <Section
           label="Categorization"
-          title="49 standardized fee categories enable cross-institution comparison"
+          title="A standardized fee taxonomy enables cross-institution comparison"
           body={[
             "Raw fee names vary substantially across institutions. \"Monthly service charge,\" \"account maintenance fee,\" and \"checking maintenance\" typically refer to the same economic product. Comparison is only possible after normalization.",
-            "Bank Fee Index uses a 49-category taxonomy organized into 9 fee families: account maintenance, overdraft and NSF, wire transfer, ATM and debit, card services, check services, account events, savings and money market, and miscellaneous. Each category has a canonical name, a set of known aliases, and a fee family assignment.",
+            "Bank Fee Index uses a curated fee taxonomy organized into fee families: account maintenance, overdraft and NSF, wire transfer, ATM and debit, card services, check services, account events, savings and money market, and miscellaneous. Each category has a canonical name, a set of known aliases, and a fee family assignment.",
             "Categorization is performed automatically using alias matching — if a raw fee name matches a known alias, it is assigned the corresponding canonical category. The alias list is maintained by the Bank Fee Index team and updated as new fee naming patterns are observed across the institution universe.",
-            "The 49-category system spans what we call \"spotlight\" fees (6 categories that appear at high rates across all institution types: monthly maintenance, overdraft, NSF, ATM non-network, foreign transaction, domestic outgoing wire) through \"core\" and \"extended\" categories. The full taxonomy is disclosed on request.",
+            "The taxonomy spans what we call \"spotlight\" fees (the categories that appear at high rates across all institution types: monthly maintenance, overdraft, NSF, ATM non-network, foreign transaction, domestic outgoing wire) through \"core\" and \"extended\" categories. The full taxonomy is disclosed on request.",
           ]}
         />
 

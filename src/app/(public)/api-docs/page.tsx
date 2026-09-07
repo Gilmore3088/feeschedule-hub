@@ -280,7 +280,7 @@ export default function ApiDocsPage() {
         <CodeBlock title="Query parameter authentication">{`curl "${BASE}/fees?api_key=YOUR_API_KEY"`}</CodeBlock>
 
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50/50 px-4 py-2.5 text-[13px] text-amber-800">
-          Unauthenticated requests are limited to spotlight categories only (6 of 49). Include your API key to access the full dataset.
+          Unauthenticated requests are limited to the spotlight categories. Include your API key to access the full dataset.
         </div>
       </div>
 
@@ -354,7 +354,7 @@ export default function ApiDocsPage() {
             { name: "data[].tier", type: "string", note: "spotlight | core | extended | comprehensive" },
           ]}
           responseExample={`{
-  "total": 49,
+  "total": 60,
   "data": [
     {
       "category": "overdraft",
