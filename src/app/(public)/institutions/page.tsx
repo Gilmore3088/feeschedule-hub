@@ -136,7 +136,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
             </p>
           </div>
         )}
-        <section className="fi-reveal border-b border-[#D8CBB8] pb-6">
+        <section className="fi-reveal relative z-20 border-b border-[#D8CBB8] pb-6">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#A69D90]">
