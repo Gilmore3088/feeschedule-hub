@@ -60,6 +60,8 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const requestedFee = (params.fee || "").trim();
   const focusCategory = TAXONOMY_CATEGORIES.has(requestedFee) ? requestedFee : "";
   const focusLabel = focusCategory ? getDisplayName(focusCategory) : "";
+  // For prose: "overdraft", not "overdraft (od)".
+  const focusLabelPlain = focusLabel.replace(/\s*\([^)]*\)/g, "").toLowerCase();
 
   const hasQuery = query.trim().length >= 2;
   const hasState = Boolean(stateCode);
@@ -113,7 +115,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
               Comparing {focusLabel}
             </p>
             <p className="mt-1.5 text-sm leading-relaxed text-[#5A5347]">
-              Search your institution below and its published {focusLabel.toLowerCase()}{" "}
+              Search your institution below and its published {focusLabelPlain}{" "}
               appears alongside the national median
               {focusMedian !== null && (
                 <>
@@ -129,7 +131,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
                 href={`/fees/${focusCategory}`}
                 className="font-medium text-[#C44B2E] hover:underline"
               >
-                See the full {focusLabel.toLowerCase()} analysis
+                See the full {focusLabelPlain} analysis
               </Link>
             </p>
           </div>
@@ -232,7 +234,13 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
 
           <div className="grid gap-2 sm:hidden">
             {results.rows.map((r) => (
-              <InstitutionMobileCard key={r.id} institution={r} />
+              <InstitutionMobileCard
+                key={r.id}
+                institution={r}
+                focusCategory={focusCategory}
+                focusLabel={focusLabel}
+                focusMedian={focusMedian}
+              />
             ))}
           </div>
 
@@ -412,14 +420,54 @@ function DirectoryStat({ label, value }: { label: string; value: string }) {
 
 function InstitutionMobileCard({
   institution,
+  focusCategory,
+  focusLabel,
+  focusMedian,
 }: {
   institution: Awaited<ReturnType<typeof searchInstitutions>>["rows"][number];
+  focusCategory: string;
+  focusLabel: string;
+  focusMedian: number | null;
 }) {
+  // A reader arriving from a guide came for one fee. On a phone, the card is the only
+  // thing they see, so it has to carry that fee and hand it on to the institution page.
+  const amount = institution.focus_fee_amount;
+  const delta =
+    focusCategory && amount !== null && amount !== undefined && focusMedian !== null
+      ? amount - focusMedian
+      : null;
   return (
     <Link
-      href={`/institution/${institution.id}`}
+      href={
+        focusCategory
+          ? `/institution/${institution.id}?fee=${focusCategory}#fee-${focusCategory}`
+          : `/institution/${institution.id}`
+      }
       className="fi-row-interaction block border border-[#E8DFD1] bg-[#FFFDF9] px-3 py-3"
     >
+      {focusCategory && (
+        <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-[#E8DFD1]/70 pb-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#C44B2E]/70">
+            {focusLabel}
+          </span>
+          {amount === null || amount === undefined ? (
+            <span className="text-[11px] text-[#A69D90]">Not published</span>
+          ) : (
+            <span className="text-right tabular-nums">
+              <span className="text-base font-semibold text-[#1A1815]">{formatAmount(amount)}</span>
+              {delta !== null && (
+                <span className="ml-1.5 text-[10px] text-[#7A7062]">
+                  {delta > 0
+                    ? `${formatAmount(delta)} above median`
+                    : delta < 0
+                      ? `${formatAmount(Math.abs(delta))} below median`
+                      : "at the median"}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="break-words text-sm font-semibold leading-snug text-[#1A1815]">
