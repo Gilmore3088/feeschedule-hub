@@ -1,29 +1,21 @@
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
-import { canAccessPremium } from "@/lib/access";
+import { NavAccount } from "./nav-account";
 import { ConsumerMobileNav } from "./consumer-mobile-nav";
 import { SearchTrigger } from "./search-trigger";
 
-export async function ConsumerNav() {
-  let user = null;
-  try {
-    user = await getCurrentUser();
-  } catch {
-    // Not logged in or DB unavailable
-  }
+/**
+ * Reads no session on the server, so pages under the public layout can be prerendered.
+ * The account corner is a client island; see `nav-account.tsx`.
+ */
+export function ConsumerNav() {
 
   const navItems = [
     { label: "Find Your Institution", href: "/institutions" },
     { label: "Fee Benchmarks", href: "/fees" },
     { label: "Research", href: "/research" },
     { label: "Guides", href: "/guides" },
-    ...(user ? [] : [{ label: "Pricing", href: "/subscribe" }]),
+    { label: "Pricing", href: "/subscribe" },
   ];
-
-  // Get user initial for avatar
-  const userInitial = user
-    ? (user.institution_name?.[0] || user.email?.[0] || user.username?.[0] || "U").toUpperCase()
-    : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#E8DFD1] bg-[#FAF7F2]/95 backdrop-blur-sm">
@@ -31,7 +23,7 @@ export async function ConsumerNav() {
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-8">
             <Link
-              href={user ? "/account" : "/"}
+              href="/"
               className="flex items-center gap-2 text-[#1A1815] no-underline"
               aria-label="Bank Fee Index home"
             >
@@ -69,36 +61,9 @@ export async function ConsumerNav() {
           <div className="flex items-center gap-3">
             <SearchTrigger />
             <div className="hidden md:block">
-              {user ? (
-                <Link
-                  href="/account"
-                  className="flex items-center gap-2 text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors"
-                >
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1A1815] text-[10px] font-bold text-white"
-                  >
-                    {userInitial}
-                  </span>
-                  <span className="hidden lg:inline">Account</span>
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="text-[13px] font-medium text-[#7A7062] hover:text-[#1A1815] transition-colors mr-2"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/subscribe"
-                    className="inline-flex items-center px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#C44B2E] text-white hover:bg-[#A83A22] transition-colors"
-                  >
-                    Get Pro Access
-                  </Link>
-                </>
-              )}
+              <NavAccount />
             </div>
-            <ConsumerMobileNav isLoggedIn={!!user} />
+            <ConsumerMobileNav />
           </div>
         </div>
       </div>

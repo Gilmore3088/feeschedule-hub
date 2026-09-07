@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSessionChrome } from "./use-session-chrome";
 
 const NAV_ITEMS = [
   { label: "Find Your Institution", href: "/institutions" },
@@ -11,7 +12,9 @@ const NAV_ITEMS = [
   { label: "Guides", href: "/guides" },
 ];
 
-export function ConsumerMobileNav({ isLoggedIn }: { isLoggedIn: boolean }) {
+export function ConsumerMobileNav() {
+  // Session resolved client-side so the nav can be rendered into static pages.
+  const isLoggedIn = useSessionChrome()?.signedIn === true;
   const displayItems = [
     ...NAV_ITEMS,
     ...(isLoggedIn ? [] : [{ label: "Pricing", href: "/subscribe" }]),
