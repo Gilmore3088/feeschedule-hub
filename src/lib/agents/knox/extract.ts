@@ -141,7 +141,29 @@ function normalizeSegment(value: string): string {
 function candidateSegments(text: string): string[] {
   const seen = new Set<string>();
   const segments: string[] = [];
-  for (const rawLine of text.split(/\n+/)) {
+  const lines = text.split(/\n+/);
+  for (let index = 0; index < lines.length; index += 1) {
+    let rawLine = lines[index];
+    // Rejoin a visibly wrapped qualifier before looking for its amount cell.
+    // Never concatenate an unrelated fee label from the following row.
+    for (let continued = 0; continued < 2 && index + 1 < lines.length; continued += 1) {
+      const next = lines[index + 1].trim();
+      const openParens = (rawLine.match(/\(/g) ?? []).length;
+      const closeParens = (rawLine.match(/\)/g) ?? []).length;
+      if (!next || next.includes("$") || !(openParens > closeParens || (!rawLine.includes("$") && next.startsWith("(")))) break;
+      rawLine += ` ${next}`;
+      index += 1;
+    }
+    // An amount may be the final cell after a wrapped label. Only join an
+    // immediately following amount-only line; never borrow from the next fee.
+    if (!rawLine.includes("$") && /[a-z]/i.test(rawLine)) {
+      let lookahead = index + 1;
+      while (lookahead < lines.length && !lines[lookahead].trim()) lookahead += 1;
+      if (/^\s*\$[\d,]+(?:\.\d{1,2})?(?:\s*\/(?:mo\.?|month|yr\.?|year))?\s*$/i.test(lines[lookahead] ?? "")) {
+        rawLine += ` ${lines[lookahead]}`;
+        index = lookahead;
+      }
+    }
     const line = normalizeSegment(rawLine);
     if (!line.includes("$")) continue;
     const parts = line.length > MAX_SEGMENT_CHARS ? line.split(/\s{2,}|[.;]\s+/) : [line];
@@ -164,6 +186,22 @@ function candidateSegments(text: string): string[] {
 }
 
 function classifySegment(segment: string): string | null {
+  // Require explicit wire geography rather than silently making every
+  // unqualified/international incoming or outgoing wire a domestic fee.
+  if (/\bwires?\b/i.test(segment)) {
+    const outgoing = /\b(outgoing|send|sent)\b/i.test(segment);
+    const incoming = /\b(incoming|receive|received)\b/i.test(segment);
+    const international = /\b(international|foreign|outside (?:the )?u\.?s\.?)\b/i.test(segment);
+    const domestic = /\bdomestic\b/i.test(segment);
+    if (outgoing === incoming || international === domestic) return null;
+    return CANONICAL_KEY_MAP[`wire_${international ? "intl" : "domestic"}_${outgoing ? "outgoing" : "incoming"}`] ?? null;
+  }
+  if (/\b(dormant|inactive)\b/i.test(segment)) return CANONICAL_KEY_MAP.dormant_account;
+  if (/\b(continuous|sustained|extended).{0,30}\boverdraft\b/i.test(segment)) return CANONICAL_KEY_MAP.continuous_od;
+  if (/\boverdraft.{0,35}\btransfers?\b/i.test(segment)) return CANONICAL_KEY_MAP.od_protection_transfer;
+  if (/\b(interest checking|money market savings account)\b/i.test(segment) && /\/\s*mo\.?/i.test(segment)) return CANONICAL_KEY_MAP.monthly_maintenance;
+  if (/\b(levies|writs)\b/i.test(segment)) return CANONICAL_KEY_MAP.garnishment_levy;
+  if (/\bverification of deposit\b/i.test(segment)) return CANONICAL_KEY_MAP.account_verification;
   const match = FEE_PATTERNS.find((entry) => entry.pattern.test(segment));
   if (!match) return null;
   return CANONICAL_KEY_MAP[match.key] ?? null;
@@ -177,20 +215,27 @@ function containsGenericScheduleLanguage(segment: string): boolean {
   return /\b(schedule of fees|fee schedule|truth in savings|effective date|member fdic)\b/i.test(segment);
 }
 
+function amountContext(segment: string): string {
+  // Mask balanced conditions without shifting character positions. A minimum
+  // balance is not the charge (e.g. "below $2,500) $15/mo.").
+  return segment.replace(/\([^()]*\)/g, (condition) => " ".repeat(condition.length));
+}
+
 function parseAmount(segment: string): number | null {
-  AMOUNT_PATTERN.lastIndex = 0;
-  const match = AMOUNT_PATTERN.exec(segment);
-  if (!match) return null;
+  const matches = [...amountContext(segment).matchAll(new RegExp(AMOUNT_PATTERN.source, "g"))];
+  // Multiple charges, unbracketed thresholds, or ranges need contextual review.
+  if (matches.length !== 1) return null;
+  const match = matches[0];
   const amount = Number(match[1].replace(/,/g, ""));
   if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_REASONABLE_FEE_AMOUNT) return null;
-  const suffix = segment.slice(match.index + match[0].length, match.index + match[0].length + 3);
+  const suffix = segment.slice(match.index! + match[0].length, match.index! + match[0].length + 3);
   if (suffix.includes("%")) return null;
   return Math.round(amount * 100) / 100;
 }
 
 function extractFeeName(segment: string): string {
   AMOUNT_PATTERN.lastIndex = 0;
-  const match = AMOUNT_PATTERN.exec(segment);
+  const match = AMOUNT_PATTERN.exec(amountContext(segment));
   const beforeAmount = match ? segment.slice(0, match.index) : segment;
   const cleaned = normalizeSegment(beforeAmount)
     .replace(/\b(fee|charge)\s*$/i, "$1")
@@ -202,7 +247,7 @@ function extractFeeName(segment: string): string {
 }
 
 function detectFrequency(segment: string): string | null {
-  if (/\b(monthly|per month|\/month|each month)\b/i.test(segment)) return "monthly";
+  if (/\b(monthly|per month|each month)\b|\/\s*(?:mo\.?|month)\b/i.test(segment)) return "monthly";
   if (/\b(annual|annually|per year|yearly|\/year)\b/i.test(segment)) return "annual";
   if (/\b(per item|each item|per presentment)\b/i.test(segment)) return "per_item";
   if (/\b(per transaction|each transaction)\b/i.test(segment)) return "per_transaction";
