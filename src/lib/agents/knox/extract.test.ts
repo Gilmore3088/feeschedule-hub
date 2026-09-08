@@ -146,3 +146,31 @@ describe("Knox agentic extraction", () => {
     expect(unsafeSql).toContain("upper(btrim(inst.state_code))");
   });
 });
+
+
+describe("Knox contextual amount and category safeguards", () => {
+  it("does not select a threshold or an ambiguous multi-amount line", async () => {
+    const db = createDbMock([{ ...textArtifact, normalized_text: [
+      "Interest Checking (below $1,500) $15/mo.",
+      "Monthly maintenance $5 with $1,000 minimum balance",
+      "Overdraft fee $30 to $35 per item",
+      "Foreign transaction fee $3%",
+    ].join("\n") }]);
+    const result = await runKnoxExtract({runId:105,dryRun:true,db:asExtractDb(db)});
+    expect(result.results[0].candidates).toHaveLength(1);
+    expect(result.results[0].candidates[0]).toMatchObject({amount:15,frequency:"monthly",feeName:"Interest Checking (below $1,500)"});
+  });
+  it("keeps wire geography, dormancy, and overdraft transfers distinct", async () => {
+    const db = createDbMock([{ ...textArtifact, normalized_text: [
+      "Outgoing Wires (Outside U.S.) $40",
+      "Incoming Wires $10",
+      "Outgoing domestic and international wires $25",
+      "Incoming international wire $12",
+      "Dormant fee $5 monthly",
+      "Overdraft protection transfer $5 per item",
+      "Returned Check (Payable and drawn on same person) $30",
+    ].join("\n") }]);
+    const result = await runKnoxExtract({runId:106,dryRun:true,db:asExtractDb(db)});
+    expect(result.results[0].candidates.map(c=>c.canonicalHint)).toEqual(["wire_intl_outgoing","wire_intl_incoming","dormant_account","od_protection_transfer"]);
+  });
+});

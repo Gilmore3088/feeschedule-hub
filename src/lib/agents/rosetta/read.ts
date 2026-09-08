@@ -155,7 +155,7 @@ async function withTimeout<T>(
 }
 
 async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtraction> {
-  const { extractText, getDocumentProxy } = await import("unpdf");
+  const { getDocumentProxy } = await import("unpdf");
   return withTimeout(
     (async () => {
       const pdf = await getDocumentProxy(bytes, {
@@ -168,8 +168,22 @@ async function extractPdfText(bytes: Uint8Array): Promise<PdfTextExtraction> {
           throw new Error(`PDF has too many pages for Rosetta text read: ${totalPages}`);
         }
 
-        const extracted = await extractText(pdf, { mergePages: true });
-        return { text: extracted.text, totalPages: extracted.totalPages };
+        const pages: string[] = [];
+        for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          const content = await page.getTextContent();
+          // Keep the PDF content stream's line breaks and reading order. Merging
+          // every item with a space turns multi-column schedules into one row.
+          let text = "";
+          for (const item of content.items) {
+            if (!("str" in item)) continue;
+            text += item.str;
+            text += item.hasEOL ? "\n" : " ";
+          }
+          pages.push(`[Page ${pageNumber}]\n${text}`);
+          page.cleanup();
+        }
+        return { text: pages.join("\n\n"), totalPages };
       } finally {
         await pdf.destroy?.();
       }
