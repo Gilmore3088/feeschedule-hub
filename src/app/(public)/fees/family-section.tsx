@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { FeeCategorySummary } from "@/lib/data-store";
 import { getDisplayName, FAMILY_COLORS } from "@/lib/fee-taxonomy";
-import { formatFeeAmount } from "@/lib/format";
+import { formatFeeAmount, formatNumber } from "@/lib/format";
 
 const EYEBROW = "text-[11px] font-bold uppercase tracking-[0.12em] text-[#6B6255]";
 const TH = `px-4 py-2.5 ${EYEBROW}`;
@@ -134,7 +134,7 @@ function CategoryRow({ cat, barScale }: { cat: FeeCategorySummary; barScale: num
         </div>
       </td>
       <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-        {cat.institution_count.toLocaleString()}
+        {formatNumber(cat.institution_count)}
       </td>
     </tr>
   );

@@ -74,42 +74,48 @@ export function DistributionChart({
   const medianLabel = median !== null ? `$${median.toFixed(0)}` : null;
   const hasMedianBucket = medianLabel !== null && data.some((b) => b.range === medianLabel);
 
+  // A fixed-height wrapper (rather than a numeric ResponsiveContainer height)
+  // reserves layout space before recharts has measured its container on the
+  // client, so client-only rendering (see next/dynamic ssr:false at the
+  // call sites) doesn't shift surrounding content once the chart mounts.
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8DFD1" />
-        <XAxis
-          dataKey="range"
-          tick={{ fontSize: 10, fill: "#A09788" }}
-          interval="preserveStartEnd"
-          tickLine={false}
-          axisLine={{ stroke: "#E8DFD1" }}
-        />
-        <YAxis
-          tick={{ fontSize: 10, fill: "#A09788" }}
-          tickLine={false}
-          axisLine={false}
-        />
-        <Tooltip
-          contentStyle={{
-            fontSize: 12,
-            border: "1px solid #E8DFD1",
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          }}
-          formatter={(value) => [String(value), "Institutions"]}
-        />
-        {hasMedianBucket && (
-          <ReferenceLine
-            x={medianLabel!}
-            stroke="#C44B2E"
-            strokeDasharray="4 3"
-            strokeWidth={1.5}
-            label={{ value: "median", position: "top", fill: "#A93D25", fontSize: 10 }}
+    <div className="h-64">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8DFD1" />
+          <XAxis
+            dataKey="range"
+            tick={{ fontSize: 10, fill: "#A09788" }}
+            interval="preserveStartEnd"
+            tickLine={false}
+            axisLine={{ stroke: "#E8DFD1" }}
           />
-        )}
-        <Bar dataKey="count" fill="#C44B2E" radius={[2, 2, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+          <YAxis
+            tick={{ fontSize: 10, fill: "#A09788" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              fontSize: 12,
+              border: "1px solid #E8DFD1",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            }}
+            formatter={(value) => [String(value), "Institutions"]}
+          />
+          {hasMedianBucket && (
+            <ReferenceLine
+              x={medianLabel!}
+              stroke="#C44B2E"
+              strokeDasharray="4 3"
+              strokeWidth={1.5}
+              label={{ value: "median", position: "top", fill: "#A93D25", fontSize: 10 }}
+            />
+          )}
+          <Bar dataKey="count" fill="#C44B2E" radius={[2, 2, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

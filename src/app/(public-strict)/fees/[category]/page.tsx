@@ -19,10 +19,10 @@ import {
   DISPLAY_NAMES,
 } from "@/lib/fee-taxonomy";
 import { DISTRICT_NAMES, FDIC_TIER_LABELS } from "@/lib/fed-districts";
-import { formatFeeAmount } from "@/lib/format";
+import { formatFeeAmount, formatNumber } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
-import { DistributionChart } from "@/components/public/distribution-chart";
+import { DistributionChart } from "@/components/public/distribution-chart-client";
 import { InsufficientDataPanel } from "@/components/public/insufficient-data-panel";
 import { InstitutionsCharging } from "./institutions-charging";
 import { STATE_NAMES } from "@/lib/us-states";
@@ -221,8 +221,8 @@ async function FeeCategoryContent({ category }: { category: string }) {
         )}
       </div>
       <p className="mt-2 text-[14px] text-[#6B6255]">
-        Based on {verifiedFeeCount.toLocaleString()} verified fees from{" "}
-        {institutionCount.toLocaleString()} institutions.
+        Based on {formatNumber(verifiedFeeCount)} verified fees from{" "}
+        {formatNumber(institutionCount)} institutions.
       </p>
       <div className="mt-1">
         <DataFreshness />
@@ -317,7 +317,7 @@ async function FeeCategoryContent({ category }: { category: string }) {
                   {money(row.max_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                  {row.count.toLocaleString()}
+                  {formatNumber(row.count)}
                 </td>
               </tr>
             ))}
@@ -351,7 +351,7 @@ async function FeeCategoryContent({ category }: { category: string }) {
                   {money(row.max_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                  {row.count.toLocaleString()}
+                  {formatNumber(row.count)}
                 </td>
               </tr>
             ))}
@@ -394,7 +394,7 @@ async function FeeCategoryContent({ category }: { category: string }) {
                     {money(row.max_amount)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                    {row.count.toLocaleString()}
+                    {formatNumber(row.count)}
                   </td>
                 </tr>
               );
@@ -434,7 +434,7 @@ async function FeeCategoryContent({ category }: { category: string }) {
                   {money(row.avg_amount)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                  {row.count.toLocaleString()}
+                  {formatNumber(row.count)}
                 </td>
               </tr>
             ))}
@@ -474,8 +474,8 @@ async function FeeCategoryContent({ category }: { category: string }) {
           Methodology
         </h3>
         <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
-          Based on {verifiedFeeCount.toLocaleString()} verified fees from{" "}
-          {institutionCount.toLocaleString()} US banks and credit unions, read from their published
+          Based on {formatNumber(verifiedFeeCount)} verified fees from{" "}
+          {formatNumber(institutionCount)} US banks and credit unions, read from their published
           fee schedules. Fees the software is not sure about are held for a person to check and are
           not counted here. Institutions are identified via FDIC and NCUA regulatory databases.
         </p>

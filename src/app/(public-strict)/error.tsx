@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect } from "react";
 
-export default function PublicError({
+// Group-level fallback for (public-strict) pages without their own
+// route-level error.tsx (e.g. research/state/[code], research/district/[id]).
+// Mirrors (public)/error.tsx so error-boundary coverage doesn't regress for
+// pages moved into this group to get real 404 status codes (see Task 17).
+export default function PublicStrictError({
   error,
   reset,
 }: {
@@ -11,7 +15,7 @@ export default function PublicError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Public route error boundary:", error);
+    console.error("Public (strict) route error boundary:", error);
   }, [error]);
 
   return (
@@ -28,7 +32,7 @@ export default function PublicError({
           className="text-[1.75rem] tracking-[-0.02em] text-[#1A1815] mb-3"
           style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
         >
-          Something went wrong
+          Something went wrong loading this page
         </h1>
         <p className="text-[14px] text-[#6B6255] mb-8">
           We hit an unexpected error loading this page. Please try again.

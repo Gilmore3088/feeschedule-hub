@@ -12,7 +12,7 @@ import {
 import { getDisplayName, TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import { formatAmount, formatDate } from "@/lib/format";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
-import { DistributionChart } from "@/components/public/distribution-chart";
+import { DistributionChart } from "@/components/public/distribution-chart-client";
 import { SITE_NAME, SITE_URL, RESEARCH_IMPRINT } from "@/lib/constants";
 import { dedupePerInstitution, trimOutliers, MIN_N_PUBLISH } from "@/lib/benchmarks/sample-policy";
 import type { FeeInstance } from "@/lib/data-store";

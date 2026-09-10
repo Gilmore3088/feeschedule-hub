@@ -1,10 +1,25 @@
 import postgres from "postgres";
 
 const DATABASE_URL = process.env.DATABASE_URL;
-const configuredPoolMax = Number(process.env.DATABASE_POOL_MAX ?? 5);
-const DATABASE_POOL_MAX = Number.isInteger(configuredPoolMax) && configuredPoolMax > 0
-  ? configuredPoolMax
-  : 5;
+
+// Serverless instances fan out one pool per invocation, so the safe default
+// is small — 3, not 5 — to stay well under the shared Supabase/Supavisor
+// connection ceiling under concurrent cold starts. A single long-lived
+// server (or a local dev box) can raise this via DATABASE_POOL_MAX.
+const DEFAULT_POOL_MAX = 3;
+
+/** Parses DATABASE_POOL_MAX, falling back to DEFAULT_POOL_MAX for anything
+ * unset, non-numeric, non-integer, or not positive. */
+export function resolvePoolMax(raw: string | undefined): number {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_POOL_MAX;
+}
+
+const DATABASE_POOL_MAX = resolvePoolMax(process.env.DATABASE_POOL_MAX);
+
+// Server-side guard against a runaway query holding a pooled connection open;
+// matches the ~8s render budget public/report pages are held to.
+const STATEMENT_TIMEOUT_MS = 8000;
 
 let _sql: ReturnType<typeof postgres> | null = null;
 
@@ -21,6 +36,7 @@ export function getSql() {
       idle_timeout: 20,
       connect_timeout: 15,
       prepare: false,  // Required for Supabase transaction mode pooler (port 6543)
+      connection: { statement_timeout: STATEMENT_TIMEOUT_MS },
     });
   }
   return _sql;
