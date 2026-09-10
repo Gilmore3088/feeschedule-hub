@@ -64,7 +64,7 @@ export function ServerSortableTable<T>({
 
   return (
     <div>
-      <div className="table-scroll">
+      <div className="table-scroll [--table-scroll-sticky-bg:white] dark:[--table-scroll-sticky-bg:oklch(0.19_0_0)]">
         <table className="w-full text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>

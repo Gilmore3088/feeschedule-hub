@@ -25,9 +25,12 @@ describe("relatedGuides", () => {
     expect(related).toContain("account-closure-fees");
   });
 
-  it("should_return_empty_for_unknown_slug_backed_by_other_guides", () => {
+  it("should_backfill_with_the_first_three_catalog_guides_when_slug_is_unknown", () => {
+    // No `current` guide to rank overlap against for an unknown slug, so
+    // relatedGuides falls back to `others.slice(0, 3)` — the first three
+    // guides in catalog order (nothing is excluded, since the unknown slug
+    // matches no guide to begin with).
     const related = relatedGuides("not-a-real-guide");
-    expect(related.length).toBeLessThanOrEqual(3);
-    expect(related.every((g) => g.slug !== "not-a-real-guide")).toBe(true);
+    expect(related.map((g) => g.slug)).toEqual(GUIDES.slice(0, 3).map((g) => g.slug));
   });
 });

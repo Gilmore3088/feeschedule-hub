@@ -232,31 +232,27 @@ export default async function GuidePage({ params }: PageProps) {
           resequence them for mobile readers: TOC → chart → cheapest/most
           expensive → guide sections → sources → next steps → related
           guides, with the live-benchmark card and CTAs trailing (they
-          restate or promote rather than teach). `xl:col-start-*` plus
-          `xl:order-*` restore the original two-column desktop layout. ── */}
-      <div className="mt-12 grid grid-cols-1 gap-8 xl:grid-cols-[1fr_300px] xl:items-start xl:gap-10">
-        {/* ── Quick nav / TOC ── */}
-        <div className="order-1 xl:order-4 xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
-            In This Guide
-          </p>
-          <nav className="mt-3 space-y-2">
-            {guide.sections.map((section, i) => (
-              <a
-                key={i}
-                href={`#section-${i}`}
-                className="flex items-center gap-2 text-[13px] text-[#6B6255] hover:text-[#A93D25] transition-colors"
-              >
-                <span className="h-1 w-1 rounded-full bg-[#D4C9BA] shrink-0" />
-                {section.heading}
-              </a>
-            ))}
-          </nav>
-        </div>
+          restate or promote rather than teach).
 
+          At `xl` and up, `xl:order-none` resets every item back to source
+          order and `xl:col-start-1|2` pins each into the main or sidebar
+          column — so the DOM below is written in the *desktop* reading
+          order, interleaved row-by-row across the two columns (chart+live,
+          sections+cheapest, sources+most-expensive, explore+TOC,
+          related+CTAs). That interleaving matters: CSS grid's sparse
+          auto-placement algorithm advances a single row cursor shared by
+          both columns, so items tied on the same `order` value but placed
+          out of row-pair sequence in the DOM (e.g. TOC and "Explore the
+          Data" both wanting row 4 but declared far apart in source order)
+          leave a phantom blank cell in whichever column's cursor advanced
+          first. Giving every item the same `order` value and keeping DOM
+          order == row-pair order sidesteps that entirely — no two items
+          ever compete over placement. Do not reorder these blocks without
+          keeping that row-pairing intact. ── */}
+      <div className="mt-12 grid grid-cols-1 gap-8 xl:grid-cols-[1fr_300px] xl:items-start xl:gap-10">
         {/* ── Distribution chart ── */}
         {primaryAmounts.length >= MIN_N_PUBLISH && primarySummary && (
-          <section className="order-2 xl:order-1 xl:col-start-1">
+          <section className="order-2 xl:order-none xl:col-start-1">
               <h2
                 className="text-[18px] font-medium tracking-[-0.01em] text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -293,8 +289,61 @@ export default async function GuidePage({ params }: PageProps) {
             </section>
           )}
 
+        {/* ── Live benchmarks ── */}
+        {relevantFees.length > 0 && (
+          <div className="order-9 xl:order-none xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm px-5 py-5 overflow-hidden relative">
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/30 to-transparent" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A93D25]/60">
+                Live National Benchmarks
+              </p>
+              <div className="mt-4 space-y-4">
+                {relevantFees.map((fee) => (
+                  <div
+                    key={fee.fee_category}
+                    className="border-b border-[#E8DFD1]/60 pb-3.5 last:border-0 last:pb-0"
+                  >
+                    <Link
+                      href={`/fees/${fee.fee_category}`}
+                      className="text-[13px] font-medium text-[#1A1815] hover:text-[#A93D25] transition-colors"
+                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                    >
+                      {getDisplayName(fee.fee_category)}
+                    </Link>
+                    <div className="mt-1.5 flex items-baseline gap-2">
+                      <span
+                        className="text-[22px] font-light tracking-tight text-[#1A1815] tabular-nums"
+                        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
+                      >
+                        {formatAmount(fee.median_amount)}
+                      </span>
+                      <span className="text-[10px] text-[#6B6255]">median</span>
+                    </div>
+                    <div className="mt-1 text-[11px] tabular-nums text-[#6B6255]">
+                      P25: {formatAmount(fee.p25_amount)} &middot; P75:{" "}
+                      {formatAmount(fee.p75_amount)}
+                    </div>
+                    <div className="mt-2 flex gap-1.5">
+                      <Link
+                        href={`/fees/${fee.fee_category}`}
+                        className="rounded-full bg-[#FAF7F2] border border-[#E8DFD1]/60 px-2.5 py-0.5 text-[10px] font-medium text-[#6B6255] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
+                      >
+                        Distribution
+                      </Link>
+                      <Link
+                        href={`/fees/${fee.fee_category}`}
+                        className="rounded-full bg-[#FAF7F2] border border-[#E8DFD1]/60 px-2.5 py-0.5 text-[10px] font-medium text-[#6B6255] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
+                      >
+                        By state
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* ── Guide sections ── */}
-        <div className="order-5 xl:order-2 xl:col-start-1 space-y-10">
+        <div className="order-5 xl:order-none xl:col-start-1 space-y-10">
             {guide.sections.map((section, i) => (
               <section key={i} id={`section-${i}`} className="scroll-mt-20">
                 <h2
@@ -315,9 +364,47 @@ export default async function GuidePage({ params }: PageProps) {
             ))}
           </div>
 
+        {/* ── Cheapest institutions (lists) ── */}
+        {cheapest.length > 0 && (
+          <div className="order-3 xl:order-none xl:col-start-2 rounded-xl border border-emerald-200/60 bg-emerald-50/20 px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/80">
+                Lowest {getDisplayName(primaryCategory)} Fees
+              </p>
+              {zeroFeeCount > 0 && (
+                <p className="mt-1.5 text-[12px] text-emerald-700">
+                  {zeroFeeCount} institution{zeroFeeCount !== 1 ? "s" : ""} charge{" "}
+                  <span className="font-bold">$0</span>
+                </p>
+              )}
+              <div className="mt-3 space-y-1.5">
+                {cheapest.map((f, i) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center justify-between text-[12px]"
+                  >
+                    <span className="text-[#5A5347] truncate mr-2">
+                      <span className="text-[#6B6255] tabular-nums mr-1">
+                        {i + 1}.
+                      </span>
+                      <Link
+                        href={`/institution/${f.institution_id}`}
+                        className="hover:text-[#A93D25] hover:underline"
+                      >
+                        {f.institution_name}
+                      </Link>
+                    </span>
+                    <span className="tabular-nums font-semibold text-emerald-700 shrink-0">
+                      {formatAmount(f.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* ── Sources ── */}
         {guide.sources.length > 0 && (
-          <div className="order-6 xl:order-3 xl:col-start-1 border-t border-[#E8DFD1]/60 pt-6">
+          <div className="order-6 xl:order-none xl:col-start-1 border-t border-[#E8DFD1]/60 pt-6">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                 Sources
               </p>
@@ -339,8 +426,40 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           )}
 
+        {/* ── Most expensive (lists) ── */}
+        {mostExpensive.length > 0 && (
+          <div className="order-4 xl:order-none xl:col-start-2 rounded-xl border border-red-200/60 bg-red-50/20 px-5 py-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-red-500/80">
+                Highest {getDisplayName(primaryCategory)} Fees
+              </p>
+              <div className="mt-3 space-y-1.5">
+                {mostExpensive.map((f, i) => (
+                  <div
+                    key={f.id}
+                    className="flex items-center justify-between text-[12px]"
+                  >
+                    <span className="text-[#5A5347] truncate mr-2">
+                      <span className="text-[#6B6255] tabular-nums mr-1">
+                        {i + 1}.
+                      </span>
+                      <Link
+                        href={`/institution/${f.institution_id}`}
+                        className="hover:text-[#A93D25] hover:underline"
+                      >
+                        {f.institution_name}
+                      </Link>
+                    </span>
+                    <span className="tabular-nums font-semibold text-red-600 shrink-0">
+                      {formatAmount(f.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {/* ── Explore the Data (next steps) ── */}
-        <section className="order-7 xl:order-4 xl:col-start-1">
+        <section className="order-7 xl:order-none xl:col-start-1">
             <div className="flex items-center gap-3 mb-5">
               <h2
                 className="text-[16px] font-medium text-[#1A1815]"
@@ -411,8 +530,27 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           </section>
 
+        {/* ── Quick nav / TOC ── */}
+        <div className="order-1 xl:order-none xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
+            In This Guide
+          </p>
+          <nav className="mt-3 space-y-2">
+            {guide.sections.map((section, i) => (
+              <a
+                key={i}
+                href={`#section-${i}`}
+                className="flex items-center gap-2 text-[13px] text-[#6B6255] hover:text-[#A93D25] transition-colors"
+              >
+                <span className="h-1 w-1 rounded-full bg-[#D4C9BA] shrink-0" />
+                {section.heading}
+              </a>
+            ))}
+          </nav>
+        </div>
+
         {/* ── More Guides (3 related, by shared fee category) ── */}
-        <section className="order-8 xl:order-5 xl:col-start-1">
+        <section className="order-8 xl:order-none xl:col-start-1">
             <div className="flex items-center gap-3 mb-5">
               <h2
                 className="text-[16px] font-medium text-[#1A1815]"
@@ -443,131 +581,8 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
         </section>
 
-        {/* ── Live benchmarks ── */}
-        {relevantFees.length > 0 && (
-          <div className="order-9 xl:order-1 xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm px-5 py-5 overflow-hidden relative">
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/30 to-transparent" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A93D25]/60">
-                Live National Benchmarks
-              </p>
-              <div className="mt-4 space-y-4">
-                {relevantFees.map((fee) => (
-                  <div
-                    key={fee.fee_category}
-                    className="border-b border-[#E8DFD1]/60 pb-3.5 last:border-0 last:pb-0"
-                  >
-                    <Link
-                      href={`/fees/${fee.fee_category}`}
-                      className="text-[13px] font-medium text-[#1A1815] hover:text-[#A93D25] transition-colors"
-                      style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                    >
-                      {getDisplayName(fee.fee_category)}
-                    </Link>
-                    <div className="mt-1.5 flex items-baseline gap-2">
-                      <span
-                        className="text-[22px] font-light tracking-tight text-[#1A1815] tabular-nums"
-                        style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
-                      >
-                        {formatAmount(fee.median_amount)}
-                      </span>
-                      <span className="text-[10px] text-[#6B6255]">median</span>
-                    </div>
-                    <div className="mt-1 text-[11px] tabular-nums text-[#6B6255]">
-                      P25: {formatAmount(fee.p25_amount)} &middot; P75:{" "}
-                      {formatAmount(fee.p75_amount)}
-                    </div>
-                    <div className="mt-2 flex gap-1.5">
-                      <Link
-                        href={`/fees/${fee.fee_category}`}
-                        className="rounded-full bg-[#FAF7F2] border border-[#E8DFD1]/60 px-2.5 py-0.5 text-[10px] font-medium text-[#6B6255] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
-                      >
-                        Distribution
-                      </Link>
-                      <Link
-                        href={`/fees/${fee.fee_category}`}
-                        className="rounded-full bg-[#FAF7F2] border border-[#E8DFD1]/60 px-2.5 py-0.5 text-[10px] font-medium text-[#6B6255] hover:border-[#C44B2E]/30 hover:text-[#A93D25] transition-colors no-underline"
-                      >
-                        By state
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        {/* ── Cheapest institutions (lists) ── */}
-        {cheapest.length > 0 && (
-          <div className="order-3 xl:order-2 xl:col-start-2 rounded-xl border border-emerald-200/60 bg-emerald-50/20 px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/80">
-                Lowest {getDisplayName(primaryCategory)} Fees
-              </p>
-              {zeroFeeCount > 0 && (
-                <p className="mt-1.5 text-[12px] text-emerald-700">
-                  {zeroFeeCount} institution{zeroFeeCount !== 1 ? "s" : ""} charge{" "}
-                  <span className="font-bold">$0</span>
-                </p>
-              )}
-              <div className="mt-3 space-y-1.5">
-                {cheapest.map((f, i) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center justify-between text-[12px]"
-                  >
-                    <span className="text-[#5A5347] truncate mr-2">
-                      <span className="text-[#6B6255] tabular-nums mr-1">
-                        {i + 1}.
-                      </span>
-                      <Link
-                        href={`/institution/${f.institution_id}`}
-                        className="hover:text-[#A93D25] hover:underline"
-                      >
-                        {f.institution_name}
-                      </Link>
-                    </span>
-                    <span className="tabular-nums font-semibold text-emerald-700 shrink-0">
-                      {formatAmount(f.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        {/* ── Most expensive (lists) ── */}
-        {mostExpensive.length > 0 && (
-          <div className="order-4 xl:order-3 xl:col-start-2 rounded-xl border border-red-200/60 bg-red-50/20 px-5 py-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-red-500/80">
-                Highest {getDisplayName(primaryCategory)} Fees
-              </p>
-              <div className="mt-3 space-y-1.5">
-                {mostExpensive.map((f, i) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center justify-between text-[12px]"
-                  >
-                    <span className="text-[#5A5347] truncate mr-2">
-                      <span className="text-[#6B6255] tabular-nums mr-1">
-                        {i + 1}.
-                      </span>
-                      <Link
-                        href={`/institution/${f.institution_id}`}
-                        className="hover:text-[#A93D25] hover:underline"
-                      >
-                        {f.institution_name}
-                      </Link>
-                    </span>
-                    <span className="tabular-nums font-semibold text-red-600 shrink-0">
-                      {formatAmount(f.amount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
         {/* ── Sidebar CTAs ── */}
-        <div className="order-10 xl:order-5 xl:col-start-2">
+        <div className="order-10 xl:order-none xl:col-start-2">
           <GuideSidebarCtas />
         </div>
       </div>

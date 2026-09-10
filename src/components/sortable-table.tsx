@@ -88,7 +88,7 @@ export function SortableTable<T extends Record<string, unknown>>({
 
   return (
     <div className="admin-card overflow-hidden">
-      <div className="table-scroll">
+      <div className="table-scroll [--table-scroll-sticky-bg:white] dark:[--table-scroll-sticky-bg:oklch(0.19_0_0)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-gray-50/80 dark:bg-white/[0.03] text-left">

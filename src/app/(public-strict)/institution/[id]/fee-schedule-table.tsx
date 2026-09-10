@@ -95,7 +95,7 @@ export function FeeScheduleTable({
         <p className="border-b border-[#F0EBE3] px-4 py-1.5 text-xs text-[#6B6255] lg:hidden">
           Swipe for source and notes &rarr;
         </p>
-        <div className="table-scroll">
+        <div className="table-scroll [--table-scroll-sticky-bg:white]">
           <table className="w-full min-w-[720px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-[#E0D7C9] bg-[#FDFBF8]">

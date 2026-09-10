@@ -998,14 +998,20 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
 .table-scroll > table { min-width: 100%; }
 /* First column stays put while the rest of the row pans horizontally —
    the row/institution label is what a reader needs while scanning wide
-   figures on a phone. `background: inherit` tracks the row's own
-   background (including hover states) so the sticky cell never shows a
-   gap of raw page color behind it. */
+   figures on a phone. An opaque token (not `background: inherit`) backs
+   the sticky cell: most of this codebase's table rows are transparent by
+   default or use a translucent hover tint (`bg-[#FAF7F2]/60`), so
+   `inherit` would let scrolled-past columns show through underneath the
+   pinned one. #FAF7F2 matches the parchment surface every public table
+   sits on; surfaces that differ (admin's white/dark `.admin-card`, the
+   institution profile's white fee-schedule section) override the token
+   on their own wrapper — see server-sortable-table.tsx, sortable-table.tsx,
+   fee-schedule-table.tsx. */
 .table-scroll th:first-child,
 .table-scroll td:first-child {
   position: sticky;
   left: 0;
-  background: inherit;
+  background: var(--table-scroll-sticky-bg, #FAF7F2);
   z-index: 1;
 }
 @supports (animation-timeline: scroll()) {
