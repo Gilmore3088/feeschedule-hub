@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getFeeCategorySummaries } from "@/lib/data-store";
 import { getDisplayName, getFeeFamily, FEE_FAMILIES, getSpotlightCategories } from "@/lib/fee-taxonomy";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
@@ -11,6 +12,7 @@ import { canAccessAllCategories } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
 import { CatalogSidebar } from "./catalog-sidebar";
 import { FamilySection, money } from "./family-section";
+import { FeesSkeleton } from "./fees-skeleton";
 
 // No live number in the title: counts come from getPublicStatsSummary() in the body.
 export const metadata: Metadata = {
@@ -31,7 +33,42 @@ const ACTION_LINKS = [
   { label: "API", href: "/api-docs" },
 ];
 
-export default async function FeeCatalogPage() {
+export default function FeeCatalogPage() {
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-14">
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", href: "/" },
+          { name: PRODUCT_NAME, href: "/fees" },
+        ]}
+      />
+
+      {/* ── HERO title — static, no data dependency, so it paints before
+          FeeCatalogData's DB reads resolve. ── */}
+      <div className="max-w-3xl">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-px w-8 bg-[#C44B2E]/40" />
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A93D25]">
+            Published fees · every figure sourced
+          </span>
+        </div>
+
+        <h1
+          className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
+          style={SERIF}
+        >
+          {PRODUCT_NAME} — benchmarks by category
+        </h1>
+      </div>
+
+      <Suspense fallback={<FeesSkeleton />}>
+        <FeeCatalogData />
+      </Suspense>
+    </div>
+  );
+}
+
+async function FeeCatalogData() {
   const user = await getCurrentUser();
   const showAll = canAccessAllCategories(user);
   const spotlightCats = new Set(getSpotlightCategories());
@@ -59,29 +96,8 @@ export default async function FeeCatalogPage() {
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-14">
-      <BreadcrumbJsonLd
-        items={[
-          { name: "Home", href: "/" },
-          { name: PRODUCT_NAME, href: "/fees" },
-        ]}
-      />
-
-      {/* ── HERO ── */}
+    <>
       <div className="max-w-3xl">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="h-px w-8 bg-[#C44B2E]/40" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#A93D25]">
-            Published fees · every figure sourced
-          </span>
-        </div>
-
-        <h1
-          className="text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]"
-          style={SERIF}
-        >
-          {PRODUCT_NAME} — benchmarks by category
-        </h1>
         <p className="mt-2 text-[15px] leading-relaxed text-[#5A5347]">
           Bank and credit union fee benchmarks — {summary.categoriesLabel} categories,{" "}
           {summary.institutionsLabel} institutions.
@@ -177,6 +193,6 @@ export default async function FeeCatalogPage() {
           }).replace(/</g, "\\u003c"),
         }}
       />
-    </div>
+    </>
   );
 }

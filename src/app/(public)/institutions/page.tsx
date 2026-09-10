@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import {
   getInstitutionStateDirectorySummaries,
   searchInstitutions,
@@ -32,6 +33,18 @@ export const metadata: Metadata = {
   description:
     "Search banks and credit unions to compare fees against national benchmarks. Free institution lookup for all US financial institutions.",
 };
+
+const STATE_DIRECTORY_SUMMARIES_REVALIDATE_SECONDS = 3600;
+
+// The state map's per-state counts are user-independent (no cookies, no
+// auth) and expensive to recompute per request, so they're safe to cache
+// across requests. `charterType` is part of the wrapped function's
+// arguments, so each filter value gets its own cache entry.
+const getCachedStateDirectorySummaries = unstable_cache(
+  (charterType?: string) => getInstitutionStateDirectorySummaries({ charter_type: charterType }),
+  ["institutions", "state-directory-summaries"],
+  { revalidate: STATE_DIRECTORY_SUMMARIES_REVALIDATE_SECONDS },
+);
 
 interface PageProps {
   searchParams: Promise<{
@@ -112,7 +125,7 @@ export default async function InstitutionsPage({ searchParams }: PageProps) {
   const shouldShowResults = hasQuery || hasState || hasFee;
   const [stats, stateSummaries, results, feeResults] = await Promise.all([
     getPublicStatsSummary(),
-    getInstitutionStateDirectorySummaries({ charter_type: charterType || undefined }),
+    getCachedStateDirectorySummaries(charterType || undefined),
     shouldShowResults && !hasFee
       ? loadResults({
           query: hasQuery ? query : undefined,

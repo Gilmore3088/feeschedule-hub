@@ -1,22 +1,45 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { getFeesByInstitution, getPublicInstitutionById } from "@/lib/data-store";
 import type { ExtractedFee } from "@/lib/data-store/types";
 import type { InstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
 import { formatFeeAmount } from "@/lib/format";
 import { NON_PAID_ITEM_OVERDRAFT_PATTERN } from "@/lib/institution-rating";
+import { institutionCacheKey, institutionTag } from "@/lib/institution-cache";
 import type { DisplayFee } from "./fee-schedule-table";
 
-export const getPublicInstitutionForPage = cache(getPublicInstitutionById);
+/** Both institution profile and fee reads share this revalidate window and
+ * per-institution tag; Hamilton's publish step calls revalidateTag(institutionTag(id))
+ * so a freshly published fee doesn't wait out the full hour. */
+const INSTITUTION_CACHE_REVALIDATE_SECONDS = 3600;
+
+// react `cache()` dedupes repeated calls within one request (metadata + page
+// share the same fetch); `unstable_cache` inside it persists the result
+// across requests, keyed and tagged per institution so Hamilton can
+// selectively invalidate one institution's cached reads on publish.
+export const getPublicInstitutionForPage = cache(async (id: number) => {
+  return unstable_cache(
+    () => getPublicInstitutionById(id),
+    institutionCacheKey(id, "profile"),
+    { revalidate: INSTITUTION_CACHE_REVALIDATE_SECONDS, tags: [institutionTag(id)] },
+  )();
+});
 
 /** Published catalog fees, minus rejected rows. Cached so metadata and page share one query. */
 export const getVisibleFeesForPage = cache(async (institutionId: number): Promise<ExtractedFee[]> => {
-  try {
-    const fees = await getFeesByInstitution(institutionId);
-    return fees.filter((fee) => fee.review_status !== "rejected");
-  } catch (error) {
-    console.error("Institution page published fees failed:", error);
-    return [];
-  }
+  return unstable_cache(
+    async () => {
+      try {
+        const fees = await getFeesByInstitution(institutionId);
+        return fees.filter((fee) => fee.review_status !== "rejected");
+      } catch (error) {
+        console.error("Institution page published fees failed:", error);
+        return [];
+      }
+    },
+    institutionCacheKey(institutionId, "fees"),
+    { revalidate: INSTITUTION_CACHE_REVALIDATE_SECONDS, tags: [institutionTag(institutionId)] },
+  )();
 });
 
 export function isVerifiedFee(fee: ExtractedFee): boolean {

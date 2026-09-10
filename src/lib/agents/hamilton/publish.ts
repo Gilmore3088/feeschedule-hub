@@ -1,9 +1,11 @@
 import { createHash } from "crypto";
+import { revalidateTag } from "next/cache";
 
 import { sql } from "@/lib/data-store/connection";
 import { normalizeStateCode } from "@/lib/agents/state-lane-memory";
 import { CANONICAL_KEY_MAP } from "@/lib/fee-taxonomy";
 import { recordHamiltonMonitorSignal } from "@/lib/hamilton/monitor-signals";
+import { institutionTag } from "@/lib/institution-cache";
 
 type SqlTag = typeof sql;
 
@@ -302,6 +304,29 @@ function rowCountLabel(count: number): string {
   return `${count} verified fee row${count === 1 ? "" : "s"}`;
 }
 
+/**
+ * Invalidates the cached public institution profile (and its fees) for every
+ * institution that just received a newly published fee, so the profile page
+ * doesn't keep serving a pre-publish snapshot for up to the cache's 1-hour
+ * revalidate window. `revalidateTag` requires an active Next.js request
+ * scope; outside one (tests, a non-HTTP invocation) it throws, which is
+ * caught and logged rather than failing the publish — the cache still
+ * self-heals on its normal TTL.
+ */
+function revalidateInstitutionCaches(results: HamiltonPublishResult[]): void {
+  const publishedInstitutionIds = new Set(
+    results.filter((result) => result.status === "published").map((result) => result.institutionId),
+  );
+  for (const institutionId of publishedInstitutionIds) {
+    const tag = institutionTag(institutionId);
+    try {
+      revalidateTag(tag, "max");
+    } catch (error) {
+      console.error(`revalidateTag(${tag}) failed:`, error);
+    }
+  }
+}
+
 function movementFor(
   prior: PriorPublishedFeeRow | null,
   row: VerifiedFeeRow,
@@ -543,6 +568,7 @@ export async function runHamiltonPublish(
 
   if (!dryRun) {
     await recordPublicationSignals(db, options.runId, batchId, results, rowByVerifiedFeeId);
+    revalidateInstitutionCaches(results);
   }
 
   return {
