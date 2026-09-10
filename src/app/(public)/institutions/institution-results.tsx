@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import type { InstitutionSearchResult } from "@/lib/data-store/search";
-import { getCharterLabel, getPublicStatusLabel, getSegmentLabel, toTitleCase } from "../institution/[id]/enum-labels";
+import { getCharterLabel, getPublicStatusLabel, getSegmentLabel, toTitleCase } from "@/app/(public-strict)/institution/[id]/enum-labels";
 import { hasVerifiedFees } from "./directory-sort";
 
 function statusChip(row: InstitutionSearchResult): { label: string; className: string } {

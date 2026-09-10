@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
   getFeeCategoryDetail,
@@ -29,6 +30,7 @@ import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { getCurrentUser } from "@/lib/auth";
 import { canAccessPremium } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
+import { CategorySkeleton } from "./category-skeleton";
 
 interface PageProps {
   params: Promise<{ category: string }>;
@@ -121,6 +123,18 @@ export default async function FeeCategoryPage({ params }: PageProps) {
     notFound();
   }
 
+  // The notFound()-determining category lookup above is a static, synchronous
+  // check outside any Suspense boundary, so an unknown category resolves a
+  // real 404 status before Next flushes any bytes. Everything else (all DB
+  // reads) streams behind the skeleton.
+  return (
+    <Suspense fallback={<CategorySkeleton />}>
+      <FeeCategoryContent category={category} />
+    </Suspense>
+  );
+}
+
+async function FeeCategoryContent({ category }: { category: string }) {
   const user = await getCurrentUser();
   const isPro = canAccessPremium(user);
 

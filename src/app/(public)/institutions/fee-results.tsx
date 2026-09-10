@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCharterLabel } from "../institution/[id]/enum-labels";
+import { getCharterLabel } from "@/app/(public-strict)/institution/[id]/enum-labels";
 import { formatFeeAmount } from "@/lib/format";
 import { TH_CLASS } from "./institution-results";
 

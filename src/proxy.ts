@@ -20,6 +20,10 @@ const LEGACY_PATH_REDIRECTS: Record<string, string> = {
   "/check": "/institutions",
   "/districts": "/research",
   "/waitlist": "/for-institutions#report",
+  "/pricing": "/subscribe",
+  "/report": "/for-institutions#report",
+  "/request-report": "/for-institutions#report",
+  "/claim": "/submit-fees?claim=1",
 };
 
 function permanentRedirectStatus(method: string) {
@@ -52,6 +56,23 @@ function canonicalCityPath(pathname: string): string | null {
   return `/fees/city/${canonicalState}/${canonicalCity}`;
 }
 
+const STATE_RESEARCH_PATTERN = /^\/research\/state\/([^/]+)\/?$/;
+
+/**
+ * Canonicalizes `/research/state/:code` to an uppercase state code (e.g.
+ * `/research/state/oh` -> `/research/state/OH`). Returns null when the path
+ * already is canonical or isn't a state research page at all.
+ */
+function canonicalStatePath(pathname: string): string | null {
+  const match = pathname.match(STATE_RESEARCH_PATTERN);
+  if (!match) return null;
+  const [, codeSegment] = match;
+
+  const canonicalCode = codeSegment.toUpperCase();
+  if (canonicalCode === codeSegment) return null;
+  return `/research/state/${canonicalCode}`;
+}
+
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";
   const { pathname } = request.nextUrl;
@@ -77,6 +98,13 @@ export function proxy(request: NextRequest) {
   const canonicalCity = canonicalCityPath(pathname);
   if (canonicalCity) {
     const url = new URL(canonicalCity, request.url);
+    url.search = request.nextUrl.search;
+    return NextResponse.redirect(url, permanentRedirectStatus(request.method));
+  }
+
+  const canonicalState = canonicalStatePath(pathname);
+  if (canonicalState) {
+    const url = new URL(canonicalState, request.url);
     url.search = request.nextUrl.search;
     return NextResponse.redirect(url, permanentRedirectStatus(request.method));
   }

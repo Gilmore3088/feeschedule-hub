@@ -1,4 +1,11 @@
-export default function Loading() {
+/**
+ * Streaming fallback for the institution profile's data-dependent content.
+ * Mirrors the removed route-level loading.tsx — kept in-page (behind a
+ * <Suspense> boundary placed AFTER the notFound()-determining fetch) so a
+ * missing institution still resolves a real 404 status instead of Next
+ * flushing this shell with a 200 before the not-found check runs.
+ */
+export function InstitutionProfileSkeleton() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-10 animate-pulse">
       <div className="h-3 w-28 rounded bg-slate-200" />

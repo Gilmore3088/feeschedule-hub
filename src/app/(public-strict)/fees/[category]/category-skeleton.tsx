@@ -1,4 +1,11 @@
-export default function CategoryLoading() {
+/**
+ * Streaming fallback for the fee category page's data-dependent content.
+ * Mirrors the removed route-level loading.tsx — kept in-page (behind a
+ * <Suspense> boundary placed AFTER the notFound()-determining category
+ * lookup) so an unknown category still resolves a real 404 status instead
+ * of Next flushing this shell with a 200 before the not-found check runs.
+ */
+export function CategorySkeleton() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-12">
       <div className="animate-pulse space-y-6">

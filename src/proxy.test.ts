@@ -50,12 +50,34 @@ describe("proxy", () => {
       ["https://feeinsight.com/check", "https://feeinsight.com/institutions"],
       ["https://feeinsight.com/districts", "https://feeinsight.com/research"],
       ["https://feeinsight.com/waitlist", "https://feeinsight.com/for-institutions#report"],
+      ["https://feeinsight.com/pricing", "https://feeinsight.com/subscribe"],
+      ["https://feeinsight.com/report", "https://feeinsight.com/for-institutions#report"],
+      ["https://feeinsight.com/request-report", "https://feeinsight.com/for-institutions#report"],
+      ["https://feeinsight.com/claim", "https://feeinsight.com/submit-fees?claim=1"],
     ];
     for (const [from, to] of cases) {
       const response = proxy(request(from));
       expect(response.status, from).toBe(301);
       expect(response.headers.get("location"), from).toBe(to);
     }
+  });
+
+  it("canonicalizes a lowercase state research code to uppercase", () => {
+    const cases: Array<[string, string]> = [
+      ["https://feeinsight.com/research/state/oh", "https://feeinsight.com/research/state/OH"],
+      ["https://feeinsight.com/research/state/Oh", "https://feeinsight.com/research/state/OH"],
+    ];
+    for (const [from, to] of cases) {
+      const response = proxy(request(from));
+      expect(response.status, from).toBe(301);
+      expect(response.headers.get("location"), from).toBe(to);
+    }
+  });
+
+  it("does not redirect an already-canonical state research path", () => {
+    const response = proxy(request("https://feeinsight.com/research/state/OH"));
+
+    expect(response.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("canonicalizes legacy city slugs (%20 or uppercase) to a lowercase-hyphen path", () => {

@@ -1,11 +1,14 @@
 export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
   getNationalIndexCached,
   getPeerIndex,
-  getStateStats,
+  getDistrictStats,
+  getBeigeBookHeadline,
+  getLatestBeigeBook,
 } from "@/lib/data-store";
 import {
   getDisplayName,
@@ -13,40 +16,40 @@ import {
 } from "@/lib/fee-taxonomy";
 import { MIN_ROW_N } from "@/lib/benchmarks/sample-policy";
 import { DISTRICT_NAMES, STATE_TO_DISTRICT } from "@/lib/fed-districts";
-import { formatAmount, formatNumber } from "@/lib/format";
-import { STATE_NAMES, STATE_CODES } from "@/lib/us-states";
 import { getCurrentUser } from "@/lib/auth";
-import { canAccessAllCategories } from "@/lib/access";
+import { canAccessFullDistrict } from "@/lib/access";
 import { UpgradeGate } from "@/components/upgrade-gate";
-import { ConsumerNextSteps } from "@/components/public/consumer-next-steps";
+import { formatAmount } from "@/lib/format";
+import { STATE_NAMES } from "@/lib/us-states";
 import { BreadcrumbJsonLd } from "@/components/breadcrumb-jsonld";
 import { DataFreshness } from "@/components/data-freshness";
 import { SITE_URL } from "@/lib/constants";
+import { DistrictReportSkeleton } from "./district-skeleton";
 
 interface PageProps {
-  params: Promise<{ code: string }>;
+  params: Promise<{ id: string }>;
 }
 
 export async function generateStaticParams() {
   const { hasData } = await import("@/lib/data-store/connection");
   if (!(await hasData())) return [];
-  return STATE_CODES.map((code) => ({ code }));
+  return Array.from({ length: 12 }, (_, i) => ({ id: String(i + 1) }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { code } = await params;
-  const name = STATE_NAMES[code.toUpperCase()];
-  if (!name) return { title: "State Not Found" };
+  const { id } = await params;
+  const districtId = parseInt(id, 10);
+  const name = DISTRICT_NAMES[districtId];
+  if (!name) return { title: "District Not Found" };
 
   return {
-    title: `${name} Bank Fees - State Fee Report`,
-    description: `Compare bank and credit union fees in ${name}. Median fees, state vs. national benchmarks, charter type comparisons, and institution-level data.`,
+    title: `Federal Reserve District ${districtId} (${name}) - Fee Analysis`,
+    description: `Bank and credit union fee analysis for Federal Reserve District ${districtId} (${name}). District vs. national fee benchmarks with economic context from the Beige Book.`,
     keywords: [
+      `Federal Reserve District ${districtId}`,
       `${name} bank fees`,
-      `${name} overdraft fees`,
-      `${name} credit union fees`,
-      `bank fees by state`,
-      `${name} ATM fees`,
+      `Fed district fee analysis`,
+      `banking fees ${name}`,
     ],
   };
 }
@@ -69,27 +72,55 @@ function DeltaPill({ delta }: { delta: number }) {
   );
 }
 
-export default async function StateReportPage({ params }: PageProps) {
-  const { code } = await params;
-  const stateCode = code.toUpperCase();
-  const stateName = STATE_NAMES[stateCode];
-  if (!stateName) notFound();
+export default async function DistrictReportPage({ params }: PageProps) {
+  const { id } = await params;
+  const districtId = parseInt(id, 10);
+  if (districtId < 1 || districtId > 12 || isNaN(districtId)) notFound();
 
+  const districtName = DISTRICT_NAMES[districtId];
+  if (!districtName) notFound();
+
+  // The notFound()-determining checks above are static, synchronous checks
+  // outside any Suspense boundary, so an unknown district resolves a real
+  // 404 status before Next flushes any bytes. Everything else (all DB
+  // reads) streams behind the skeleton.
+  return (
+    <Suspense fallback={<DistrictReportSkeleton />}>
+      <DistrictReportContent districtId={districtId} districtName={districtName} />
+    </Suspense>
+  );
+}
+
+async function DistrictReportContent({
+  districtId,
+  districtName,
+}: {
+  districtId: number;
+  districtName: string;
+}) {
   const user = await getCurrentUser();
-  const showAllCategories = canAccessAllCategories(user);
+  const showFullDistrict = canAccessFullDistrict(user);
 
-  const stats = await getStateStats(stateCode);
-  const stateIndex = await getPeerIndex({ state_code: stateCode });
+  const stats = await getDistrictStats(districtId);
+  const districtIndex = await getPeerIndex({ fed_districts: [districtId] });
   const nationalIndex = await getNationalIndexCached();
-  const district = STATE_TO_DISTRICT[stateCode];
+  const beigeHeadline = await getBeigeBookHeadline(districtId);
+  const beigeSections = await getLatestBeigeBook(districtId);
+
+  // States in this district
+  const districtStates = Object.entries(STATE_TO_DISTRICT)
+    .filter(([, d]) => d === districtId)
+    .map(([code]) => code)
+    .filter((code) => STATE_NAMES[code])
+    .sort();
 
   // Build national lookup
   const nationalMap = new Map(
     nationalIndex.map((e) => [e.fee_category, e])
   );
 
-  // Build comparison data: state vs national with deltas
-  const comparisons = stateIndex
+  // Build comparison data
+  const comparisons = districtIndex
     .filter((e) => e.median_amount !== null && e.institution_count >= MIN_ROW_N)
     .map((entry) => {
       const national = nationalMap.get(entry.fee_category);
@@ -105,13 +136,17 @@ export default async function StateReportPage({ params }: PageProps) {
   const featured = comparisons.filter((c) => isFeaturedFee(c.fee_category));
   const extended = comparisons.filter((c) => !isFeaturedFee(c.fee_category));
 
+  // Summary stats
+  const aboveNational = comparisons.filter((c) => c.delta !== null && c.delta > 2).length;
+  const belowNational = comparisons.filter((c) => c.delta !== null && c.delta < -2).length;
+
   return (
     <div className="mx-auto max-w-7xl px-6 py-14">
       <BreadcrumbJsonLd
         items={[
           { name: "Home", href: "/" },
           { name: "Research", href: "/research" },
-          { name: stateName, href: `/research/state/${stateCode}` },
+          { name: `District ${districtId}`, href: `/research/district/${districtId}` },
         ]}
       />
 
@@ -121,32 +156,22 @@ export default async function StateReportPage({ params }: PageProps) {
         <span className="text-[#D4C9BA]">/</span>
         <Link href="/research" className="hover:text-[#1A1815] transition-colors">Research</Link>
         <span className="text-[#D4C9BA]">/</span>
-        <span className="text-[#5A5347]">{stateName}</span>
+        <span className="text-[#5A5347]">{districtName}</span>
       </nav>
 
-      <div className="flex items-center gap-2 mb-4">
-        <span className="h-px w-8 bg-[#C44B2E]/40" />
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#A93D25]/60">
-          State Fee Report
-        </span>
-      </div>
-      <h1 className="mt-1 font-[Newsreader] text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]">
-        {stateName} Bank & Credit Union Fees
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#A93D25]">
+        Federal Reserve District {districtId}
+      </p>
+      <h1 className="mt-1 font-[family-name:var(--font-newsreader)] text-[1.75rem] sm:text-[2.25rem] leading-[1.12] tracking-[-0.02em] text-[#1A1815]">
+        {districtName} District Fee Analysis
       </h1>
       <p className="mt-2 max-w-2xl text-[14px] text-[#6B6255]">
         Fee benchmarks for {stats.institution_count.toLocaleString()} financial
-        institutions in {stateName}, compared against national medians.
-        {district && (
-          <>
-            {" "}Part of{" "}
-            <Link
-              href={`/research/district/${district}`}
-              className="text-[#C44B2E] hover:underline"
-            >
-              Federal Reserve District {district} ({DISTRICT_NAMES[district]})
-            </Link>
-            .
-          </>
+        institutions across{" "}
+        {districtStates.length} state{districtStates.length !== 1 ? "s" : ""}.
+        {aboveNational > 0 && belowNational > 0 && (
+          <> This district has {belowNational} fee categories below the
+          national median and {aboveNational} above.</>
         )}
       </p>
       <div className="mt-1">
@@ -165,7 +190,7 @@ export default async function StateReportPage({ params }: PageProps) {
             key={card.label}
             className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm px-4 py-3"
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#6B6255]">
               {card.label}
             </p>
             <p className="mt-1 text-lg font-bold tabular-nums text-[#1A1815]">
@@ -175,60 +200,51 @@ export default async function StateReportPage({ params }: PageProps) {
         ))}
       </div>
 
-      <Link
-        href={`/institutions?state=${stateCode}`}
-        className="mt-3 inline-block text-[13px] font-medium text-[#C44B2E] hover:underline"
-      >
-        View all {formatNumber(stats.institution_count)} {stateName} institutions &rarr;
-      </Link>
+      {/* States in district */}
+      <section className="mt-8">
+        <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
+          States in This District
+        </h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {districtStates.map((code) => (
+            <Link
+              key={code}
+              href={`/institutions?state=${code}`}
+              className="rounded-full border border-[#E8DFD1] px-3.5 py-1.5 text-[12px] font-medium text-[#5A5347] transition-colors hover:border-[#C44B2E]/30 hover:text-[#A93D25]"
+            >
+              {STATE_NAMES[code]}
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      {/* Charter breakdown */}
-      {stateIndex.length > 0 && (
+      {/* Beige Book Context -- premium only */}
+      {!showFullDistrict && beigeHeadline && (
+        <div className="mt-8">
+          <UpgradeGate message={`Full ${districtName} district intelligence`} />
+        </div>
+      )}
+      {showFullDistrict && beigeHeadline && (
         <section className="mt-8">
-          <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
-            Bank vs. Credit Union — {stateName}
+          <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
+            Economic Context — Beige Book
           </h2>
-          <p className="mt-1 text-[13px] text-[#6B6255]">
-            How fees compare between banks and credit unions in this state.
-          </p>
-          <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
-                  <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
-                    Charter
-                  </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
-                    Institutions
-                  </th>
-                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
-                    Fee Observations
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E8DFD1]/60">
-                <tr className="hover:bg-[#FAF7F2]/60 transition-colors">
-                  <td className="px-4 py-2.5 font-medium text-[#1A1815]">Banks</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
-                    {stats.bank_count.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                    {stateIndex.reduce((sum, e) => sum + e.bank_count, 0).toLocaleString()}
-                  </td>
-                </tr>
-                <tr className="hover:bg-[#FAF7F2]/60 transition-colors">
-                  <td className="px-4 py-2.5 font-medium text-[#1A1815]">Credit Unions</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#5A5347]">
-                    {stats.cu_count.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                    {stateIndex.reduce((sum, e) => sum + e.cu_count, 0).toLocaleString()}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            </div>
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/30 px-5 py-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">
+              Latest Release — {beigeHeadline.release_date}
+            </p>
+            {beigeSections
+              .filter((s) => s.section_name === "Summary of Economic Activity")
+              .map((section) => (
+                <p
+                  key={section.id}
+                  className="mt-2 text-[13px] leading-relaxed text-[#5A5347]"
+                >
+                  {section.content_text.length > 600
+                    ? section.content_text.slice(0, 597) + "..."
+                    : section.content_text}
+                </p>
+              ))}
           </div>
         </section>
       )}
@@ -236,24 +252,23 @@ export default async function StateReportPage({ params }: PageProps) {
       {/* Fee comparison table */}
       {comparisons.length > 0 && (
         <section className="mt-8">
-          <h2 className="font-[Newsreader] text-sm font-bold text-[#1A1815]">
-            Fee Benchmarks — {stateName} vs. National
+          <h2 className="font-[family-name:var(--font-newsreader)] text-sm font-bold text-[#1A1815]">
+            Fee Benchmarks — District {districtId} vs. National
           </h2>
           <p className="mt-1 text-[13px] text-[#6B6255]">
             {comparisons.length} fee categories with sufficient data.
-            Green deltas indicate below-national fees; red indicates above.
           </p>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
                   <th className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
                     Fee Category
                   </th>
                   <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
-                    {stateName} Median
+                    District Median
                   </th>
                   <th className="hidden px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255] sm:table-cell">
                     National Median
@@ -262,7 +277,10 @@ export default async function StateReportPage({ params }: PageProps) {
                     Delta
                   </th>
                   <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
-                    Institutions
+                    Banks
+                  </th>
+                  <th className="px-4 py-2 text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]">
+                    CUs
                   </th>
                 </tr>
               </thead>
@@ -294,17 +312,20 @@ export default async function StateReportPage({ params }: PageProps) {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                      {row.institution_count.toLocaleString()}
+                      {row.bank_count}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
+                      {row.cu_count}
                     </td>
                   </tr>
                 ))}
 
-                {extended.length > 0 && showAllCategories && (
+                {extended.length > 0 && (
                   <>
                     <tr>
                       <td
-                        colSpan={5}
-                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-[#6B6255]"
+                        colSpan={6}
+                        className="bg-[#FAF7F2]/60 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6B6255]"
                       >
                         Extended Categories
                       </td>
@@ -336,7 +357,10 @@ export default async function StateReportPage({ params }: PageProps) {
                           )}
                         </td>
                         <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
-                          {row.institution_count.toLocaleString()}
+                          {row.bank_count}
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-[#6B6255]">
+                          {row.cu_count}
                         </td>
                       </tr>
                     ))}
@@ -349,26 +373,17 @@ export default async function StateReportPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Consumer next steps, then the upgrade gate, for free users */}
-      {!showAllCategories && extended.length > 0 && (
-        <div className="mt-6 flex flex-col gap-4">
-          <ConsumerNextSteps stateCode={stateCode} />
-          <UpgradeGate count={extended.length} message={`${extended.length} more fee categories for ${stateName}`} />
-        </div>
-      )}
-
       {/* Methodology */}
       <section className="mt-10 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2]/50 px-5 py-4">
-        <h2 className="font-[Newsreader] text-xs font-semibold uppercase tracking-wider text-[#6B6255]">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#6B6255]">
           Methodology
         </h2>
         <p className="mt-2 text-[13px] leading-relaxed text-[#6B6255]">
           Data sourced from published fee schedules of FDIC-insured banks and
-          NCUA-insured credit unions in {stateName}. Medians computed from
-          extracted fee amounts excluding rejected reviews. Delta shows
-          percentage difference from the national median. Categories with
-          fewer than {MIN_ROW_N} institutions in this state are excluded from
-          state-level reporting.
+          NCUA-insured credit unions in Federal Reserve District {districtId} ({districtName}).
+          Medians computed from extracted fee amounts excluding rejected reviews.
+          Economic context from the Federal Reserve Beige Book. Delta shows
+          percentage difference from the national median.
         </p>
       </section>
 
@@ -378,9 +393,9 @@ export default async function StateReportPage({ params }: PageProps) {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Article",
-            headline: `${stateName} Bank & Credit Union Fees`,
-            description: `Fee benchmarks for financial institutions in ${stateName}.`,
-            url: `${SITE_URL}/research/state/${stateCode}`,
+            headline: `${districtName} District Fee Analysis`,
+            description: `Bank and credit union fee analysis for Federal Reserve District ${districtId}.`,
+            url: `${SITE_URL}/research/district/${districtId}`,
           }).replace(/</g, "\\u003c"),
         }}
       />

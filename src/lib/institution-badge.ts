@@ -1,4 +1,4 @@
-import { MIN_VERIFIED_FEES_FOR_OFFER } from "@/app/(public)/institution/[id]/profile-copy";
+import { MIN_VERIFIED_FEES_FOR_OFFER } from "@/app/(public-strict)/institution/[id]/profile-copy";
 import { formatNumber } from "@/lib/format";
 
 /**

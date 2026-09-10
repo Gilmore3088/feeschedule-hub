@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getFinancialsByInstitution, getNationalIndexCached } from "@/lib/data-store";
 import { getInstitutionFeeScheduleEvidence } from "@/lib/data-store/institution";
@@ -40,6 +41,7 @@ import { InstitutionJsonLd } from "./profile-jsonld";
 import { ProfileSidebar, type KeyFact } from "./profile-sidebar";
 import { FeeProfileSummary, StatusNotice } from "./status-notice";
 import { ThinProfilePanel } from "./thin-profile-panel";
+import { InstitutionProfileSkeleton } from "./profile-skeleton";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -104,6 +106,25 @@ export default async function InstitutionProfilePage({ params }: PageProps) {
   const inst = await getPublicInstitutionForPage(instId);
   if (!inst) notFound();
 
+  // The notFound()-determining fetch above happens outside any Suspense
+  // boundary so a missing institution resolves a real 404 status before
+  // Next flushes any bytes. Everything else streams behind the skeleton.
+  return (
+    <Suspense fallback={<InstitutionProfileSkeleton />}>
+      <InstitutionProfileContent instId={instId} inst={inst} />
+    </Suspense>
+  );
+}
+
+type PublicInstitution = NonNullable<Awaited<ReturnType<typeof getPublicInstitutionForPage>>>;
+
+async function InstitutionProfileContent({
+  instId,
+  inst,
+}: {
+  instId: number;
+  inst: PublicInstitution;
+}) {
   const catalogVisibleFeeCount = Number(inst.fee_count ?? 0);
   const status: FeePublicationStatus = inst.fee_publication_status ?? "unavailable";
   const shouldLoadPipelineEvidence =
