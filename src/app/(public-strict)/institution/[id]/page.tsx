@@ -14,8 +14,7 @@ import { computeInstitutionRating, generateInterpretation } from "@/lib/institut
 import { institutionBadge } from "@/lib/institution-badge";
 import type { FeePublicationStatus } from "@/lib/institution-quality";
 import { buildPublicInstitutionProfileLinks } from "@/lib/institution-profile-links";
-import { formatNumber } from "@/lib/format";
-import { formatAbsoluteDate } from "@/lib/public-stats";
+import { formatDate, formatNumber } from "@/lib/format";
 import { getCharterLabel, getSegmentLabel, toTitleCase } from "./enum-labels";
 import { FeeScheduleTable } from "./fee-schedule-table";
 import { FinancialContext } from "./financial-context";
@@ -190,7 +189,9 @@ async function InstitutionProfileContent({
   const charterLabel = getCharterLabel(inst.charter_type);
   const districtName = inst.fed_district ? DISTRICT_NAMES[inst.fed_district] ?? null : null;
   const segmentLabel = getSegmentLabel(inst.asset_size_tier, inst.charter_type);
-  const collectedOn = formatAbsoluteDate(inst.latest_source_collected_at ?? null);
+  const collectedOn = inst.latest_source_collected_at
+    ? formatDate(inst.latest_source_collected_at)
+    : null;
   const freshnessLine = [
     collectedOn ? `Fee schedule collected ${collectedOn}` : null,
     financialsAsOf ? `Financials as of ${financialsAsOf}` : null,

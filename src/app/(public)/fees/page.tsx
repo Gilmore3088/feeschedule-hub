@@ -97,24 +97,25 @@ async function FeeCatalogData() {
 
   return (
     <>
-      <div className="max-w-3xl">
-        <p className="mt-2 text-[15px] leading-relaxed text-[#5A5347]">
-          Bank and credit union fee benchmarks — {summary.categoriesLabel} categories,{" "}
-          {summary.institutionsLabel} institutions.
-        </p>
+      {/* Intro copy sits in the hero's max-w-3xl column (declared once, in
+          the static shell above) rather than re-declaring its own wrapper —
+          this block and the hero heading render as one visual column. */}
+      <p className="mt-2 text-[15px] leading-relaxed text-[#5A5347]">
+        Bank and credit union fee benchmarks — {summary.categoriesLabel} categories,{" "}
+        {summary.institutionsLabel} institutions.
+      </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#6B6255]">
-          <span>
-            <span className="font-medium text-[#5A5347] tabular-nums">{summary.observationsLabel}</span>{" "}
-            verified fees
-          </span>
-          <span className="h-3 w-px bg-[#D4C9BA]" />
-          <span>{summary.freshnessLabel}</span>
-        </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-[#6B6255]">
+        <span>
+          <span className="font-medium text-[#5A5347] tabular-nums">{summary.observationsLabel}</span>{" "}
+          verified fees
+        </span>
+        <span className="h-3 w-px bg-[#D4C9BA]" />
+        <span>{summary.freshnessLabel}</span>
+      </div>
 
-        <div className="mt-1.5 text-[11px] text-[#6B6255]">
-          Sources: published fee schedules, FDIC Call Reports, NCUA 5300 Reports, institution websites
-        </div>
+      <div className="mt-1.5 text-[11px] text-[#6B6255]">
+        Sources: published fee schedules, FDIC Call Reports, NCUA 5300 Reports, institution websites
       </div>
 
       {/* ── SPOTLIGHT STAT CARDS ── */}

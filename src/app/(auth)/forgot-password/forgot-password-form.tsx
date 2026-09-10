@@ -2,10 +2,29 @@
 
 import { useState } from "react";
 import { forgotPasswordAction } from "./actions";
+import { CONTACT_EMAIL } from "@/lib/constants";
 
-const CONFIRMATION_MESSAGE = "If that email is on file, a reset link is on its way.";
+const CONFIRMATION_MESSAGE_SENT = "If that email is on file, a reset link is on its way.";
 
-export function ForgotPasswordForm() {
+/**
+ * When lead/transactional email isn't configured, `issueReset` still creates
+ * the reset token but no email goes out — so the copy must not promise a
+ * message that was never sent. Mirrors the Task 2 pattern in
+ * for-institutions/report-offer.tsx (emailConfigured prop from the server).
+ */
+function getConfirmationMessage(emailConfigured: boolean): string {
+  if (emailConfigured) return CONFIRMATION_MESSAGE_SENT;
+  return (
+    "If that email is on file, we'll reset your password — if you don't hear from us " +
+    `within a few minutes, email ${CONTACT_EMAIL}.`
+  );
+}
+
+interface ForgotPasswordFormProps {
+  emailConfigured: boolean;
+}
+
+export function ForgotPasswordForm({ emailConfigured }: ForgotPasswordFormProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +52,7 @@ export function ForgotPasswordForm() {
   if (status === "done") {
     return (
       <div className="rounded-lg border border-[#E8DFD1] bg-[#FFFDF9] p-6 text-center text-sm text-[#1A1815]">
-        {CONFIRMATION_MESSAGE}
+        {getConfirmationMessage(emailConfigured)}
       </div>
     );
   }

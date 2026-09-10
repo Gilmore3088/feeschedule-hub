@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE_NAME } from "@/lib/constants";
+import { isLeadEmailConfigured } from "@/lib/email/config";
 import { ForgotPasswordForm } from "./forgot-password-form";
 
 export const metadata: Metadata = {
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 export default function ForgotPasswordPage() {
+  const emailConfigured = isLeadEmailConfigured();
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2] px-4 py-12">
       <div className="w-full max-w-md">
@@ -34,7 +37,7 @@ export default function ForgotPasswordPage() {
           </p>
         </div>
 
-        <ForgotPasswordForm />
+        <ForgotPasswordForm emailConfigured={emailConfigured} />
 
         <p className="mt-6 text-center text-sm text-[#6B6255]">
           <Link href="/login" className="text-[#1A1815] font-medium hover:underline">

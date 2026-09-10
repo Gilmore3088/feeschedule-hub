@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { REPORT_OFFER } from "@/lib/constants";
 
 const SERIF_STACK = "var(--font-newsreader), Georgia, serif";
 
@@ -50,7 +51,7 @@ export function NotFoundContent() {
           Find Your Bank
         </Link>
         <Link href="/for-institutions#report" className={SECONDARY_CTA_CLASS}>
-          Request your report — $300
+          Request your report — {REPORT_OFFER.priceLabel}
         </Link>
         <Link href="/submit-fees" className={SECONDARY_CTA_CLASS}>
           Submit a fee source

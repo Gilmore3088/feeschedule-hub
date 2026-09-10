@@ -2,6 +2,7 @@ import { cache } from "react";
 import { getDataFreshness, getPublicStats } from "@/lib/data-store/core";
 import { sql } from "@/lib/data-store/connection";
 import { FEE_FAMILIES } from "@/lib/fee-taxonomy";
+import { formatDate } from "@/lib/format";
 import { US_STATES_ONLY } from "@/lib/us-states";
 
 /**
@@ -40,7 +41,10 @@ export function formatAbsoluteDate(value: string | Date | null | undefined): str
   if (!value) return null;
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // Delegates to the shared UTC-pinned formatter so date-only ISO strings
+  // (which parse as UTC midnight) render the intended calendar day
+  // regardless of server/client timezone.
+  return formatDate(d);
 }
 
 export function formatFreshness(value: string | Date | null | undefined): string {

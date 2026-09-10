@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { updateProfile } from "../actions";
+import { TAXONOMY_COUNT } from "@/lib/fee-taxonomy";
 import type {
   InstitutionWorkspaceInvitation,
   InstitutionWorkspaceMembership,
@@ -295,7 +296,7 @@ export function WelcomeSteps({
             Your fee intelligence
           </h1>
           <p className="text-sm text-[#6B6255] mb-6">
-            Here are the national median fees across key categories. With your account, you can drill into all 49 categories with peer filters.
+            Here are the national median fees across key categories. With your account, you can drill into all {TAXONOMY_COUNT} categories with peer filters.
           </p>
 
           <div className="bg-[#FFFDF9] rounded-xl border border-[#E8DFD1] overflow-hidden mb-6">
