@@ -92,6 +92,14 @@ export function proxy(request: NextRequest) {
   const legacyTarget = LEGACY_PATH_REDIRECTS[pathname];
   if (legacyTarget) {
     const url = new URL(legacyTarget, request.url);
+    // Some targets (e.g. /claim -> /submit-fees?claim=1) already carry their
+    // own query string, so merge the incoming params in rather than
+    // overwriting — the target's own params win on conflict.
+    for (const [key, value] of request.nextUrl.searchParams) {
+      if (!url.searchParams.has(key)) {
+        url.searchParams.set(key, value);
+      }
+    }
     return NextResponse.redirect(url, permanentRedirectStatus(request.method));
   }
 

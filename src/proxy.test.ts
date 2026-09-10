@@ -62,6 +62,24 @@ describe("proxy", () => {
     }
   });
 
+  it("preserves the query string on legacy path redirects", () => {
+    const response = proxy(request("https://feeinsight.com/pricing?utm_source=x"));
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toBe(
+      "https://feeinsight.com/subscribe?utm_source=x",
+    );
+  });
+
+  it("merges an incoming query string into a legacy target's own params without clobbering them", () => {
+    const response = proxy(request("https://feeinsight.com/claim?utm_source=x"));
+
+    expect(response.status).toBe(301);
+    expect(response.headers.get("location")).toBe(
+      "https://feeinsight.com/submit-fees?claim=1&utm_source=x",
+    );
+  });
+
   it("canonicalizes a lowercase state research code to uppercase", () => {
     const cases: Array<[string, string]> = [
       ["https://feeinsight.com/research/state/oh", "https://feeinsight.com/research/state/OH"],

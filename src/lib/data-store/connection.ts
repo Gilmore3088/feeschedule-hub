@@ -17,9 +17,24 @@ export function resolvePoolMax(raw: string | undefined): number {
 
 const DATABASE_POOL_MAX = resolvePoolMax(process.env.DATABASE_POOL_MAX);
 
-// Server-side guard against a runaway query holding a pooled connection open;
-// matches the ~8s render budget public/report pages are held to.
-const STATEMENT_TIMEOUT_MS = 8000;
+// Server-side guard against a runaway query holding a pooled connection open.
+// This pool is shared by the public site AND the agent pipeline's batch
+// queries (hamilton/publish, darwin/verify, run-store), so the timeout has
+// to cover the slowest legitimate batch query, not the public pages' own
+// render budget — that ~8s figure stays a page-level design concern, not a
+// pool setting. 30s protects against a truly runaway query without starving
+// batch work.
+const DEFAULT_STATEMENT_TIMEOUT_MS = 30000;
+
+/** Parses DATABASE_STATEMENT_TIMEOUT_MS, falling back to
+ * DEFAULT_STATEMENT_TIMEOUT_MS for anything unset, non-numeric,
+ * non-integer, or not positive. */
+export function resolveStatementTimeout(raw: string | undefined): number {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_STATEMENT_TIMEOUT_MS;
+}
+
+const STATEMENT_TIMEOUT_MS = resolveStatementTimeout(process.env.DATABASE_STATEMENT_TIMEOUT_MS);
 
 let _sql: ReturnType<typeof postgres> | null = null;
 
