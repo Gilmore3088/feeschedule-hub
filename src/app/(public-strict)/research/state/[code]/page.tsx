@@ -212,7 +212,7 @@ async function StateReportContent({
             How fees compare between banks and credit unions in this state.
           </p>
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
             <table className="w-full min-w-[520px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">
@@ -265,7 +265,7 @@ async function StateReportContent({
           </p>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">

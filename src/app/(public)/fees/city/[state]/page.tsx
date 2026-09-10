@@ -84,7 +84,7 @@ export default async function StateCityDirectory({ params }: PageProps) {
           </p>
         ) : (
           <div className="rounded-xl border border-[#E8DFD1]/80 bg-white/70 backdrop-blur-sm overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
               <table className="w-full min-w-[520px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">

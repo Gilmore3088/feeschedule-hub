@@ -172,7 +172,7 @@ export default async function CityFeePage({ params }: PageProps) {
               Institutions in {displayCityName}
             </h2>
           </div>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">
@@ -236,7 +236,7 @@ export default async function CityFeePage({ params }: PageProps) {
                 Median Fees in {displayCityName} vs National
               </h2>
             </div>
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
               <table className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-[#E8DFD1]/40 bg-[#FAF7F2]/30">

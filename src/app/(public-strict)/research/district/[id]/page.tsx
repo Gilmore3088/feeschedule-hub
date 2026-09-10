@@ -260,7 +260,7 @@ async function DistrictReportContent({
           </p>
 
           <div className="mt-3 overflow-hidden rounded-xl border border-[#E8DFD1]/80">
-            <div className="overflow-x-auto">
+            <div className="table-scroll">
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#E8DFD1]/60 bg-[#FAF7F2]/60">

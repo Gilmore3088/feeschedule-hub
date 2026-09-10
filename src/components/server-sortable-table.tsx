@@ -64,7 +64,7 @@ export function ServerSortableTable<T>({
 
   return (
     <div>
-      <div className="overflow-x-auto">
+      <div className="table-scroll">
         <table className="w-full text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>

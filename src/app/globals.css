@@ -996,6 +996,18 @@ details[open] summary .expand-icon { transform: rotate(180deg); }
   scrollbar-color: #E0D7C9 transparent;
 }
 .table-scroll > table { min-width: 100%; }
+/* First column stays put while the rest of the row pans horizontally —
+   the row/institution label is what a reader needs while scanning wide
+   figures on a phone. `background: inherit` tracks the row's own
+   background (including hover states) so the sticky cell never shows a
+   gap of raw page color behind it. */
+.table-scroll th:first-child,
+.table-scroll td:first-child {
+  position: sticky;
+  left: 0;
+  background: inherit;
+  z-index: 1;
+}
 @supports (animation-timeline: scroll()) {
   .table-scroll {
     animation: table-scroll-fade linear both;

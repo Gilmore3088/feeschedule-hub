@@ -18,6 +18,7 @@ import { dedupePerInstitution, trimOutliers, MIN_N_PUBLISH } from "@/lib/benchma
 import type { FeeInstance } from "@/lib/data-store";
 import { getCanonicalBenchmark } from "@/lib/benchmarks/canonical";
 import { renderGuideProse } from "@/lib/guides-render";
+import { relatedGuides } from "@/lib/guides-related";
 import { GuideSidebarCtas } from "./guide-sidebar-ctas";
 
 /** Fixed authoring date for the guide content itself; live data updates are tracked separately via dateModified. */
@@ -47,6 +48,7 @@ export default async function GuidePage({ params }: PageProps) {
   const { slug } = await params;
   const guide = getGuide(slug);
   if (!guide) notFound();
+  const related = relatedGuides(slug);
 
   const allSummaries = await getFeeCategorySummaries();
   const summaryByCategory = new Map(allSummaries.map((s) => [s.fee_category, s]));
@@ -225,13 +227,36 @@ export default async function GuidePage({ params }: PageProps) {
         )}
       </div>
 
-      {/* ── MAIN + SIDEBAR ── */}
-      <div className="mt-12 grid grid-cols-1 gap-10 xl:grid-cols-[1fr_300px]">
-        {/* Main column */}
-        <div>
-          {/* ── Distribution chart ── */}
-          {primaryAmounts.length >= MIN_N_PUBLISH && primarySummary && (
-            <section className="mb-12">
+      {/* ── MAIN + SIDEBAR ──
+          All cards below are direct children of one grid so `order-*` can
+          resequence them for mobile readers: TOC → chart → cheapest/most
+          expensive → guide sections → sources → next steps → related
+          guides, with the live-benchmark card and CTAs trailing (they
+          restate or promote rather than teach). `xl:col-start-*` plus
+          `xl:order-*` restore the original two-column desktop layout. ── */}
+      <div className="mt-12 grid grid-cols-1 gap-8 xl:grid-cols-[1fr_300px] xl:items-start xl:gap-10">
+        {/* ── Quick nav / TOC ── */}
+        <div className="order-1 xl:order-4 xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
+            In This Guide
+          </p>
+          <nav className="mt-3 space-y-2">
+            {guide.sections.map((section, i) => (
+              <a
+                key={i}
+                href={`#section-${i}`}
+                className="flex items-center gap-2 text-[13px] text-[#6B6255] hover:text-[#A93D25] transition-colors"
+              >
+                <span className="h-1 w-1 rounded-full bg-[#D4C9BA] shrink-0" />
+                {section.heading}
+              </a>
+            ))}
+          </nav>
+        </div>
+
+        {/* ── Distribution chart ── */}
+        {primaryAmounts.length >= MIN_N_PUBLISH && primarySummary && (
+          <section className="order-2 xl:order-1 xl:col-start-1">
               <h2
                 className="text-[18px] font-medium tracking-[-0.01em] text-[#1A1815]"
                 style={{ fontFamily: "var(--font-newsreader), Georgia, serif" }}
@@ -268,8 +293,8 @@ export default async function GuidePage({ params }: PageProps) {
             </section>
           )}
 
-          {/* ── Guide sections ── */}
-          <div className="space-y-10">
+        {/* ── Guide sections ── */}
+        <div className="order-5 xl:order-2 xl:col-start-1 space-y-10">
             {guide.sections.map((section, i) => (
               <section key={i} id={`section-${i}`} className="scroll-mt-20">
                 <h2
@@ -290,9 +315,9 @@ export default async function GuidePage({ params }: PageProps) {
             ))}
           </div>
 
-          {/* ── Sources ── */}
-          {guide.sources.length > 0 && (
-            <div className="mt-10 border-t border-[#E8DFD1]/60 pt-6">
+        {/* ── Sources ── */}
+        {guide.sources.length > 0 && (
+          <div className="order-6 xl:order-3 xl:col-start-1 border-t border-[#E8DFD1]/60 pt-6">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
                 Sources
               </p>
@@ -314,8 +339,8 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* ── Explore the Data ── */}
-          <section className="mt-14">
+        {/* ── Explore the Data (next steps) ── */}
+        <section className="order-7 xl:order-4 xl:col-start-1">
             <div className="flex items-center gap-3 mb-5">
               <h2
                 className="text-[16px] font-medium text-[#1A1815]"
@@ -386,8 +411,8 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           </section>
 
-          {/* ── More Guides ── */}
-          <section className="mt-14">
+        {/* ── More Guides (3 related, by shared fee category) ── */}
+        <section className="order-8 xl:order-5 xl:col-start-1">
             <div className="flex items-center gap-3 mb-5">
               <h2
                 className="text-[16px] font-medium text-[#1A1815]"
@@ -398,7 +423,7 @@ export default async function GuidePage({ params }: PageProps) {
               <span className="h-px flex-1 bg-[#E8DFD1]" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              {GUIDES.filter((g) => g.slug !== slug).map((g) => (
+              {related.map((g) => (
                 <Link
                   key={g.slug}
                   href={`/guides/${g.slug}`}
@@ -416,14 +441,11 @@ export default async function GuidePage({ params }: PageProps) {
                 </Link>
               ))}
             </div>
-          </section>
-        </div>
+        </section>
 
-        {/* ── SIDEBAR ── */}
-        <aside className="space-y-5 xl:sticky xl:top-20 xl:self-start">
-          {/* Live benchmarks */}
-          {relevantFees.length > 0 && (
-            <div className="rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm px-5 py-5 overflow-hidden relative">
+        {/* ── Live benchmarks ── */}
+        {relevantFees.length > 0 && (
+          <div className="order-9 xl:order-1 xl:col-start-2 rounded-xl border border-[#E8DFD1] bg-white/80 backdrop-blur-sm px-5 py-5 overflow-hidden relative">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C44B2E]/30 to-transparent" />
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#A93D25]/60">
                 Live National Benchmarks
@@ -474,9 +496,9 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Cheapest institutions */}
-          {cheapest.length > 0 && (
-            <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/20 px-5 py-4">
+        {/* ── Cheapest institutions (lists) ── */}
+        {cheapest.length > 0 && (
+          <div className="order-3 xl:order-2 xl:col-start-2 rounded-xl border border-emerald-200/60 bg-emerald-50/20 px-5 py-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/80">
                 Lowest {getDisplayName(primaryCategory)} Fees
               </p>
@@ -512,9 +534,9 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Most expensive */}
-          {mostExpensive.length > 0 && (
-            <div className="rounded-xl border border-red-200/60 bg-red-50/20 px-5 py-4">
+        {/* ── Most expensive (lists) ── */}
+        {mostExpensive.length > 0 && (
+          <div className="order-4 xl:order-3 xl:col-start-2 rounded-xl border border-red-200/60 bg-red-50/20 px-5 py-4">
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-red-500/80">
                 Highest {getDisplayName(primaryCategory)} Fees
               </p>
@@ -544,27 +566,10 @@ export default async function GuidePage({ params }: PageProps) {
             </div>
           )}
 
-          {/* Quick nav */}
-          <div className="rounded-xl border border-[#E8DFD1] bg-white/80 px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#6B6255]">
-              In This Guide
-            </p>
-            <nav className="mt-3 space-y-2">
-              {guide.sections.map((section, i) => (
-                <a
-                  key={i}
-                  href={`#section-${i}`}
-                  className="flex items-center gap-2 text-[13px] text-[#6B6255] hover:text-[#A93D25] transition-colors"
-                >
-                  <span className="h-1 w-1 rounded-full bg-[#D4C9BA] shrink-0" />
-                  {section.heading}
-                </a>
-              ))}
-            </nav>
-          </div>
-
+        {/* ── Sidebar CTAs ── */}
+        <div className="order-10 xl:order-5 xl:col-start-2">
           <GuideSidebarCtas />
-        </aside>
+        </div>
       </div>
 
       <script
